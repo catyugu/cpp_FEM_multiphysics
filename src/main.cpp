@@ -33,7 +33,7 @@ int main() {
     // });
 
     // 4. Run the simulation and save results
-    simulation.run_simulation(100, 0.5);
+    simulation.run_simulation(10, 0.1);
     simulation.write_vtk("result.vtk");
 
     logger.info("Simulation finished.");

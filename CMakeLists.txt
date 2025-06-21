@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
-project(cpp_FEM_multiphysic)
+project(cpp_FEM_multiphysics)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -8,11 +8,11 @@ set(CMAKE_CXX_STANDARD 17)
 # If you installed to the default location, you might not need this.
 set(EIGEN3_INCLUDE_DIR "E:/env/cpp/eigen-3.4.0")
 file(GLOB_RECURSE SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
-add_executable(cpp_FEM_multiphysic ${SOURCES})
+add_executable(cpp_FEM_multiphysics ${SOURCES})
 file(GLOB_RECURSE HEADERS ${PROJECT_SOURCE_DIR}/src/*.h ${PROJECT_SOURCE_DIR}/src/*.hpp)
-target_include_directories(cpp_FEM_multiphysic PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(cpp_FEM_multiphysics PRIVATE ${PROJECT_SOURCE_DIR}/src)
 # Link Eigen to your executable
-target_include_directories(cpp_FEM_multiphysic PRIVATE ${EIGEN3_INCLUDE_DIR})
+target_include_directories(cpp_FEM_multiphysics PRIVATE ${EIGEN3_INCLUDE_DIR})
 
 
 # 使用 FetchContent 引入 Google Test
