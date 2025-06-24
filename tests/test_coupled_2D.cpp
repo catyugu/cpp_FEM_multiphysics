@@ -13,8 +13,8 @@ class Coupled2DTest : public ::testing::Test {
 protected:
     const double width = 0.02; // 2 cm
     const double height = 0.01; // 1 cm
-    const int nx = 20;
-    const int ny = 10;
+    const int nx = 40;
+    const int ny = 20;
 
     Core::Material copper{"Copper"};
     std::unique_ptr<Core::Problem> problem;
