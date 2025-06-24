@@ -10,6 +10,7 @@ set(EIGEN3_INCLUDE_DIR "E:/env/cpp/eigen-3.4.0")
 file(GLOB_RECURSE SOURCES
         ${PROJECT_SOURCE_DIR}/src/core/*.cpp
         ${PROJECT_SOURCE_DIR}/src/physics/*.cpp
+        ${PROJECT_SOURCE_DIR}/src/io/*.cpp
         )
 add_library(femlib
         ${SOURCES}

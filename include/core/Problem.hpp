@@ -16,27 +16,22 @@ namespace Physics {
 
 namespace Core {
 
-    // Orchestrates the setup and solution of a multiphysics problem.
     class Problem {
     public:
         explicit Problem(std::unique_ptr<Mesh> mesh);
-        ~Problem(); // Add destructor for unique_ptr forward decl
+        ~Problem();
 
-        // Add a physics field to the problem
         void addField(std::unique_ptr<Physics::PhysicsField> field);
-
-        // Initialize all components
         void setup();
-
-        // Run the solver workflow
         void solve();
 
-        // Get a pointer to a specific field by its variable name
-        Physics::PhysicsField* getField(const std::string& var_name);
+        // Export all results to a file (e.g., VTK)
+        void exportResults(const std::string& filename) const;
 
-        // Getters for core components
-        Mesh& getMesh() const;
-        DOFManager& getDofManager() const;
+        // Const-correct getters
+        Physics::PhysicsField* getField(const std::string& var_name) const;
+        const Mesh& getMesh() const;
+        const DOFManager& getDofManager() const;
 
     private:
         std::unique_ptr<Mesh> mesh_;
