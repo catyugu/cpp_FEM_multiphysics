@@ -9,14 +9,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Od" )
 set(EIGEN3_INCLUDE_DIR "E:/env/cpp/eigen-3.4.0")
 file(GLOB_RECURSE SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 add_executable(cpp_FEM_multiphysics ${SOURCES})
-file(GLOB_RECURSE HEADERS ${PROJECT_SOURCE_DIR}/include/*.h
-        ${PROJECT_SOURCE_DIR}/include/*.hpp
-        ${PROJECT_SOURCE_DIR}/src/*.h
-        ${PROJECT_SOURCE_DIR}/src/*.hpp)
-target_include_directories(cpp_FEM_multiphysics PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-        ${PROJECT_SOURCE_DIR}/include
-)
+file(GLOB_RECURSE HEADERS ${PROJECT_SOURCE_DIR}/src/*.h ${PROJECT_SOURCE_DIR}/src/*.hpp)
+target_include_directories(cpp_FEM_multiphysics PRIVATE ${PROJECT_SOURCE_DIR}/src)
 # Link Eigen to your executable
 target_include_directories(cpp_FEM_multiphysics PRIVATE ${EIGEN3_INCLUDE_DIR})
 
@@ -35,7 +29,6 @@ target_include_directories(
         google_test
         PRIVATE
         ${PROJECT_SOURCE_DIR}/src
-        ${PROJECT_SOURCE_DIR}/include
         ${EIGEN3_INCLUDE_DIR}
 )
 # 链接 Google Test 库
