@@ -35,17 +35,6 @@ FetchContent_Declare(
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
-# 添加测试可执行文件
-add_executable(google_test tests/test_coupled_1d.cpp)
-target_include_directories(
-        google_test
-        PRIVATE
-        ${PROJECT_SOURCE_DIR}/src
-        ${PROJECT_SOURCE_DIR}/include
-        ${EIGEN3_INCLUDE_DIR}
-)
-# 链接 Google Test 库
-target_link_libraries(google_test PRIVATE gtest gtest_main)
 
 # --- Tests ---
 enable_testing()

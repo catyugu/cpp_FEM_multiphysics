@@ -6,12 +6,11 @@
 #include <fstream>
 #include <iomanip>
 #include <core/DOFManager.hpp>
-#include <core/Mesh.hpp>
 #include <physics/PhysicsField.hpp>
 
 namespace IO {
 
-bool Exporter::write_vtk(const std::string& filename, const Core::Problem& problem)  {
+bool Exporter::write_vtk(const std::string& filename, const Core::Problem& problem) {
     auto& logger = SimpleLogger::Logger::instance();
     logger.info("Exporting results to VTK file: ", filename);
 
@@ -55,14 +54,16 @@ bool Exporter::write_vtk(const std::string& filename, const Core::Problem& probl
     }
     vtk_file << "\n";
 
-    // 4. Cell Types
+    // 4. Cell Types --- THIS SECTION IS NOW FIXED ---
     vtk_file << "CELL_TYPES " << elements.size() << "\n";
     for (const auto& elem : elements) {
-        // VTK_LINE has type ID 3
-        if (std::string(elem->getTypeName()) == "LineElement") {
-            vtk_file << 3 << "\n";
+        std::string typeName = elem->getTypeName();
+        if (typeName == "LineElement") {
+            vtk_file << 3 << "\n"; // VTK_LINE
+        } else if (typeName == "TriElement") {
+            vtk_file << 5 << "\n"; // VTK_TRIANGLE
         } else {
-            logger.warn("Unsupported element type for VTK export: ", elem->getTypeName());
+            logger.warn("Unsupported element type for VTK export: ", typeName);
             vtk_file << 1 << "\n"; // VTK_VERTEX as fallback
         }
     }
@@ -71,7 +72,6 @@ bool Exporter::write_vtk(const std::string& filename, const Core::Problem& probl
     // 5. Point Data (Nodal Results)
     vtk_file << "POINT_DATA " << nodes.size() << "\n";
 
-    // Iterate through all solved physics fields and write their results
     for (const auto& var_name : dof_manager.getVariableNames()) {
         auto* field = problem.getField(var_name);
         if (field && field->getSolution().size() > 0) {
@@ -82,7 +82,7 @@ bool Exporter::write_vtk(const std::string& filename, const Core::Problem& probl
                 if(dof_idx != -1) {
                     vtk_file << std::fixed << std::setprecision(6) << field->getSolution()(dof_idx) << "\n";
                 } else {
-                     vtk_file << 0.0 << "\n"; // Default value if DOF not found
+                     vtk_file << 0.0 << "\n";
                 }
             }
         }

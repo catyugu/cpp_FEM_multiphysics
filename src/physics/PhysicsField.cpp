@@ -14,8 +14,14 @@ namespace Physics {
         }
     }
 
+    // --- Non-const Getters ---
     Eigen::SparseMatrix<double>& PhysicsField::getStiffnessMatrix() { return K_; }
     Eigen::VectorXd& PhysicsField::getRHSVector() { return F_; }
     Eigen::VectorXd& PhysicsField::getSolution() { return U_; }
+
+    // --- FIX: Add implementations for const Getters ---
+    const Eigen::SparseMatrix<double>& PhysicsField::getStiffnessMatrix() const { return K_; }
+    const Eigen::VectorXd& PhysicsField::getRHSVector() const { return F_; }
+    const Eigen::VectorXd& PhysicsField::getSolution() const { return U_; }
 
 } // namespace Physics

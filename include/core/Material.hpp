@@ -3,29 +3,36 @@
 
 #include <string>
 #include <map>
+#include <any>
 #include "utils/SimpleLogger.hpp"
 
 namespace Core {
 
-    // Represents a material with a set of physical properties.
+    /**
+     * @class Material
+     * @brief Represents a material with properties that can be constant or temperature-dependent.
+     */
     class Material {
     public:
         explicit Material(const std::string& name);
 
-        // Set a scalar property (e.g., "thermal_conductivity")
+        // Set a constant scalar property (e.g., thermal_conductivity)
         void setProperty(const std::string& prop_name, double value);
 
-        // Get a property. Throws an exception if the property doesn't exist.
-        double getProperty(const std::string& prop_name) const;
+        // Set parameters for a temperature-dependent property.
+        // We use a map to store named parameters for a given model.
+        void setTempDependentProperty(const std::string& prop_name, const std::map<std::string, double>& params);
 
-        // Check if a property exists
-        bool hasProperty(const std::string& prop_name) const;
+        // Get a property value. Overloaded for constant and temperature-dependent cases.
+        double getProperty(const std::string& prop_name) const;
+        double getProperty(const std::string& prop_name, double temperature) const;
 
         const std::string& getName() const;
 
     private:
         std::string name_;
-        std::map<std::string, double> properties_;
+        // std::any allows us to store different types of data (double for constant, map for models)
+        std::map<std::string, std::any> properties_;
     };
 
 } // namespace Core
