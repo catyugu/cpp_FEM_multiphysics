@@ -1,3 +1,4 @@
+enable_language(Fortran)
 cmake_minimum_required(VERSION 3.17)
 project(cpp_FEM_multiphysics)
 include_directories(include)
@@ -6,7 +7,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Od" )
 # Add the path to your Eigen installation to CMAKE_PREFIX_PATH
 # This helps CMake find the Eigen3 package.
 # If you installed to the default location, you might not need this.
-set(EIGEN3_INCLUDE_DIR "E:/env/cpp/eigen-3.4.0")
+include(FetchContent)
+FetchContent_Declare(eigen GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git GIT_TAG 3.4.0)
+FetchContent_MakeAvailable(eigen)
+include_directories(${eigen_SOURCE_DIR})
+
 file(GLOB_RECURSE SOURCES
         ${PROJECT_SOURCE_DIR}/src/core/*.cpp
         ${PROJECT_SOURCE_DIR}/src/physics/*.cpp
@@ -20,7 +25,6 @@ target_include_directories(femlib PUBLIC
 )
 target_include_directories(femlib PUBLIC
         include
-        ${EIGEN3_INCLUDE_DIR}
 )
 
 # --- Main Executable ---
