@@ -11,7 +11,6 @@
 #include "io/Exporter.hpp"
 #include <iostream>
 #include <iomanip>
-#include <limits>
 
 namespace Core {
 
@@ -44,18 +43,18 @@ void Problem::setup() {
 void Problem::exportResults(const std::string& filename) const {
     IO::Exporter::write_vtk(filename, *this);
 }
-
-// New method to set solver parameters
-void Problem::setSolverParameters(int max_iter, double tol) {
+void Problem::setIterativeSolverParameters(int max_iter, double tol) {
     max_iterations_ = max_iter;
     convergence_tolerance_ = tol;
 }
+void Problem::setTimeSteppingParameters(double time_step, double total_time) {
+    time_step_ = time_step;
+    total_time_ = total_time;
+}
 
-
-// --- Updated Iterative Solve Method ---
-void Problem::solve() {
+void Problem::solveSteadyState() {
     auto& logger = SimpleLogger::Logger::instance();
-    logger.info("\n--- Starting Problem Solve Sequence ---");
+    logger.info("\n--- Starting Steady-State Solve ---");
 
     auto* emag2d = dynamic_cast<Physics::EMag2D*>(getField("Voltage"));
     auto* heat2d = dynamic_cast<Physics::Heat2D*>(getField("Temperature"));
@@ -65,30 +64,25 @@ void Problem::solve() {
         logger.info("\n--- Solving Strongly Coupled 2D Electro-Thermal Problem ---");
         logger.info("Max Iterations: ", max_iterations_, ", Tolerance: ", convergence_tolerance_);
 
-        // Link the EMag field to the Heat field to enable temperature access
         emag2d->setCoupledHeatField(heat2d);
 
         double T_max_prev = 0.0;
         for (int i = 0; i < max_iterations_; ++i) {
             logger.info("\n--- Iteration ", i + 1, " ---");
 
-            // 1. Assemble and solve the EMag field using the latest temperature data
             emag2d->assemble();
             emag2d->applyBCs();
             LinearSolver::solve(emag2d->getStiffnessMatrix(), emag2d->getRHSVector(), emag2d->getSolution());
 
-            // 2. Calculate the new Joule heat source
             auto joule_heat = emag2d->calculateJouleHeat();
             heat2d->setVolumetricHeatSource(joule_heat);
 
-            // 3. Assemble and solve the Heat field
             heat2d->assemble();
             heat2d->applyBCs();
             LinearSolver::solve(heat2d->getStiffnessMatrix(), heat2d->getRHSVector(), heat2d->getSolution());
 
-            // 4. Check for convergence
             double T_max_curr = heat2d->getSolution().maxCoeff();
-            double relative_error = std::abs(T_max_curr - T_max_prev) / (T_max_curr + 1e-9); // add epsilon to avoid div by zero
+            double relative_error = std::abs(T_max_curr - T_max_prev) / (T_max_curr + 1e-9);
             logger.info("Current max temperature: ", T_max_curr, " K. Relative change: ", relative_error);
 
             if (relative_error < convergence_tolerance_) {
@@ -102,8 +96,8 @@ void Problem::solve() {
         }
 
     } else {
-        // --- Fallback to simple uncoupled solve for other cases ---
-        logger.info("\n--- Solving Uncoupled Physics ---");
+        // --- Fallback to simple uncoupled solve for all other steady-state cases ---
+        logger.info("\n--- Solving Uncoupled Steady-State Physics ---");
         for (const auto& field : fields_) {
             logger.info("Solving for field: ", field->getName());
             field->assemble();
@@ -112,7 +106,41 @@ void Problem::solve() {
         }
     }
 
-    logger.info("\n--- Problem Solve Sequence Finished ---");
+    logger.info("\n--- Steady-State Solve Finished ---");
+}
+
+void Problem::solveTransient() {
+    auto& logger = SimpleLogger::Logger::instance();
+    logger.info("\n--- Starting Transient Solve ---");
+    logger.info("Time Step: ", time_step_, "s, Total Time: ", total_time_, "s");
+
+    if (fields_.size() != 1) {
+        logger.error("Transient solver currently only supports single-field problems.");
+        return;
+    }
+    auto* field = fields_[0].get();
+
+    field->assemble();
+
+    int num_steps = static_cast<int>(total_time_ / time_step_);
+    for (int i = 0; i < num_steps; ++i) {
+        logger.info("Time Step ", i + 1, " / ", num_steps, ", Time = ", (i+1)*time_step_, "s");
+
+        Eigen::SparseMatrix<double> A = (field->getMassMatrix() / time_step_) + field->getStiffnessMatrix();
+        Eigen::VectorXd b = field->getRHSVector() + (field->getMassMatrix() / time_step_) * field->getPreviousSolution();
+
+        auto A_bc = A;
+        auto b_bc = b;
+        for(const auto& bc : field->getBCs()) {
+            bc->apply(A_bc, b_bc);
+        }
+
+        LinearSolver::solve(A_bc, b_bc, field->getSolution());
+
+        field->updatePreviousSolution();
+    }
+
+    logger.info("\n--- Transient Solve Finished ---");
 }
 
 } // namespace Core

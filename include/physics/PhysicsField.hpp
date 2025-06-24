@@ -24,14 +24,22 @@ namespace Physics {
         void addBC(std::unique_ptr<Core::BoundaryCondition> bc);
         void applyBCs();
 
-        // --- FIX: Provide both const and non-const overloads for getters ---
-        // Non-const version for modification
+        // --- FIX: Add public accessors for transient solver ---
+        const std::vector<std::unique_ptr<Core::BoundaryCondition>>& getBCs() const;
+        void updatePreviousSolution();
+
+        // Getter for the solution at the previous time step
+        const Eigen::VectorXd& getPreviousSolution() const;
+        void setInitialConditions(double initial_value);
+
+        // Getters for matrices and vectors
         Eigen::SparseMatrix<double>& getStiffnessMatrix();
+        Eigen::SparseMatrix<double>& getMassMatrix();
         Eigen::VectorXd& getRHSVector();
         Eigen::VectorXd& getSolution();
 
-        // Const version for read-only access
         const Eigen::SparseMatrix<double>& getStiffnessMatrix() const;
+        const Eigen::SparseMatrix<double>& getMassMatrix() const;
         const Eigen::VectorXd& getRHSVector() const;
         const Eigen::VectorXd& getSolution() const;
 
@@ -40,8 +48,10 @@ namespace Physics {
         Core::DOFManager* dof_manager_ = nullptr;
 
         Eigen::SparseMatrix<double> K_;
+        Eigen::SparseMatrix<double> M_;
         Eigen::VectorXd F_;
         Eigen::VectorXd U_;
+        Eigen::VectorXd U_prev_;
 
         std::vector<std::unique_ptr<Core::BoundaryCondition>> bcs_;
     };

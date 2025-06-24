@@ -4,13 +4,11 @@
 #include "PhysicsField.hpp"
 #include "core/Material.hpp"
 #include <vector>
-#include <memory>
 
 namespace Physics {
 
     class Heat1D : public PhysicsField {
     public:
-        // Constructor now takes a material
         explicit Heat1D(const Core::Material& material);
 
         const char* getName() const override;
@@ -23,7 +21,9 @@ namespace Physics {
 
     private:
         const Core::Material& material_;
-        double k_; // Thermal conductivity, extracted from material
+        double k_;     // Thermal conductivity
+        double rho_;   // Density
+        double cp_;    // Specific heat capacity
         std::vector<double> volumetric_heat_source_;
     };
 

@@ -4,13 +4,11 @@
 #include "PhysicsField.hpp"
 #include "core/Material.hpp"
 #include <vector>
-#include <memory>
 
 namespace Physics {
 
     class EMag1D : public PhysicsField {
     public:
-        // Constructor now takes a material
         explicit EMag1D(const Core::Material& material);
 
         const char* getName() const override;
@@ -21,9 +19,12 @@ namespace Physics {
 
         std::vector<double> calculateJouleHeat() const;
 
+        // Links this EMag field to a heat field for temperature-dependent calculations.
+        void setCoupledHeatField(const PhysicsField* heat_field);
+
     private:
         const Core::Material& material_;
-        double sigma_; // Electrical conductivity, extracted from material
+        const PhysicsField* heat_field_ = nullptr; // FIX: Add the missing member declaration
     };
 
 } // namespace Physics

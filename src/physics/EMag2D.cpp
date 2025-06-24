@@ -5,22 +5,17 @@
 
 namespace Physics {
 
+// Constructor and other methods are correct...
 EMag2D::EMag2D(const Core::Material& material) : material_(material) {}
-
 const char* EMag2D::getName() const { return "Electromagnetics 2D"; }
 const char* EMag2D::getVariableName() const { return "Voltage"; }
-
-void EMag2D::setCoupledHeatField(const PhysicsField* heat_field) {
-    heat_field_ = heat_field;
-}
+void EMag2D::setCoupledHeatField(const PhysicsField* heat_field) { heat_field_ = heat_field; }
 
 void EMag2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     mesh_ = &mesh;
     dof_manager_ = &dof_manager;
-
     auto& logger = SimpleLogger::Logger::instance();
     logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
-
     size_t num_eq = dof_manager_->getNumEquations();
     K_.resize(num_eq, num_eq);
     F_.resize(num_eq);
@@ -33,10 +28,6 @@ void EMag2D::assemble() {
     auto& logger = SimpleLogger::Logger::instance();
     logger.info("Assembling system for ", getName());
 
-    if (!heat_field_) {
-        logger.warn(getName(), " is not coupled to a heat field. Assuming constant properties.");
-    }
-
     K_.setZero();
     F_.setZero();
 
@@ -45,8 +36,7 @@ void EMag2D::assemble() {
     for (const auto& elem_ptr : mesh_->getElements()) {
         auto* tri_elem = dynamic_cast<Core::TriElement*>(elem_ptr);
         if (tri_elem) {
-            // --- Temperature-dependent conductivity calculation ---
-            double T_avg = 300.0; // Default temperature if uncoupled
+            double T_avg = 300.0;
             if (heat_field_) {
                 T_avg = 0.0;
                 const auto& T_solution = heat_field_->getSolution();
@@ -60,8 +50,6 @@ void EMag2D::assemble() {
 
             double local_sigma = material_.getProperty("electrical_conductivity", T_avg);
             Eigen::Matrix2d D = Eigen::Matrix2d::Identity() * local_sigma;
-
-            // --- Assembly using local conductivity ---
             double area = tri_elem->getArea();
             auto B = tri_elem->getBMatrix();
             Eigen::Matrix3d ke = area * B.transpose() * D * B;
@@ -81,7 +69,7 @@ void EMag2D::assemble() {
     }
     K_.setFromTriplets(triplet_list.begin(), triplet_list.end());
 
-    // Stabilize matrix for other physics
+    // --- FIX: Add stabilization loop for other physics' DOFs ---
     const std::string my_var = getVariableName();
     for(const auto& var_name : dof_manager_->getVariableNames()) {
         if (var_name != my_var) {
@@ -96,12 +84,10 @@ void EMag2D::assemble() {
 
 std::vector<double> EMag2D::calculateJouleHeat() const {
     std::vector<double> joule_heat(mesh_->getElements().size(), 0.0);
-
     for (size_t i = 0; i < mesh_->getElements().size(); ++i) {
         auto* tri_elem = dynamic_cast<Core::TriElement*>(mesh_->getElements()[i]);
         if (tri_elem) {
-            // --- Get local conductivity for heat calculation ---
-             double T_avg = 300.0;
+            double T_avg = 300.0;
             if (heat_field_) {
                 T_avg = 0.0;
                 const auto& T_solution = heat_field_->getSolution();
@@ -114,7 +100,6 @@ std::vector<double> EMag2D::calculateJouleHeat() const {
             }
             double local_sigma = material_.getProperty("electrical_conductivity", T_avg);
 
-            // --- Calculate Joule Heat ---
             auto B = tri_elem->getBMatrix();
             auto nodes = tri_elem->getNodes();
             Eigen::Vector3d nodal_voltages;

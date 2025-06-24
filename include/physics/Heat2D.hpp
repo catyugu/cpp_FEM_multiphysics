@@ -17,12 +17,13 @@ namespace Physics {
         void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
         void assemble() override;
 
-        // Sets the volumetric heat source for each element.
         void setVolumetricHeatSource(const std::vector<double>& source);
 
     private:
         const Core::Material& material_;
-        double k_; // Isotropic thermal conductivity
+        double k_;     // Thermal conductivity
+        double rho_;   // Density
+        double cp_;    // Specific heat capacity
         std::vector<double> volumetric_heat_source_;
     };
 

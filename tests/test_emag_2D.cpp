@@ -55,7 +55,7 @@ TEST_F(EMag2DTest, RectangularPlateVoltageDrop) {
     }
 
     // 2. Solve the problem
-    ASSERT_NO_THROW(problem->solve());
+    ASSERT_NO_THROW(problem->solveSteadyState());
     problem->exportResults("results_2d_emag.vtk");
 
     // 3. Validate the solution against the analytical result

@@ -22,22 +22,20 @@ namespace Core {
         ~Problem();
 
         void addField(std::unique_ptr<Physics::PhysicsField> field);
-
-        /**
-         * @brief Sets the parameters for the iterative coupled solver.
-         * @param max_iter The maximum number of iterations to perform.
-         * @param tol The relative tolerance for checking convergence.
-         */
-        void setSolverParameters(int max_iter, double tol);
-
         void setup();
-        void solve();
-        void exportResults(const std::string& filename) const;
 
-        // Const-correct getters
-        Physics::PhysicsField* getField(const std::string& var_name) const;
+        // --- Solver Control ---
+        void setIterativeSolverParameters(int max_iter, double tol);
+        void setTimeSteppingParameters(double time_step, double total_time);
+
+        // --- Solution Methods ---
+        void solveSteadyState();
+        void solveTransient();
+
+        void exportResults(const std::string& filename) const;
         const Mesh& getMesh() const;
         const DOFManager& getDofManager() const;
+        Physics::PhysicsField* getField(const std::string& var_name) const;
 
     private:
         std::unique_ptr<Mesh> mesh_;
@@ -47,6 +45,8 @@ namespace Core {
         // Solver control parameters
         int max_iterations_ = 20;
         double convergence_tolerance_ = 1e-4;
+        double time_step_ = 0.1;
+        double total_time_ = 1.0;
     };
 
 } // namespace Core
