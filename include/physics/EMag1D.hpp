@@ -2,22 +2,28 @@
 #define EMAG1D_HPP
 
 #include "PhysicsField.hpp"
+#include "core/Material.hpp"
+#include <vector>
+#include <memory>
 
 namespace Physics {
 
     class EMag1D : public PhysicsField {
     public:
-        EMag1D(double sigma);
+        // Constructor now takes a material
+        explicit EMag1D(const Core::Material& material);
 
         const char* getName() const override;
-        void setup(Core::Mesh& mesh) override;
+        const char* getVariableName() const override;
+
+        void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
         void assemble() override;
 
+        std::vector<double> calculateJouleHeat() const;
+
     private:
-        Core::Mesh* mesh_;
-        double sigma_; // Electrical conductivity
-        // Here you would have your global stiffness matrix and RHS vector
-        // For now, we'll just log the assembly process.
+        const Core::Material& material_;
+        double sigma_; // Electrical conductivity, extracted from material
     };
 
 } // namespace Physics

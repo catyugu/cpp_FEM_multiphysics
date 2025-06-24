@@ -10,6 +10,7 @@ namespace Core {
 
     class DOFManager {
     public:
+        // Constructor
         DOFManager(Mesh& mesh);
 
         // Register a degree of freedom for all nodes (e.g., "Temperature")
@@ -23,6 +24,9 @@ namespace Core {
 
         // Get the total number of equations (DOFs)
         size_t getNumEquations() const;
+
+        // Get a list of all registered variable names
+        const std::vector<std::string>& getVariableNames() const;
 
     private:
         Mesh& mesh_;

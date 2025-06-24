@@ -2,25 +2,29 @@
 #define HEAT1D_HPP
 
 #include "PhysicsField.hpp"
+#include "core/Material.hpp"
+#include <vector>
+#include <memory>
 
 namespace Physics {
 
     class Heat1D : public PhysicsField {
     public:
-        Heat1D(double k);
+        // Constructor now takes a material
+        explicit Heat1D(const Core::Material& material);
 
         const char* getName() const override;
-        void setup(Core::Mesh& mesh) override;
+        const char* getVariableName() const override;
+
+        void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
         void assemble() override;
 
-        // Method to set the heat source from another field (coupling)
-        void setHeatSource(const std::vector<double>& source);
-
+        void setVolumetricHeatSource(const std::vector<double>& source);
 
     private:
-        Core::Mesh* mesh_;
-        double k_; // Thermal conductivity
-        std::vector<double> heat_source_;
+        const Core::Material& material_;
+        double k_; // Thermal conductivity, extracted from material
+        std::vector<double> volumetric_heat_source_;
     };
 
 } // namespace Physics

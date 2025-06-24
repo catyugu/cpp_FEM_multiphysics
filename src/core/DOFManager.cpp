@@ -1,37 +1,59 @@
-#ifndef DOFMANAGER_HPP
-#define DOFMANAGER_HPP
-
-#include "core/Mesh.hpp"
-#include <vector>
-#include <map>
-#include <string>
+#include "core/DOFManager.hpp"
+#include "utils/SimpleLogger.hpp"
+#include "core/Node.hpp" // Required to get node details from the mesh
 
 namespace Core {
 
-    class DOFManager {
-    public:
-        DOFManager(Mesh& mesh);
+    DOFManager::DOFManager(Mesh& mesh) : mesh_(mesh), num_equations_(0) {}
 
-        // Register a degree of freedom for all nodes (e.g., "Temperature")
-        void registerVariable(const std::string& var_name);
+    void DOFManager::registerVariable(const std::string& var_name) {
+        variable_names_.push_back(var_name);
+        SimpleLogger::Logger::instance().info("DOFManager: Registered variable '", var_name, "'.");
+    }
 
-        // Build the mapping from (node_id, var_name) to a global equation index
-        void build();
+    void DOFManager::build() {
+        auto& logger = SimpleLogger::Logger::instance();
+        logger.info("DOFManager: Building DOF map...");
+        dof_map_.clear();
+        int equation_counter = 0;
 
-        // Get the equation index for a given node and variable
-        int getEquationIndex(int node_id, const std::string& var_name) const;
+        // A simple DOF mapping: iterate through nodes, then variables
+        for (const auto& node : mesh_.getNodes()) {
+            for (size_t i = 0; i < variable_names_.size(); ++i) {
+                dof_map_[{node->getId(), static_cast<int>(i)}] = equation_counter++;
+            }
+        }
+        num_equations_ = equation_counter;
+        logger.info("DOFManager: Built map with ", num_equations_, " equations.");
+    }
 
-        // Get the total number of equations (DOFs)
-        size_t getNumEquations() const;
+    int DOFManager::getEquationIndex(int node_id, const std::string& var_name) const {
+        int var_idx = -1;
+        for (size_t i = 0; i < variable_names_.size(); ++i) {
+            if (variable_names_[i] == var_name) {
+                var_idx = static_cast<int>(i);
+                break;
+            }
+        }
+        if (var_idx == -1) {
+            SimpleLogger::Logger::instance().error("DOFManager: Variable '", var_name, "' not registered.");
+            return -1;
+        }
 
-    private:
-        Mesh& mesh_;
-        std::vector<std::string> variable_names_;
-        // Maps a node ID and variable index to a global equation number
-        std::map<std::pair<int, int>, int> dof_map_;
-        size_t num_equations_;
-    };
+        auto it = dof_map_.find({node_id, var_idx});
+        if (it == dof_map_.end()) {
+            SimpleLogger::Logger::instance().error("DOFManager: DOF for node ", node_id, " and var '", var_name, "' not found.");
+            return -1;
+        }
+        return it->second;
+    }
+
+    size_t DOFManager::getNumEquations() const {
+        return num_equations_;
+    }
+
+    const std::vector<std::string>& DOFManager::getVariableNames() const {
+        return variable_names_;
+    }
 
 } // namespace Core
-
-#endif // DOFMANAGER_HPP
