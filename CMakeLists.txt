@@ -1,17 +1,12 @@
 cmake_minimum_required(VERSION 3.17)
 project(cpp_FEM_multiphysics)
-enable_language(Fortran)
 include_directories(include)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Od" )
 # Add the path to your Eigen installation to CMAKE_PREFIX_PATH
 # This helps CMake find the Eigen3 package.
 # If you installed to the default location, you might not need this.
-include(FetchContent)
-FetchContent_Declare(eigen GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git GIT_TAG 3.4.0)
-FetchContent_MakeAvailable(eigen)
-include_directories(${eigen_SOURCE_DIR})
-
+set(EIGEN3_INCLUDE_DIR "E:/env/cpp/eigen-3.4.0")
 file(GLOB_RECURSE SOURCES
         ${PROJECT_SOURCE_DIR}/src/core/*.cpp
         ${PROJECT_SOURCE_DIR}/src/physics/*.cpp
@@ -25,6 +20,7 @@ target_include_directories(femlib PUBLIC
 )
 target_include_directories(femlib PUBLIC
         include
+        ${EIGEN3_INCLUDE_DIR}
 )
 
 # --- Main Executable ---
@@ -39,6 +35,17 @@ FetchContent_Declare(
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
+# 添加测试可执行文件
+add_executable(google_test tests/test_coupled_1d.cpp)
+target_include_directories(
+        google_test
+        PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/include
+        ${EIGEN3_INCLUDE_DIR}
+)
+# 链接 Google Test 库
+target_link_libraries(google_test PRIVATE gtest gtest_main)
 
 # --- Tests ---
 enable_testing()
