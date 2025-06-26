@@ -51,40 +51,53 @@ void Problem::setTimeSteppingParameters(double time_step, double total_time) {
     time_step_ = time_step;
     total_time_ = total_time;
 }
+
+// --- Corrected Steady-State Solver ---
 void Problem::solveSteadyState() {
-    // Steady-state logic remains the same
     auto& logger = SimpleLogger::Logger::instance();
     logger.info("\n--- Starting Steady-State Solve ---");
-    auto* emag2d = dynamic_cast<Physics::EMag2D*>(getField("Voltage"));
-    auto* heat2d = dynamic_cast<Physics::Heat2D*>(getField("Temperature"));
-    if (emag2d && heat2d) {
-        logger.info("\n--- Solving Strongly Coupled 2D Electro-Thermal Problem ---");
-        emag2d->setCoupledHeatField(heat2d);
-        double T_max_prev = 0.0;
-        for (int i = 0; i < max_iterations_; ++i) {
-            emag2d->assemble();
-            emag2d->applyBCs();
-            LinearSolver::solve(emag2d->getStiffnessMatrix(), emag2d->getRHSVector(), emag2d->getSolution());
-            auto joule_heat = emag2d->calculateJouleHeat();
-            heat2d->setVolumetricHeatSource(joule_heat);
-            heat2d->assemble();
-            heat2d->applyBCs();
-            LinearSolver::solve(heat2d->getStiffnessMatrix(), heat2d->getRHSVector(), heat2d->getSolution());
-            double T_max_curr = heat2d->getSolution().maxCoeff();
-            double relative_error = std::abs(T_max_curr - T_max_prev) / (T_max_curr + 1e-9);
-            if (relative_error < convergence_tolerance_) break;
-            T_max_prev = T_max_curr;
-        }
+
+    auto* emag_field = dynamic_cast<Physics::EMag2D*>(getField("Voltage"));
+    auto* heat_field = dynamic_cast<Physics::Heat2D*>(getField("Temperature"));
+
+    if (emag_field && heat_field) {
+        // --- FIX: This implements the correct one-way coupled solve sequence ---
+        logger.info("\n--- Solving Coupled 2D Electro-Thermal Problem ---");
+
+        // 1. Ensure the heat field is unlinked before the first EMag solve.
+        //    This forces EMag2D::assemble to use a default temperature, preventing a crash.
+        emag_field->setCoupledHeatField(nullptr);
+
+        // 2. Solve the EMag field first.
+        logger.info("--> Solving EMag Field (assuming constant properties)...");
+        emag_field->assemble();
+        emag_field->applyBCs();
+        LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHSVector(), emag_field->getSolution());
+
+        // 3. Calculate Joule heat based on the solved voltage distribution
+        //    and set it as the source for the thermal problem.
+        auto joule_heat = emag_field->calculateJouleHeat();
+        heat_field->setVolumetricHeatSource(joule_heat);
+
+        // 4. Solve the Heat field with the calculated heat source.
+        logger.info("--> Solving Heat Field...");
+        heat_field->assemble();
+        heat_field->applyBCs();
+        LinearSolver::solve(heat_field->getStiffnessMatrix(), heat_field->getRHSVector(), heat_field->getSolution());
+
     } else {
+        // Fallback for single-field steady-state problems
+        logger.info("\n--- Solving Uncoupled Steady-State Physics ---");
         for (const auto& field : fields_) {
+            logger.info("Solving for field: ", field->getName());
             field->assemble();
             field->applyBCs();
             LinearSolver::solve(field->getStiffnessMatrix(), field->getRHSVector(), field->getSolution());
         }
     }
+
     logger.info("\n--- Steady-State Solve Finished ---");
 }
-
 // --- Fully Updated Transient Solver ---
 void Problem::solveTransient() {
     auto& logger = SimpleLogger::Logger::instance();
@@ -140,18 +153,31 @@ void Problem::solveTransient() {
     } else if (fields_.size() == 1) {
         logger.info("\n--- Solving Single-Field Transient Problem ---");
         auto* field = fields_[0].get();
+
+        // 1. Assemble the time-invariant physical matrices K and M.
+        //    The assemble() method also populates the base force vector F with any volumetric sources.
         field->assemble();
+
+        // 2. Create the effective system matrices that will be modified at each step.
+        Eigen::SparseMatrix<double> A_eff;
+        Eigen::VectorXd b_eff;
+
+        // 3. Perform time-stepping
         int num_steps = static_cast<int>(total_time_ / time_step_);
         for (int i = 0; i < num_steps; ++i) {
             logger.info("Time Step ", i + 1, " / ", num_steps, ", Time = ", (i+1)*time_step_, "s");
-            Eigen::SparseMatrix<double> A = (field->getMassMatrix() / time_step_) + field->getStiffnessMatrix();
-            Eigen::VectorXd b = field->getRHSVector() + (field->getMassMatrix() / time_step_) * field->getPreviousSolution();
-            auto A_bc = A;
-            auto b_bc = b;
-            for(const auto& bc : field->getBCs()) {
-                bc->apply(A_bc, b_bc);
+            A_eff = (field->getMassMatrix() / time_step_) + field->getStiffnessMatrix();
+            b_eff = field->getRHSVector() + (field->getMassMatrix() / time_step_) * field->getPreviousSolution();
+
+            // 5. Apply ALL boundary conditions to the effective system for this time step.
+            //    Neumann/Cauchy BCs will add to b_eff and potentially A_eff.
+            //    Dirichlet BCs will then modify A_eff and b_eff to enforce fixed values.
+            for (const auto& bc : field->getBCs()) {
+                bc->apply(A_eff, b_eff);
             }
-            LinearSolver::solve(A_bc, b_bc, field->getSolution());
+
+            // 6. Solve and update the state for the next step.
+            LinearSolver::solve(A_eff, b_eff, field->getSolution());
             field->updatePreviousSolution();
         }
     } else {

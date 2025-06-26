@@ -5,7 +5,10 @@
 
 namespace Physics {
 
-EMag1D::EMag1D(const Core::Material& material) : material_(material) {}
+// --- FIX: Initialize heat_field_ to nullptr in the constructor ---
+EMag1D::EMag1D(const Core::Material& material)
+    : material_(material), heat_field_(nullptr) {}
+
 const char* EMag1D::getName() const { return "Electromagnetics 1D"; }
 const char* EMag1D::getVariableName() const { return "Voltage"; }
 void EMag1D::setCoupledHeatField(const PhysicsField* heat_field) { heat_field_ = heat_field; }
@@ -13,10 +16,8 @@ void EMag1D::setCoupledHeatField(const PhysicsField* heat_field) { heat_field_ =
 void EMag1D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     mesh_ = &mesh;
     dof_manager_ = &dof_manager;
-
     auto& logger = SimpleLogger::Logger::instance();
     logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
-
     size_t num_eq = dof_manager_->getNumEquations();
     K_.resize(num_eq, num_eq);
     M_.resize(num_eq, num_eq);
@@ -30,7 +31,6 @@ void EMag1D::assemble() {
     logger.info("Assembling system for ", getName());
 
     K_.setZero();
-    M_.setZero();
     F_.setZero();
 
     std::vector<Eigen::Triplet<double>> k_triplets;
@@ -39,7 +39,7 @@ void EMag1D::assemble() {
         auto* line_elem = dynamic_cast<Core::LineElement*>(elem_ptr);
         if (line_elem) {
             double T_avg = 300.0;
-            if (heat_field_) {
+            if (heat_field_ && heat_field_->getSolution().size() > 0) {
                 T_avg = 0.0;
                 const auto& T_solution = heat_field_->getSolution();
                 auto nodes = line_elem->getNodes();
@@ -65,7 +65,6 @@ void EMag1D::assemble() {
     }
     K_.setFromTriplets(k_triplets.begin(), k_triplets.end());
 
-    // --- FIX: Add stabilization loop for other physics' DOFs ---
     const std::string my_var = getVariableName();
     for(const auto& var_name : dof_manager_->getVariableNames()) {
         if (var_name != my_var) {
@@ -83,21 +82,20 @@ std::vector<double> EMag1D::calculateJouleHeat() const {
     for (size_t i = 0; i < mesh_->getElements().size(); ++i) {
         auto* line_elem = dynamic_cast<Core::LineElement*>(mesh_->getElements()[i]);
         if (line_elem) {
+            double T_avg = 300.0;
+            if (heat_field_ && heat_field_->getSolution().size() > 0) {
+                 auto nodes = line_elem->getNodes();
+                 T_avg = 0.5 * (heat_field_->getSolution()(dof_manager_->getEquationIndex(nodes[0]->getId(), "Temperature")) +
+                                heat_field_->getSolution()(dof_manager_->getEquationIndex(nodes[1]->getId(), "Temperature")));
+            }
+            double local_sigma = material_.getProperty("electrical_conductivity", T_avg);
             double h = line_elem->getLength();
             auto nodes = line_elem->getNodes();
             int dof_i = dof_manager_->getEquationIndex(nodes[0]->getId(), getVariableName());
             int dof_j = dof_manager_->getEquationIndex(nodes[1]->getId(), getVariableName());
-
             double V_i = U_(dof_i);
             double V_j = U_(dof_j);
             double E = std::abs(V_i - V_j) / h;
-
-            double T_avg = 300.0;
-            if (heat_field_) {
-                T_avg = 0.5 * (heat_field_->getSolution()(dof_manager_->getEquationIndex(nodes[0]->getId(), "Temperature")) +
-                               heat_field_->getSolution()(dof_manager_->getEquationIndex(nodes[1]->getId(), "Temperature")));
-            }
-            double local_sigma = material_.getProperty("electrical_conductivity", T_avg);
             joule_heat[i] = local_sigma * E * E;
         }
     }

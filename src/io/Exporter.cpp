@@ -23,13 +23,11 @@ bool Exporter::write_vtk(const std::string& filename, const Core::Problem& probl
     const auto& mesh = problem.getMesh();
     const auto& dof_manager = problem.getDofManager();
 
-    // 1. VTK Header
+    // Header and Points sections remain the same...
     vtk_file << "# vtk DataFile Version 3.0\n";
     vtk_file << "FEM Solver Results\n";
     vtk_file << "ASCII\n";
     vtk_file << "DATASET UNSTRUCTURED_GRID\n";
-
-    // 2. Points (Nodes)
     const auto& nodes = mesh.getNodes();
     vtk_file << "POINTS " << nodes.size() << " double\n";
     for (const auto& node : nodes) {
@@ -38,7 +36,7 @@ bool Exporter::write_vtk(const std::string& filename, const Core::Problem& probl
     }
     vtk_file << "\n";
 
-    // 3. Cells (Elements)
+    // Cells section remains the same...
     const auto& elements = mesh.getElements();
     size_t cell_list_size = 0;
     for (const auto& elem : elements) {
@@ -54,7 +52,7 @@ bool Exporter::write_vtk(const std::string& filename, const Core::Problem& probl
     }
     vtk_file << "\n";
 
-    // 4. Cell Types --- THIS SECTION IS NOW FIXED ---
+    // --- FIX: Add support for TetElement type ---
     vtk_file << "CELL_TYPES " << elements.size() << "\n";
     for (const auto& elem : elements) {
         std::string typeName = elem->getTypeName();
@@ -62,6 +60,8 @@ bool Exporter::write_vtk(const std::string& filename, const Core::Problem& probl
             vtk_file << 3 << "\n"; // VTK_LINE
         } else if (typeName == "TriElement") {
             vtk_file << 5 << "\n"; // VTK_TRIANGLE
+        } else if (typeName == "TetElement") {
+            vtk_file << 10 << "\n"; // VTK_TETRA
         } else {
             logger.warn("Unsupported element type for VTK export: ", typeName);
             vtk_file << 1 << "\n"; // VTK_VERTEX as fallback
@@ -69,11 +69,10 @@ bool Exporter::write_vtk(const std::string& filename, const Core::Problem& probl
     }
     vtk_file << "\n";
 
-    // 5. Point Data (Nodal Results)
+    // Point Data section remains the same...
     vtk_file << "POINT_DATA " << nodes.size() << "\n";
-
     for (const auto& var_name : dof_manager.getVariableNames()) {
-        auto* field = problem.getField(var_name);
+        const auto* field = problem.getField(var_name);
         if (field && field->getSolution().size() > 0) {
             vtk_file << "SCALARS " << var_name << " double 1\n";
             vtk_file << "LOOKUP_TABLE default\n";
