@@ -11,7 +11,7 @@ DirichletBC::DirichletBC(const DOFManager& dof_manager, int node_id, const std::
     equation_index_ = dof_manager.getEquationIndex(node_id, var_name);
 }
 
-void DirichletBC::apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const {
+void DirichletBC::apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const {
     if (equation_index_ < 0 || equation_index_ >= K.rows()) {
         SimpleLogger::Logger::instance().error("DirichletBC: Invalid equation index ", equation_index_);
         return;
@@ -45,7 +45,7 @@ NeumannBC::NeumannBC(const DOFManager& dof_manager, int node_id, const std::stri
     equation_index_ = dof_manager.getEquationIndex(node_id, var_name);
 }
 
-void NeumannBC::apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const {
+void NeumannBC::apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const {
     if (equation_index_ < 0 || equation_index_ >= F.size()) {
         SimpleLogger::Logger::instance().error("NeumannBC: Invalid equation index ", equation_index_);
         return;
@@ -59,7 +59,7 @@ CauchyBC::CauchyBC(const DOFManager& dof_manager, int node_id, const std::string
     equation_index_ = dof_manager.getEquationIndex(node_id, var_name);
 }
 
-void CauchyBC::apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const {
+void CauchyBC::apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const {
     if (equation_index_ < 0 || equation_index_ >= K.rows()) {
         SimpleLogger::Logger::instance().error("CauchyBC: Invalid equation index ", equation_index_);
         return;

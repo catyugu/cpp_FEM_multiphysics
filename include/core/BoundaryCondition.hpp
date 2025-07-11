@@ -19,7 +19,7 @@ public:
     virtual ~BoundaryCondition() = default;
 
     // Apply the boundary condition to the global system of equations
-    virtual void apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const = 0;
+    virtual void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const = 0;
 };
 
 // --- Concrete BC Implementations ---
@@ -28,7 +28,7 @@ public:
 class DirichletBC : public BoundaryCondition {
 public:
     DirichletBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, double value);
-    void apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const override;
+    void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
 
 private:
     int equation_index_;
@@ -40,7 +40,7 @@ private:
 class NeumannBC : public BoundaryCondition {
 public:
     NeumannBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, double flux_value);
-    void apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const override;
+    void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
 
 private:
     int equation_index_;
@@ -53,7 +53,7 @@ private:
 class CauchyBC : public BoundaryCondition {
 public:
     CauchyBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, double h, double T_inf);
-    void apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const override;
+    void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
 
 private:
     int equation_index_;

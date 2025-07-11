@@ -55,14 +55,14 @@ TEST_F(Coupled1DTest, EndToEndValidation) {
 
     emag_field->assemble();
     emag_field->applyBCs();
-    Core::LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHSVector(), emag_field->getSolution());
+    Core::LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHS(), emag_field->getSolution());
 
     auto joule_heat = dynamic_cast<Physics::Current1D*>(emag_field)->calculateJouleHeat();
     dynamic_cast<Physics::Heat1D*>(heat_field)->setVolumetricHeatSource(joule_heat);
 
     heat_field->assemble();
     heat_field->applyBCs();
-    Core::LinearSolver::solve(heat_field->getStiffnessMatrix(), heat_field->getRHSVector(), heat_field->getSolution());
+    Core::LinearSolver::solve(heat_field->getStiffnessMatrix(), heat_field->getRHS(), heat_field->getSolution());
 
     double k = copper.getProperty("thermal_conductivity");
     double analytical_max_temp = T_ambient + (copper.getProperty("electrical_conductivity") / (8.0 * k)) * std::pow(V0 - VL, 2);

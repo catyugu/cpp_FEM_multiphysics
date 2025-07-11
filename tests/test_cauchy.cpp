@@ -18,7 +18,6 @@ protected:
 
     void SetUp() override {
         aluminum.setProperty("thermal_conductivity", 237.0);
-        // --- FIX: Add missing properties ---
         aluminum.setProperty("density", 2700.0);
         aluminum.setProperty("specific_heat", 900.0);
 

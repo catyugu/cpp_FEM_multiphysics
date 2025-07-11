@@ -20,7 +20,9 @@ void Heat3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
 
     size_t num_eq = dof_manager_->getNumEquations();
     K_.resize(num_eq, num_eq);
-    F_.resize(num_eq);
+    F_.resize(num_eq, 1);
+    U_.resize(num_eq, 1);
+    U_prev_.resize(num_eq, 1);
     F_.setZero();
 }
 

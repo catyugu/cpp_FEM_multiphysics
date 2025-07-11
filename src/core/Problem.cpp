@@ -44,10 +44,14 @@ void Problem::exportResults(const std::string& filename) const {
     IO::Exporter::write_vtk(filename, *this);
 }
 void Problem::setIterativeSolverParameters(int max_iter, double tol) {
+    if (max_iter <= 0) throw std::invalid_argument("Maximum number of iterations must be positive.");
+    if (tol <= 0) throw std::invalid_argument("Convergence tolerance must be positive.");
     max_iterations_ = max_iter;
     convergence_tolerance_ = tol;
 }
 void Problem::setTimeSteppingParameters(double time_step, double total_time) {
+    if (time_step <= 0) throw std::invalid_argument("Time step must be positive.");
+    if (total_time <= 0) throw std::invalid_argument("Total time must be positive.");
     time_step_ = time_step;
     total_time_ = total_time;
 }
@@ -71,7 +75,7 @@ void Problem::solveSteadyState() {
         logger.info("--> Solving EMag Field (assuming constant properties)...");
         emag_field->assemble();
         emag_field->applyBCs();
-        LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHSVector(), emag_field->getSolution());
+        LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHS(), emag_field->getSolution());
 
         // 3. Calculate Joule heat based on the solved voltage distribution
         //    and set it as the source for the thermal problem.
@@ -82,7 +86,7 @@ void Problem::solveSteadyState() {
         logger.info("--> Solving Heat Field...");
         heat_field->assemble();
         heat_field->applyBCs();
-        LinearSolver::solve(heat_field->getStiffnessMatrix(), heat_field->getRHSVector(), heat_field->getSolution());
+        LinearSolver::solve(heat_field->getStiffnessMatrix(), heat_field->getRHS(), heat_field->getSolution());
 
     } else {
         // Fallback for single-field steady-state problems
@@ -91,7 +95,7 @@ void Problem::solveSteadyState() {
             logger.info("Solving for field: ", field->getName());
             field->assemble();
             field->applyBCs();
-            LinearSolver::solve(field->getStiffnessMatrix(), field->getRHSVector(), field->getSolution());
+            LinearSolver::solve(field->getStiffnessMatrix(), field->getRHS(), field->getSolution());
         }
     }
 
@@ -122,7 +126,7 @@ void Problem::solveTransient() {
 
             emag_field_base->assemble();
             emag_field_base->applyBCs();
-            LinearSolver::solve(emag_field_base->getStiffnessMatrix(), emag_field_base->getRHSVector(), emag_field_base->getSolution());
+            LinearSolver::solve(emag_field_base->getStiffnessMatrix(), emag_field_base->getRHS(), emag_field_base->getSolution());
 
             std::vector<double> joule_heat;
             if (auto* emag1d = dynamic_cast<Physics::Current1D*>(emag_field_base)) {
@@ -139,7 +143,7 @@ void Problem::solveTransient() {
 
             heat_field_base->assemble();
             Eigen::SparseMatrix<double> A = (heat_field_base->getMassMatrix() / time_step_) + heat_field_base->getStiffnessMatrix();
-            Eigen::VectorXd b = heat_field_base->getRHSVector() + (heat_field_base->getMassMatrix() / time_step_) * heat_field_base->getPreviousSolution();
+            Eigen::MatrixXd b = heat_field_base->getRHS() + (heat_field_base->getMassMatrix() / time_step_) * heat_field_base->getPreviousSolution();
             auto A_bc = A;
             auto b_bc = b;
             for(const auto& bc : heat_field_base->getBCs()) {
@@ -155,13 +159,13 @@ void Problem::solveTransient() {
         field->assemble();
 
         Eigen::SparseMatrix<double> A_eff;
-        Eigen::VectorXd b_eff;
+        Eigen::MatrixXd b_eff;
 
         int num_steps = static_cast<int>(total_time_ / time_step_);
         for (int i = 0; i < num_steps; ++i) {
             logger.info("Time Step ", i + 1, " / ", num_steps, ", Time = ", (i+1)*time_step_, "s");
             A_eff = (field->getMassMatrix() / time_step_) + field->getStiffnessMatrix();
-            b_eff = field->getRHSVector() + (field->getMassMatrix() / time_step_) * field->getPreviousSolution();
+            b_eff = field->getRHS() + (field->getMassMatrix() / time_step_) * field->getPreviousSolution();
 
             for (const auto& bc : field->getBCs()) {
                 bc->apply(A_eff, b_eff);

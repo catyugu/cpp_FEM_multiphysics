@@ -29,7 +29,7 @@ namespace Physics {
         void updatePreviousSolution();
 
         // Getter for the solution at the previous time step
-        const Eigen::VectorXd& getPreviousSolution() const;
+        const Eigen::MatrixXd& getPreviousSolution() const;
 
         void setInitialConditions(double initial_value);
         // Set InitialConditions with a Lambda function
@@ -39,23 +39,27 @@ namespace Physics {
         // Getters for matrices and vectors
         Eigen::SparseMatrix<double>& getStiffnessMatrix();
         Eigen::SparseMatrix<double>& getMassMatrix();
-        Eigen::VectorXd& getRHSVector();
-        Eigen::VectorXd& getSolution();
+        Eigen::MatrixXd& getRHS();
+        Eigen::MatrixXd& getSolution();
 
         const Eigen::SparseMatrix<double>& getStiffnessMatrix() const;
         const Eigen::SparseMatrix<double>& getMassMatrix() const;
-        const Eigen::VectorXd& getRHSVector() const;
-        const Eigen::VectorXd& getSolution() const;
+        const Eigen::MatrixXd& getRHS() const;
+        const Eigen::MatrixXd& getSolution() const;
+
+        void enable(){ enabled = true;}
+        void disable(){ enabled = false;}
 
     protected:
         Core::Mesh* mesh_ = nullptr;
         Core::DOFManager* dof_manager_ = nullptr;
+        bool enabled = true;
 
         Eigen::SparseMatrix<double> K_;
         Eigen::SparseMatrix<double> M_;
-        Eigen::VectorXd F_;
-        Eigen::VectorXd U_;
-        Eigen::VectorXd U_prev_;
+        Eigen::MatrixXd F_;
+        Eigen::MatrixXd U_;
+        Eigen::MatrixXd U_prev_;
 
         std::vector<std::unique_ptr<Core::BoundaryCondition>> bcs_;
     };

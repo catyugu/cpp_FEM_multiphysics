@@ -10,7 +10,7 @@ namespace Core {
     class LinearSolver {
     public:
         // Solves the system Ax = b and returns x
-        static bool solve(const Eigen::SparseMatrix<double>& A, const Eigen::VectorXd& b, Eigen::VectorXd& x) {
+        static bool solve(const Eigen::SparseMatrix<double>& A, const Eigen::MatrixXd& b, Eigen::MatrixXd& x) {
             auto& logger = SimpleLogger::Logger::instance();
             logger.info("Starting linear solve...");
 

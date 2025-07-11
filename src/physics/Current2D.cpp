@@ -24,9 +24,11 @@ void Current2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
 
     K_.resize(num_eq, num_eq);
     M_.resize(num_eq, num_eq);
-    F_.resize(num_eq); F_.setZero();
-    U_.resize(num_eq); U_.setZero();
-    U_prev_.resize(num_eq); U_prev_.setZero();
+    F_.resize(num_eq, 1);
+    F_.setZero();
+    U_.resize(num_eq, 1);
+    U_prev_.resize(num_eq, 1);
+
 }
 
 void Current2D::assemble() {
