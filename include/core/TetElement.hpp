@@ -1,0 +1,31 @@
+#ifndef TETELEMENT_HPP
+#define TETELEMENT_HPP
+
+#include "Element.hpp"
+#include <Eigen/Dense>
+
+namespace Core {
+
+    /**
+     * @class TetElement
+     * @brief Represents a 3D, 4-node, linear tetrahedral element.
+     */
+    class TetElement : public Element {
+    public:
+        explicit TetElement(int id);
+
+        size_t getNumNodes() const override;
+        const char* getTypeName() const override;
+
+        // Calculates the volume of the tetrahedral element.
+        double getVolume() const;
+
+        // Calculates the B-matrix (strain-displacement matrix) for this element.
+        // For 3D heat transfer, this 3x4 matrix relates the temperature gradients
+        // (in x, y, z) to the 4 nodal temperatures.
+        Eigen::Matrix<double, 3, 4> getBMatrix() const;
+    };
+
+} // namespace Core
+
+#endif // TETELEMENT_HPP
