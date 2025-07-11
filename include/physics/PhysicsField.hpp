@@ -49,7 +49,7 @@ namespace Physics {
 
         void enable(){ enabled = true;}
         void disable(){ enabled = false;}
-
+        bool isEnabled() const { return enabled; }
     protected:
         Core::Mesh* mesh_ = nullptr;
         Core::DOFManager* dof_manager_ = nullptr;

@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <memory>
+#include <solver/SolverFactory.hpp>
+
 #include "core/Problem.hpp"
 #include "core/Material.hpp"
 #include "physics/Current2D.hpp"
@@ -77,7 +79,10 @@ TEST_F(TransientCoupled2DTest, InternalHeatingOverTime) {
     }
 
     // 3. Solve
-    problem->solveTransient();
+    // problem->solveTransient();
+
+    auto solver = Solver::SolverFactory::createSolver(*problem);
+    solver->solveTransient(*problem);
     problem->exportResults("results_2d_transient_coupled.vtk");
 
     // 4. Validate
