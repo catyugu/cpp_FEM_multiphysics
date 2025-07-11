@@ -108,7 +108,7 @@ All tests should pass, confirming that the FEM implementation is correct against
 
 For a deeper dive into the architecture and API, please refer to the detailed documentation for each namespace:
 
-* **[Core Namespace](https://www.google.com/search?q=./docs/core.md)**: Describes the fundamental building blocks of the FEM framework.
-* **[PhysicsField Namespace](https://www.google.com/search?q=./docs/physics.md)**: Details the specific implementations for different physical simulations.
-* **[Solver Namespace](https://www.google.com/search?q=./docs/solver.md)**: Explains the available solution strategies.
-* **[IO Namespace](https://www.google.com/search?q=./docs/io.md)**: Covers the utilities for importing and exporting data.
+* **[Core Namespace](docs/core.md)**: Describes the fundamental building blocks of the FEM framework.
+* **[PhysicsField Namespace](docs/physics.md)**: Details the specific implementations for different physical simulations.
+* **[Solver Namespace](docs/solver.md)**: Explains the available solution strategies.
+* **[IO Namespace](docs/io.md)**: Covers the utilities for importing and exporting data.
