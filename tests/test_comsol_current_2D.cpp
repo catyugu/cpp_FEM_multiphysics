@@ -10,7 +10,7 @@
 #include "utils/SimpleLogger.hpp"
 
 // Test fixture to test the EMag2D field in isolation
-class EMag2DSingleFieldTest : public ::testing::Test {
+class Current2DSingleFieldTest : public ::testing::Test {
 protected:
     std::unique_ptr<Core::Problem> problem;
     const std::string mesh_filename = "busbar_mesh.mphtxt";
@@ -33,7 +33,7 @@ protected:
     }
 };
 
-TEST_F(EMag2DSingleFieldTest, SolvesOnImportedMesh) {
+TEST_F(Current2DSingleFieldTest, SolvesOnImportedMesh) {
     const double V_in = 0.1;
     const double bar_width = 0.1;
 
@@ -47,10 +47,10 @@ TEST_F(EMag2DSingleFieldTest, SolvesOnImportedMesh) {
         const auto& coords = node->getCoords();
         if (std::abs(coords[0] - 0.0) < 1e-4) { // Left edge
             emag_field->addBC(std::make_unique<Core::DirichletBC>(
-                dof_manager, node->getId(), "Voltage", V_in));
+                dof_manager, node->getId(), "Voltage", Eigen::Vector<double, 1>(V_in)));
         } else if (std::abs(coords[0] - bar_width) < 1e-4) { // Right edge
             emag_field->addBC(std::make_unique<Core::DirichletBC>(
-                dof_manager, node->getId(), "Voltage", 0.0));
+                dof_manager, node->getId(), "Voltage", Eigen::Vector<double, 1>(0.0)));
         }
     }
 

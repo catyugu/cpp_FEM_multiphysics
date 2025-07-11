@@ -51,10 +51,10 @@ TEST_F(Heat2DTest, SquarePlateFixedBoundaries) {
 
         if (std::abs(coords[1] - size) < 1e-9) {
             heat_field->addBC(std::make_unique<Core::DirichletBC>(
-                dof_manager, node->getId(), "Temperature", T_hot));
+                dof_manager, node->getId(), "Temperature", Eigen::Vector<double, 1>(T_hot)));
         } else if (is_on_cold_boundary) {
             heat_field->addBC(std::make_unique<Core::DirichletBC>(
-                dof_manager, node->getId(), "Temperature", T_cold));
+                dof_manager, node->getId(), "Temperature", Eigen::Vector<double, 1>(T_cold)));
         }
     }
 

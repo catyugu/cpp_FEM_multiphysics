@@ -4,8 +4,6 @@
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
 #include <string>
-#include <memory>
-
 // Forward declaration to prevent circular includes
 namespace Core {
     class DOFManager;
@@ -27,24 +25,24 @@ public:
 // Dirichlet (Type 1): Specifies a fixed value for a DOF (e.g., T = 373K)
 class DirichletBC : public BoundaryCondition {
 public:
-    DirichletBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, double value);
+    DirichletBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd value);
     void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
 
 private:
     int equation_index_;
-    double value_;
+    Eigen::VectorXd value_;
 };
 
 // Neumann (Type 2): Specifies a flux at a node (e.g., heat flux q = 100 W/m^2)
 // For 1D, this is a point value. In 2D/3D, this would be integrated over an edge/face.
 class NeumannBC : public BoundaryCondition {
 public:
-    NeumannBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, double flux_value);
+    NeumannBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd flux_value);
     void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
 
 private:
     int equation_index_;
-    double flux_value_;
+    Eigen::VectorXd flux_value_;
 };
 
 // Cauchy/Robin/Mixed (Type 3): Specifies a relationship between a value and its flux (e.g., convection)
@@ -52,13 +50,13 @@ private:
 // This adds to both the stiffness matrix K and the RHS vector F.
 class CauchyBC : public BoundaryCondition {
 public:
-    CauchyBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, double h, double T_inf);
+    CauchyBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd h, Eigen::VectorXd T_inf);
     void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
 
 private:
     int equation_index_;
-    double h_;     // Convection coefficient
-    double T_inf_; // Ambient temperature
+    Eigen::VectorXd h_;     // Convection coefficient
+    Eigen::VectorXd T_inf_; // Ambient temperature
 };
 
 

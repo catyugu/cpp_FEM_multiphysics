@@ -62,17 +62,17 @@ TEST_F(TransientCoupled2DTest, InternalHeatingOverTime) {
         // Keep all boundaries at the initial temperature
         if (is_boundary) {
             heat_field->addBC(std::make_unique<Core::NeumannBC>
-                (dof_manager, node->getId(), "Temperature", 0.1));
+                (dof_manager, node->getId(), "Temperature", Eigen::Vector<double, 1>(0.1)));
         }
 
         // Apply voltage difference
         if (std::abs(coords[0] - 0.0) < 1e-9) {
             emag_field->addBC(std::make_unique<Core::DirichletBC>
-                (dof_manager, node->getId(), "Voltage", V_high));
+                (dof_manager, node->getId(), "Voltage", Eigen::Vector<double, 1>(V_high)));
         }
         else if (std::abs(coords[0] - width) < 1e-9) {
             emag_field->addBC(std::make_unique<Core::DirichletBC>
-                (dof_manager, node->getId(), "Voltage", 0.0));
+                (dof_manager, node->getId(), "Voltage", Eigen::Vector<double, 1>(0.0)));
         }
     }
 

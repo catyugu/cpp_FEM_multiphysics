@@ -38,8 +38,8 @@ TEST_F(Neumann1DTest, HeatConductionWithFlux) {
     auto* heat_field = problem->getField("Temperature");
     ASSERT_NE(heat_field, nullptr);
 
-    heat_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, 0, "Temperature", T_fixed));
-    heat_field->addBC(std::make_unique<Core::NeumannBC>(dof_manager, num_nodes - 1, "Temperature", -flux_out));
+    heat_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, 0, "Temperature", Eigen::Vector<double, 1>(T_fixed)));
+    heat_field->addBC(std::make_unique<Core::NeumannBC>(dof_manager, num_nodes - 1, "Temperature", -Eigen::Vector<double, 1>(flux_out)));
 
     ASSERT_NO_THROW(problem->solveSteadyState());
 

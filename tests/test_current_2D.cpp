@@ -47,10 +47,10 @@ TEST_F(Current2DTest, RectangularPlateVoltageDrop) {
         const auto& coords = node->getCoords();
         if (std::abs(coords[0] - 0.0) < 1e-9) { // Left edge
             emag_field->addBC(std::make_unique<Core::DirichletBC>(
-                dof_manager, node->getId(), "Voltage", V_high));
+                dof_manager, node->getId(), "Voltage", Eigen::Vector<double, 1>(V_high)));
         } else if (std::abs(coords[0] - width) < 1e-9) { // Right edge
             emag_field->addBC(std::make_unique<Core::DirichletBC>(
-                dof_manager, node->getId(), "Voltage", V_low));
+                dof_manager, node->getId(), "Voltage", Eigen::Vector<double, 1>(V_low)));
         }
     }
 

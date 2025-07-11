@@ -46,10 +46,10 @@ TEST_F(Heat3DTest, CubeFixedBoundaries) {
         const auto& coords = node->getCoords();
         if (std::abs(coords[0] - 0.0) < 1e-9) { // Left face
             heat_field->addBC(std::make_unique<Core::DirichletBC>(
-                dof_manager, node->getId(), "Temperature", T_hot));
+                dof_manager, node->getId(), "Temperature", Eigen::Vector<double, 1>(T_hot)));
         } else if (std::abs(coords[0] - size) < 1e-9) { // Right face
              heat_field->addBC(std::make_unique<Core::DirichletBC>(
-                dof_manager, node->getId(), "Temperature", T_cold));
+                dof_manager, node->getId(), "Temperature", Eigen::Vector<double, 1>(T_cold)));
         }
     }
 

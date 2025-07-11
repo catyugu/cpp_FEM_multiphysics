@@ -42,10 +42,10 @@ TEST_F(Coupled1DTest, EndToEndValidation) {
     const double T_ambient = 300.0;
 
     auto& dof_manager = problem->getDofManager();
-    problem->getField("Voltage")->addBC(std::make_unique<Core::DirichletBC>(dof_manager, 0, "Voltage", V0));
-    problem->getField("Voltage")->addBC(std::make_unique<Core::DirichletBC>(dof_manager, num_nodes - 1, "Voltage", VL));
-    problem->getField("Temperature")->addBC(std::make_unique<Core::DirichletBC>(dof_manager, 0, "Temperature", T_ambient));
-    problem->getField("Temperature")->addBC(std::make_unique<Core::DirichletBC>(dof_manager, num_nodes - 1, "Temperature", T_ambient));
+    problem->getField("Voltage")->addBC(std::make_unique<Core::DirichletBC>(dof_manager, 0, "Voltage", Eigen::Vector<double, 1>(V0)));
+    problem->getField("Voltage")->addBC(std::make_unique<Core::DirichletBC>(dof_manager, num_nodes - 1, "Voltage", Eigen::Vector<double, 1>(VL)));
+    problem->getField("Temperature")->addBC(std::make_unique<Core::DirichletBC>(dof_manager, 0, "Temperature", Eigen::Vector<double, 1>(T_ambient)));
+    problem->getField("Temperature")->addBC(std::make_unique<Core::DirichletBC>(dof_manager, num_nodes - 1, "Temperature", Eigen::Vector<double, 1>(T_ambient)));
 
     // For a 1D coupled problem, we need a custom iterative solve for now
     // as Problem::solveSteadyState is geared towards 2D.

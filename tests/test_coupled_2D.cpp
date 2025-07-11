@@ -59,13 +59,13 @@ TEST_F(Coupled2DTest, RectangularPlateJouleHeating) {
                             std::abs(coords[1] - height) < 1e-9);
 
         if (std::abs(coords[0] - 0.0) < 1e-9) {
-            emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "Voltage", V_high));
+            emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "Voltage", Eigen::Vector<double, 1>(V_high)));
         } else if (std::abs(coords[0] - width) < 1e-9) {
-            emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "Voltage", V_low));
+            emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "Voltage", Eigen::Vector<double, 1>(V_low)));
         }
 
         if (is_boundary) {
-            heat_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "Temperature", T_boundary));
+            heat_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "Temperature", Eigen::Vector<double, 1>(T_boundary)));
         }
     }
 

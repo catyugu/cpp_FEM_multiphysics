@@ -39,10 +39,10 @@ TEST_F(TransientCoupled1DTest, RodHeatingOverTime) {
     heat_field->setInitialConditions(T_initial);
 
     auto& dof_manager = problem->getDofManager();
-    heat_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, 0, "Temperature", T_initial));
-    heat_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, num_elements, "Temperature", T_initial));
-    emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, 0, "Voltage", V_high));
-    emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, num_elements, "Voltage", 0.0));
+    heat_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, 0, "Temperature", Eigen::Vector<double, 1>(T_initial)));
+    heat_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, num_elements, "Temperature", Eigen::Vector<double, 1>(T_initial)));
+    emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, 0, "Voltage", Eigen::Vector<double, 1>(V_high)));
+    emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, num_elements, "Voltage", Eigen::Vector<double, 1>(0.0)));
 
     problem->solveTransient();
     problem->exportResults("results_1d_transient_coupled.vtk");
