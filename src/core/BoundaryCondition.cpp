@@ -50,8 +50,6 @@ void NeumannBC::apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const 
         SimpleLogger::Logger::instance().error("NeumannBC: Invalid equation index ", equation_index_);
         return;
     }
-    // A Neumann condition (specified flux) only affects the RHS "force" vector.
-    // In heat transfer, a positive flux is typically considered "into" the domain.
     F(equation_index_) += flux_value_;
 }
 
@@ -66,8 +64,6 @@ void CauchyBC::apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const {
         SimpleLogger::Logger::instance().error("CauchyBC: Invalid equation index ", equation_index_);
         return;
     }
-    // The Cauchy condition adds to both K and F.
-    // h*(T_inf - T) -> h*T_inf on RHS, -h*T on LHS.
     K.coeffRef(equation_index_, equation_index_) += h_;
     F(equation_index_) += h_ * T_inf_;
 }

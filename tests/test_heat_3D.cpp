@@ -18,7 +18,6 @@ protected:
 
     void SetUp() override {
         steel.setProperty("thermal_conductivity", 50.2);
-        // Density/specific heat needed for setup, even if not used in steady-state
         steel.setProperty("density", 7850.0);
         steel.setProperty("specific_heat", 462.0);
         std::unique_ptr<Core::Mesh> mesh(Core::Mesh::create_uniform_3d_mesh(size, size, size, num_div, num_div, num_div));

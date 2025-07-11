@@ -16,7 +16,7 @@ namespace Core {
         void addNode(Node* node);
         void addElement(Element* element);
 
-        Node* getNode(int id) const;
+        Node *getNode(int id) const;
         Element* getElement(int id) const;
 
         const std::vector<Element*>& getElements() const;

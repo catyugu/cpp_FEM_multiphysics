@@ -7,9 +7,9 @@
 
 namespace Physics {
 
-    class EMag2D : public PhysicsField {
+    class Current2D : public PhysicsField {
     public:
-        explicit EMag2D(const Core::Material& material);
+        explicit Current2D(const Core::Material& material);
 
         const char* getName() const override;
         const char* getVariableName() const override;

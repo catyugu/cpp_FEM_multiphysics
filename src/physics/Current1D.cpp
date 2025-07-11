@@ -1,4 +1,4 @@
-#include "physics/EMag1D.hpp"
+#include "physics/Current1D.hpp"
 #include "utils/SimpleLogger.hpp"
 #include "core/Element.hpp"
 #include "core/Node.hpp"
@@ -6,14 +6,14 @@
 namespace Physics {
 
 // --- FIX: Initialize heat_field_ to nullptr in the constructor ---
-EMag1D::EMag1D(const Core::Material& material)
+Current1D::Current1D(const Core::Material& material)
     : material_(material), heat_field_(nullptr) {}
 
-const char* EMag1D::getName() const { return "Electromagnetics 1D"; }
-const char* EMag1D::getVariableName() const { return "Voltage"; }
-void EMag1D::setCoupledHeatField(const PhysicsField* heat_field) { heat_field_ = heat_field; }
+const char* Current1D::getName() const { return "Electromagnetics 1D"; }
+const char* Current1D::getVariableName() const { return "Voltage"; }
+void Current1D::setCoupledHeatField(const PhysicsField* heat_field) { heat_field_ = heat_field; }
 
-void EMag1D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
+void Current1D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     mesh_ = &mesh;
     dof_manager_ = &dof_manager;
     auto& logger = SimpleLogger::Logger::instance();
@@ -26,7 +26,7 @@ void EMag1D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     U_prev_.resize(num_eq); U_prev_.setZero();
 }
 
-void EMag1D::assemble() {
+void Current1D::assemble() {
     auto& logger = SimpleLogger::Logger::instance();
     logger.info("Assembling system for ", getName());
 
@@ -77,7 +77,7 @@ void EMag1D::assemble() {
     logger.info("Assembly for ", getName(), " complete.");
 }
 
-std::vector<double> EMag1D::calculateJouleHeat() const {
+std::vector<double> Current1D::calculateJouleHeat() const {
     std::vector<double> joule_heat(mesh_->getElements().size(), 0.0);
     for (size_t i = 0; i < mesh_->getElements().size(); ++i) {
         auto* line_elem = dynamic_cast<Core::LineElement*>(mesh_->getElements()[i]);

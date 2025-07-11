@@ -5,10 +5,10 @@
 #include "core/Problem.hpp"
 #include "core/Material.hpp"
 #include "core/BoundaryCondition.hpp"
-#include "physics/EMag2D.hpp" // Use the new 2D physics class
+#include "physics/Current2D.hpp" // Use the new 2D physics class
 
 // Test fixture for 2D Electrostatics
-class EMag2DTest : public ::testing::Test {
+class Current2DTest : public ::testing::Test {
 protected:
     const double width = 2.0;
     const double height = 1.0;
@@ -26,13 +26,13 @@ protected:
             );
         problem = std::make_unique<Core::Problem>(std::move(mesh));
 
-        problem->addField(std::make_unique<Physics::EMag2D>(copper));
+        problem->addField(std::make_unique<Physics::Current2D>(copper));
         problem->setup();
     }
 };
 
 // Test a rectangular plate with a fixed voltage difference
-TEST_F(EMag2DTest, RectangularPlateVoltageDrop) {
+TEST_F(Current2DTest, RectangularPlateVoltageDrop) {
     const double V_high = 5.0; // Volts
     const double V_low = 1.0;  // Volts
 

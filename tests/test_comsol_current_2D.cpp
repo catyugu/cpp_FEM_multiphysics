@@ -5,7 +5,7 @@
 #include "core/Problem.hpp"
 #include "core/Material.hpp"
 #include "core/BoundaryCondition.hpp"
-#include "physics/EMag2D.hpp"
+#include "physics/Current2D.hpp"
 #include "io/Importer.hpp"
 #include "utils/SimpleLogger.hpp"
 
@@ -28,7 +28,7 @@ protected:
 
         problem = std::make_unique<Core::Problem>(std::move(mesh));
         // Pass the persistent material object to the constructor
-        problem->addField(std::make_unique<Physics::EMag2D>(copper));
+        problem->addField(std::make_unique<Physics::Current2D>(copper));
         problem->setup();
     }
 };
