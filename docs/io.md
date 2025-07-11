@@ -1,16 +1,27 @@
 # **IO Namespace**
 
-This namespace contains the specific implementations for different physical simulations.
+This namespace provides utilities for importing and exporting data, primarily handling mesh files and simulation results.
 
 ---
 ## **Classes**
 
-### **Exporter**
-* **Description**: A utility class for exporting simulation results to various file formats.
-* **Public Functions**:
-    * `write_vtk(const std::string& filename, const Core::Problem& problem)`: Writes the mesh and all solved nodal data from a Problem to a legacy VTK file.
-
 ### **Importer**
 * **Description**: A utility class for importing mesh data from various file formats.
 * **Public Functions**:
-    * `read_comsol_mphtxt(const std::string& filename)`: Reads a mesh from a COMSOL .mphtxt text file.
+  * `read_comsol_mphtxt(const std::string& filename)`: Reads a mesh from a COMSOL .mphtxt text file.
+    * **Input Params**:
+      * `filename`: The path to the input .mphtxt file (`const std::string&`).
+    * **Output Params**:
+      * Returns a `std::unique_ptr<Core::Mesh>` to the newly created Mesh object, or `nullptr` on failure.
+    * **Functionality**: Parses a COMSOL-exported text file to read vertex coordinates and triangular element connectivity, constructing a `Core::Mesh` object from this data. It performs a two-pass read to first get all vertices and then the elements, ensuring robustness.
+
+### **Exporter**
+* **Description**: A utility class for exporting simulation results to various file formats.
+* **Public Functions**:
+  * `write_vtk(const std::string& filename, const Core::Problem& problem)`: Writes the mesh and all solved nodal data from a `Problem` to a legacy VTK file.
+    * **Input Params**:
+      * `filename`: The path to the output file (e.g., "results.vtk") (`const std::string&`).
+      * `problem`: The problem instance containing the mesh and solution data (`const Core::Problem&`).
+    * **Output Params**:
+      * Returns `true` if the file was written successfully, `false` otherwise.
+    * **Functionality**: Exports the simulation's mesh and the solution data for each physics field to a VTK file, which can be visualized in software like ParaView or VisIt. It handles different element types (lines, triangles, tetrahedra) and writes scalar data for each registered variable.
