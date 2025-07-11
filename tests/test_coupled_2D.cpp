@@ -5,7 +5,7 @@
 #include "core/Problem.hpp"
 #include "core/Material.hpp"
 #include "core/BoundaryCondition.hpp"
-#include "physics/EMag2D.hpp"
+#include "physics/Current2D.hpp"
 #include "physics/Heat2D.hpp"
 
 // Test fixture for 2D Coupled Electro-Thermal simulation
@@ -31,7 +31,7 @@ protected:
         );
         problem = std::make_unique<Core::Problem>(std::move(mesh));
 
-        problem->addField(std::make_unique<Physics::EMag2D>(copper));
+        problem->addField(std::make_unique<Physics::Current2D>(copper));
         problem->addField(std::make_unique<Physics::Heat2D>(copper));
 
         problem->setup();

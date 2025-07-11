@@ -1,4 +1,4 @@
-#include "physics/EMag2D.hpp"
+#include "physics/Current2D.hpp"
 #include "core/TriElement.hpp"
 #include "core/Node.hpp"
 #include "utils/SimpleLogger.hpp"
@@ -7,14 +7,14 @@
 namespace Physics {
 
 // Initialize heat_field_ to nullptr to prevent garbage pointer access
-EMag2D::EMag2D(const Core::Material& material)
+Current2D::Current2D(const Core::Material& material)
     : material_(material), heat_field_(nullptr) {}
 
-const char* EMag2D::getName() const { return "Electromagnetics 2D"; }
-const char* EMag2D::getVariableName() const { return "Voltage"; }
-void EMag2D::setCoupledHeatField(const PhysicsField* heat_field) { heat_field_ = heat_field; }
+const char* Current2D::getName() const { return "Electromagnetics 2D"; }
+const char* Current2D::getVariableName() const { return "Voltage"; }
+void Current2D::setCoupledHeatField(const PhysicsField* heat_field) { heat_field_ = heat_field; }
 
-void EMag2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
+void Current2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     mesh_ = &mesh;
     dof_manager_ = &dof_manager;
     auto& logger = SimpleLogger::Logger::instance();
@@ -29,7 +29,7 @@ void EMag2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     U_prev_.resize(num_eq); U_prev_.setZero();
 }
 
-void EMag2D::assemble() {
+void Current2D::assemble() {
     auto& logger = SimpleLogger::Logger::instance();
     logger.info("Assembling system for ", getName());
 
@@ -87,7 +87,7 @@ void EMag2D::assemble() {
     }
     logger.info("Assembly for ", getName(), " complete.");
 }
-std::vector<double> EMag2D::calculateJouleHeat() const {
+std::vector<double> Current2D::calculateJouleHeat() const {
     std::vector<double> joule_heat(mesh_->getElements().size(), 0.0);
     for (size_t i = 0; i < mesh_->getElements().size(); ++i) {
         auto* tri_elem = dynamic_cast<Core::TriElement*>(mesh_->getElements()[i]);

@@ -6,7 +6,7 @@
 #include "core/Problem.hpp"
 #include "core/Material.hpp"
 #include "core/BoundaryCondition.hpp"
-#include "physics/EMag1D.hpp"
+#include "physics/Current1D.hpp"
 #include "physics/Heat1D.hpp"
 
 // Test fixture for 1D coupled problem
@@ -30,7 +30,7 @@ protected:
             length, num_elements));
         problem = std::make_unique<Core::Problem>(std::move(mesh));
 
-        problem->addField(std::make_unique<Physics::EMag1D>(copper));
+        problem->addField(std::make_unique<Physics::Current1D>(copper));
         problem->addField(std::make_unique<Physics::Heat1D>(copper));
 
         problem->setup();
@@ -57,7 +57,7 @@ TEST_F(Coupled1DTest, EndToEndValidation) {
     emag_field->applyBCs();
     Core::LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHSVector(), emag_field->getSolution());
 
-    auto joule_heat = dynamic_cast<Physics::EMag1D*>(emag_field)->calculateJouleHeat();
+    auto joule_heat = dynamic_cast<Physics::Current1D*>(emag_field)->calculateJouleHeat();
     dynamic_cast<Physics::Heat1D*>(heat_field)->setVolumetricHeatSource(joule_heat);
 
     heat_field->assemble();

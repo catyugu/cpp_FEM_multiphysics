@@ -30,7 +30,11 @@ namespace Physics {
 
         // Getter for the solution at the previous time step
         const Eigen::VectorXd& getPreviousSolution() const;
+
         void setInitialConditions(double initial_value);
+        // Set InitialConditions with a Lambda function
+        template<typename F>
+        void setInitialConditions(std::function<F> initial_conditions);
 
         // Getters for matrices and vectors
         Eigen::SparseMatrix<double>& getStiffnessMatrix();

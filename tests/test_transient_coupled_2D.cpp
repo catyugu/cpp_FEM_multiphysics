@@ -2,7 +2,7 @@
 #include <memory>
 #include "core/Problem.hpp"
 #include "core/Material.hpp"
-#include "physics/EMag2D.hpp"
+#include "physics/Current2D.hpp"
 #include "physics/Heat2D.hpp"
 #include "core/BoundaryCondition.hpp"
 #include "utils/SimpleLogger.hpp"
@@ -11,7 +11,7 @@
 class TransientCoupled2DTest : public ::testing::Test {
 protected:
     const double width = 0.02, height = 0.01;
-    const int nx = 10, ny = 5;
+    const int nx = 20, ny = 10;
 
     Core::Material copper{"Copper"};
     std::unique_ptr<Core::Problem> problem;
@@ -21,7 +21,7 @@ protected:
         std::map<std::string, double> sigma_params = {{"sigma_ref", 5.96e7}, {"alpha", 0.0039}, {"T_ref", 293.15}};
         copper.setTempDependentProperty("electrical_conductivity", sigma_params);
 
-        copper.setProperty("thermal_conductivity", 401.0);
+        copper.setProperty("thermal_conductivity", 400.0);
         copper.setProperty("density", 8960.0);
         copper.setProperty("specific_heat", 385.0);
 
@@ -30,7 +30,7 @@ protected:
             );
         problem = std::make_unique<Core::Problem>(std::move(mesh));
 
-        problem->addField(std::make_unique<Physics::EMag2D>(copper));
+        problem->addField(std::make_unique<Physics::Current2D>(copper));
         problem->addField(std::make_unique<Physics::Heat2D>(copper));
         problem->setup();
     }
@@ -43,11 +43,11 @@ TEST_F(TransientCoupled2DTest, InternalHeatingOverTime) {
     ASSERT_NE(heat_field, nullptr);
     ASSERT_NE(emag_field, nullptr);
 
-    const double T_initial = 300.0;
-    const double V_high = 0.5;
+    const double T_initial = 293.15;
+    const double V_high = 0.01;
 
     // 1. Set Parameters
-    problem->setTimeSteppingParameters(0.2, 1.0); // 5 steps of 0.2s
+    problem->setTimeSteppingParameters(0.1, 1.0);
 
     // 2. Set Initial and Boundary Conditions
     heat_field->setInitialConditions(T_initial);
@@ -61,15 +61,18 @@ TEST_F(TransientCoupled2DTest, InternalHeatingOverTime) {
 
         // Keep all boundaries at the initial temperature
         if (is_boundary) {
-            heat_field->addBC(std::make_unique<Core::DirichletBC>(
-                dof_manager, node->getId(), "Temperature", T_initial));
+            heat_field->addBC(std::make_unique<Core::NeumannBC>
+                (dof_manager, node->getId(), "Temperature", 0.1));
         }
 
         // Apply voltage difference
         if (std::abs(coords[0] - 0.0) < 1e-9) {
-            emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "Voltage", V_high));
-        } else if (std::abs(coords[0] - width) < 1e-9) {
-            emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "Voltage", 0.0));
+            emag_field->addBC(std::make_unique<Core::DirichletBC>
+                (dof_manager, node->getId(), "Voltage", V_high));
+        }
+        else if (std::abs(coords[0] - width) < 1e-9) {
+            emag_field->addBC(std::make_unique<Core::DirichletBC>
+                (dof_manager, node->getId(), "Voltage", 0.0));
         }
     }
 

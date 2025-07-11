@@ -14,7 +14,6 @@ namespace Physics {
         }
     }
 
-    // --- FIX: Implement new public accessors ---
     const std::vector<std::unique_ptr<Core::BoundaryCondition>>& PhysicsField::getBCs() const {
         return bcs_;
     }
@@ -37,6 +36,20 @@ namespace Physics {
             SimpleLogger::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(), "'.");
         }
     }
+
+    template<typename F>
+    void PhysicsField::setInitialConditions(std::function<F> func) {
+        if (U_.size() > 0) {
+            for (int i = 0; i < U_.size(); ++i) {
+                U_(i) = func(mesh_->getNode(i));
+            }
+            U_prev_ = U_;
+            SimpleLogger::Logger::instance().info("Set initial condition for '", getVariableName(), "' to ", func);
+        } else {
+            SimpleLogger::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(), "'.");
+        }
+    }
+
 
     Eigen::SparseMatrix<double>& PhysicsField::getStiffnessMatrix() { return K_; }
     Eigen::SparseMatrix<double>& PhysicsField::getMassMatrix() { return M_; }

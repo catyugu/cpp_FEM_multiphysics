@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.17)
 project(cpp_FEM_multiphysics)
 include_directories(include)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Od" )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os" )
 # Add the path to your Eigen installation to CMAKE_PREFIX_PATH
 # This helps CMake find the Eigen3 package.
 # If you installed to the default location, you might not need this.

@@ -2,7 +2,7 @@
 #include <memory>
 #include "core/Problem.hpp"
 #include "core/Material.hpp"
-#include "physics/EMag1D.hpp"
+#include "physics/Current1D.hpp"
 #include "physics/Heat1D.hpp"
 #include "core/BoundaryCondition.hpp"
 #include "utils/SimpleLogger.hpp"
@@ -24,7 +24,7 @@ protected:
         std::unique_ptr<Core::Mesh> mesh(
             Core::Mesh::create_uniform_1d_mesh(length, num_elements));
         problem = std::make_unique<Core::Problem>(std::move(mesh));
-        problem->addField(std::make_unique<Physics::EMag1D>(copper));
+        problem->addField(std::make_unique<Physics::Current1D>(copper));
         problem->addField(std::make_unique<Physics::Heat1D>(copper));
         problem->setup();
     }

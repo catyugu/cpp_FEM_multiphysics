@@ -25,7 +25,7 @@ void Mesh::addElement(Element* element) {
     element_map_[element->getId()] = element;
 }
 
-Node* Mesh::getNode(int id) const {
+Node *Mesh::getNode(int id) const {
     auto it = node_map_.find(id);
     return (it != node_map_.end()) ? it->second : nullptr;
 }
