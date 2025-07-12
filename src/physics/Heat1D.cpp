@@ -6,8 +6,10 @@
 #include "core/sources/SourceTerm.hpp"
 
 namespace Physics {
+Heat1D::Heat1D(const Core::Material& material) : material_(material) {}
 
-// ... constructor and setup are unchanged ...
+const char* Heat1D::getName() const { return "Heat Transfer 2D"; }
+const char* Heat1D::getVariableName() const { return "Temperature"; }
 
 void Heat1D::assemble() {
     auto& logger = SimpleLogger::Logger::instance();

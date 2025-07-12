@@ -6,8 +6,8 @@
 namespace Core {
 
 // --- DirichletBC Implementation ---
-DirichletBC::DirichletBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd value)
-    : value_(value) {
+DirichletBC::DirichletBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd value, const std::string& tag)
+    : BoundaryCondition(tag), value_(value) {
     equation_index_ = dof_manager.getEquationIndex(node_id, var_name);
 }
 
@@ -50,8 +50,8 @@ void DirichletBC::apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) cons
 }
 
 // --- NeumannBC Implementation ---
-NeumannBC::NeumannBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd flux_value)
-    : flux_value_(flux_value) {
+NeumannBC::NeumannBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd flux_value, const std::string& tag)
+        : BoundaryCondition(tag), flux_value_(flux_value) {
     equation_index_ = dof_manager.getEquationIndex(node_id, var_name);
 }
 
@@ -71,8 +71,8 @@ void NeumannBC::apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const 
 }
 
 // --- CauchyBC Implementation ---
-CauchyBC::CauchyBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd h, Eigen::VectorXd T_inf)
-    : h_(h), T_inf_(T_inf) {
+CauchyBC::CauchyBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd h, Eigen::VectorXd T_inf, const std::string& tag)
+        : BoundaryCondition(tag), h_(h), T_inf_(T_inf) {
     equation_index_ = dof_manager.getEquationIndex(node_id, var_name);
 }
 

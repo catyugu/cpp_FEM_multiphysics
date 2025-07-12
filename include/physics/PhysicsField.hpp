@@ -26,6 +26,7 @@ namespace Physics {
         void addBC(std::unique_ptr<Core::BoundaryCondition> bc);
         void applyBCs();
 
+
         const std::vector<std::unique_ptr<Core::BoundaryCondition>>& getBCs() const;
         void updatePreviousSolution();
 
@@ -49,11 +50,13 @@ namespace Physics {
         const Eigen::MatrixXd& getSolution() const;
         const Core::Mesh* getMesh() const { return mesh_;}
         // get DOFManager
+
         const Core::DOFManager* getDofManager() const { return dof_manager_;}
-        void removeBC(Core::BoundaryCondition* bc_to_remove);
+        void removeBCsByTag(const std::string& tag);
 
         void addSource(std::unique_ptr<Core::SourceTerm> source);
         void removeSourcesByTag(const std::string& tag); // New, safe removal method
+        void applySources(); // The new method
 
         void enable(){ enabled = true;}
         void disable(){ enabled = false;}

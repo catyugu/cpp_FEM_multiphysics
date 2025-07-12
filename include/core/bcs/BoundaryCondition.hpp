@@ -4,61 +4,59 @@
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
 #include <string>
-// Forward declaration to prevent circular includes
+
+// Forward declaration
 namespace Core {
     class DOFManager;
 }
 
 namespace Core {
 
-// Abstract base class for all Boundary Conditions
-class BoundaryCondition {
-public:
-    virtual ~BoundaryCondition() = default;
+    // Abstract base class for all Boundary Conditions
+    class BoundaryCondition {
+    public:
+        explicit BoundaryCondition(std::string tag = "") : tag_(std::move(tag)) {}
+        virtual ~BoundaryCondition() = default;
 
-    // Apply the boundary condition to the global system of equations
-    virtual void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const = 0;
-};
+        virtual void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const = 0;
+        const std::string& getTag() const { return tag_; }
 
-// --- Concrete BC Implementations ---
+    protected:
+        std::string tag_;
+    };
 
-// Dirichlet (Type 1): Specifies a fixed value for a DOF (e.g., T = 373K)
-class DirichletBC : public BoundaryCondition {
-public:
-    DirichletBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd value);
-    void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
+    // --- Concrete BC Implementations ---
 
-private:
-    int equation_index_;
-    Eigen::VectorXd value_;
-};
+    class DirichletBC : public BoundaryCondition {
+    public:
+        DirichletBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd value, const std::string& tag = "");
+        void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
 
-// Neumann (Type 2): Specifies a flux at a node (e.g., heat flux q = 100 W/m^2)
-// For 1D, this is a point value. In 2D/3D, this would be integrated over an edge/face.
-class NeumannBC : public BoundaryCondition {
-public:
-    NeumannBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd flux_value);
-    void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
+    private:
+        int equation_index_;
+        Eigen::VectorXd value_;
+    };
 
-private:
-    int equation_index_;
-    Eigen::VectorXd flux_value_;
-};
+    class NeumannBC : public BoundaryCondition {
+    public:
+        NeumannBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd flux_value, const std::string& tag = "");
+        void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
 
-// Cauchy/Robin/Mixed (Type 3): Specifies a relationship between a value and its flux (e.g., convection)
-// h * (T_inf - T_surface) = -k * dT/dn
-// This adds to both the stiffness matrix K and the RHS vector F.
-class CauchyBC : public BoundaryCondition {
-public:
-    CauchyBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd h, Eigen::VectorXd T_inf);
-    void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
+    private:
+        int equation_index_;
+        Eigen::VectorXd flux_value_;
+    };
 
-private:
-    int equation_index_;
-    Eigen::VectorXd h_;     // Convection coefficient
-    Eigen::VectorXd T_inf_; // Ambient temperature
-};
+    class CauchyBC : public BoundaryCondition {
+    public:
+        CauchyBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd h, Eigen::VectorXd T_inf, const std::string& tag = "");
+        void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
 
+    private:
+        int equation_index_;
+        Eigen::VectorXd h_;
+        Eigen::VectorXd T_inf_;
+    };
 
 } // namespace Core
 

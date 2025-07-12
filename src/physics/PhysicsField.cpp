@@ -14,17 +14,26 @@ namespace Physics {
         }
     }
 
-    void PhysicsField::removeBC(Core::BoundaryCondition* bc_to_remove) {
+    void PhysicsField::applySources() {
+        // This is the new implementation
+        F_.setZero(); // Start with a fresh force vector
+        for (const auto& source : source_terms_) {
+            source->apply(F_, *dof_manager_, *mesh_, getVariableName());
+        }
+    }
+
+
+    void PhysicsField::removeBCsByTag(const std::string& tag) {
+        if (tag.empty()) return; // Do not remove BCs with no tag
         auto it = std::remove_if(bcs_.begin(), bcs_.end(),
             [&](const std::unique_ptr<Core::BoundaryCondition>& bc_ptr) {
-                return bc_ptr.get() == bc_to_remove;
+                return bc_ptr->getTag() == tag;
             });
 
         if (it != bcs_.end()) {
             bcs_.erase(it, bcs_.end());
         }
     }
-
     void PhysicsField::addSource(std::unique_ptr<Core::SourceTerm> source) {
         source_terms_.push_back(std::move(source));
     }
