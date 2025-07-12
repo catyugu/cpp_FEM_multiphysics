@@ -44,7 +44,7 @@ protected:
 };
 
 TEST_F(CoupledValidationTest, CompareAgainstVtuResult) {
-    constexpr double V_in = 0.1;
+    constexpr double V_in = 0.5;
     constexpr double T_sink = 293.15;
     constexpr double bar_width = 0.02;
     constexpr double bar_height = 0.01;
