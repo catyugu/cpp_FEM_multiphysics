@@ -4,6 +4,7 @@
 #include "physics/Current2D.hpp"
 #include "physics/Heat2D.hpp"
 #include "utils/SimpleLogger.hpp"
+#include <string> // Include the string header
 
 namespace Core {
 
@@ -15,9 +16,10 @@ namespace Core {
         Physics::PhysicsField* heat_field = nullptr;
 
         for (auto& field : fields) {
-            if (field->getVariableName() == "Voltage") {
+            // FIX: Use std::string for proper content comparison instead of pointer comparison.
+            if (std::string(field->getVariableName()) == "Voltage") {
                 emag_field = field;
-            } else if (field->getVariableName() == "Temperature") {
+            } else if (std::string(field->getVariableName()) == "Temperature") {
                 heat_field = field;
             }
         }
@@ -26,16 +28,16 @@ namespace Core {
             if (auto* emag1d = dynamic_cast<Physics::Current1D*>(emag_field)) {
                 if (auto* heat1d = dynamic_cast<Physics::Heat1D*>(heat_field)) {
                     emag1d->setCoupledHeatField(heat_field);
+                    logger.info("Successfully coupled Current1D and Heat1D fields.");
                 } else {
-                    logger.error("Dimensions of the fields must be the same!");
-                    return;
+                    logger.error("Dimensions of the fields must be the same for coupling!");
                 }
             } else if (auto* emag2d = dynamic_cast<Physics::Current2D*>(emag_field)) {
                 if (auto* heat2d = dynamic_cast<Physics::Heat2D*>(heat_field)) {
                     emag2d->setCoupledHeatField(heat_field);
+                    logger.info("Successfully coupled Current2D and Heat2D fields.");
                 } else {
-                    logger.error("Dimensions of the fields must be the same!");
-                    return;
+                    logger.error("Dimensions of the fields must be the same for coupling!");
                 }
             }
         } else {

@@ -114,6 +114,27 @@ This namespace contains the specific implementations for different physical simu
   * `material_`: A constant reference to the `Core::Material` object (`const Core::Material&`).
   * `k_`: Thermal conductivity (`double`).
 
+Of course. Here is the updated documentation reflecting the addition of the `Magnetic1D` physics module.
+
+# **PhysicsField Namespace**
+
+This namespace contains the specific implementations for different physical simulations.
+
+---
+## **Classes**
+... (existing classes: PhysicsField, Current1D, Current2D, Heat1D, Heat2D, Heat3D) ...
+
+### **Magnetic1D**
+* **Description**: Implements the `assemble` method for 1D Magnetostatics using the magnetic vector potential, `A_z`, as the primary unknown.
+* **Public Functions**:
+  * `Magnetic1D(const Core::Material& material)`: Constructor that takes a material object.
+  * `getName() const override`: Returns "Magnetic Field 1D".
+  * `getVariableName() const override`: Returns "MagneticPotential".
+  * `setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) override`: Sets up the 1D magnetic field.
+  * `assemble() override`: Assembles the system matrices for the 1D magnetic field.
+* **Private Members**:
+  * `material_`: A constant reference to the `Core::Material` object (`const Core::Material&`).
+
 ### **Magnetic2D**
 * **Description**: Implements the `assemble` method for 2D Magnetostatics. The formulation uses the magnetic vector potential, `A_z`, as the primary unknown.
 * **Public Functions**:

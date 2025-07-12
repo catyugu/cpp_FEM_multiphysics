@@ -201,4 +201,102 @@ namespace IO {
         }
         return mesh;
     }
+
+    std::vector<double> Importer::read_vtu_data(const std::string &filename, const std::string &data_array_name) {
+        auto &logger = SimpleLogger::Logger::instance();
+        logger.info("Importing VTU data from file: ", filename, " for array: ", data_array_name);
+
+        std::ifstream file(filename);
+        if (!file.is_open()) {
+            throw Exception::FileIOException("Failed to open VTU file: " + filename);
+        }
+
+        std::vector<double> data;
+        std::string line;
+        bool in_correct_data_array = false;
+
+        while (std::getline(file, line)) {
+            // Find the start of the correct DataArray
+            if (line.find("<DataArray") != std::string::npos && line.find("Name=\"" + data_array_name + "\"") !=
+                std::string::npos) {
+                in_correct_data_array = true;
+                continue; // Move to the next line to start reading data
+            }
+
+            // Find the end of the DataArray
+            if (in_correct_data_array && line.find("</DataArray>") != std::string::npos) {
+                break; // Stop reading
+            }
+
+            // If we are in the correct block, parse the numbers
+            if (in_correct_data_array) {
+                std::stringstream ss(line);
+                double value;
+                while (ss >> value) {
+                    data.push_back(value);
+                }
+            }
+        }
+
+        if (data.empty()) {
+            logger.warn("No data was read for array '", data_array_name, "' from file '", filename, "'.");
+        } else {
+            logger.info("Successfully read ", data.size(), " data points for array '", data_array_name, "'.");
+        }
+
+        return data;
+    }
+
+    VtuData Importer::read_vtu_points_and_data(const std::string &filename,
+                                               const std::vector<std::string> &data_array_names) {
+        auto &logger = SimpleLogger::Logger::instance();
+        logger.info("Importing points and data from VTU file: ", filename);
+
+        std::ifstream file(filename);
+        if (!file.is_open()) {
+            throw Exception::FileIOException("Failed to open VTU file: " + filename);
+        }
+
+        VtuData vtu_data;
+        std::string line;
+        bool in_points_section = false;
+        std::string current_data_array_name;
+
+        while (std::getline(file, line)) {
+            // Find and read points
+            if (line.find("<Points>") != std::string::npos) {
+                in_points_section = true;
+                std::getline(file, line); // Skip the <DataArray> line for points for now
+            } else if (in_points_section && line.find("</Points>") != std::string::npos) {
+                in_points_section = false;
+            } else if (in_points_section && line.find("<DataArray") == std::string::npos) {
+                std::stringstream ss(line);
+                double x, y, z;
+                ss >> x >> y >> z;
+                vtu_data.points.push_back({x, y, z});
+            }
+
+            // Find and read specified data arrays
+            for (const auto &name: data_array_names) {
+                if (line.find("<DataArray") != std::string::npos && line.find("Name=\"" + name + "\"") !=
+                    std::string::npos) {
+                    current_data_array_name = name;
+                    break;
+                }
+            }
+
+            if (!current_data_array_name.empty() && line.find("</DataArray>") != std::string::npos) {
+                current_data_array_name.clear();
+            } else if (!current_data_array_name.empty() && line.find("<DataArray") == std::string::npos) {
+                std::stringstream ss(line);
+                double value;
+                while (ss >> value) {
+                    vtu_data.point_data[current_data_array_name].push_back(value);
+                }
+            }
+        }
+
+        logger.info("Finished reading VTU. Found ", vtu_data.points.size(), " points.");
+        return vtu_data;
+    }
 } // namespace IO
