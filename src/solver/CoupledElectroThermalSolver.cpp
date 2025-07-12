@@ -15,11 +15,13 @@ namespace Solver {
         auto *emag_field = problem.getField("Voltage");
         auto *heat_field = problem.getField("Temperature");
         auto &coupling_manager = problem.getCouplingManager();
-        const auto &dof_manager = problem.getDofManager();
-        const auto &mesh = problem.getMesh();
+        const auto& dof_manager = problem.getDofManager();
 
-        Eigen::MatrixXd T_prev = heat_field->getSolution();
-        T_prev.setZero();
+        // Initialize temperature solution to a reasonable default if it's zero
+        if (heat_field->getSolution().isZero(1e-9)) {
+            heat_field->getSolution().setConstant(293.15); // Room temperature
+        }
+        Eigen::MatrixXd T_prev_iter = heat_field->getSolution();
 
         for (int iter = 0; iter < problem.getMaxIterations(); ++iter) {
             logger.info("--> Iteration ", iter + 1, " / ", problem.getMaxIterations());
@@ -27,16 +29,29 @@ namespace Solver {
             // --- Step 1: Solve EMag Field ---
             logger.info("    Solving EMag Field...");
             emag_field->assemble();
-            emag_field->applyBCs();
+            emag_field->applySources();
 
-            // Manually stabilize the matrix for the Temperature DOFs
-            auto &emag_K = emag_field->getStiffnessMatrix();
-            for (const auto &node: mesh.getNodes()) {
+            // Create temporary copies to build a well-posed system for this step
+            Eigen::SparseMatrix<double> K_emag_solve = emag_field->getStiffnessMatrix();
+            Eigen::MatrixXd F_emag_solve = emag_field->getRHS();
+
+            // Constrain Temperature DOFs for this EMag solve step
+            // This ensures the overall system matrix is not singular
+            for (const auto &node: problem.getMesh().getNodes()) {
                 int dof_idx = dof_manager.getEquationIndex(node->getId(), "Temperature");
-                if (dof_idx != -1) emag_K.coeffRef(dof_idx, dof_idx) = 1.0;
+                if (dof_idx != -1) {
+                    K_emag_solve.coeffRef(dof_idx, dof_idx) = 1.0;
+                    F_emag_solve(dof_idx, 0) = heat_field->getSolution()(dof_idx, 0);
+                }
             }
 
-            LinearSolver::solve(emag_K, emag_field->getRHS(), emag_field->getSolution());
+            // Apply EMag BCs to the temporary system
+            for (const auto& bc : emag_field->getBCs()) {
+                bc->apply(K_emag_solve, F_emag_solve);
+            }
+
+            // Solve the temporary system, updating the field's official solution vector
+            LinearSolver::solve(K_emag_solve, F_emag_solve, emag_field->getSolution());
 
             // --- Step 2: Execute Coupling ---
             coupling_manager.executeCouplings();
@@ -44,21 +59,32 @@ namespace Solver {
             // --- Step 3: Solve Heat Field ---
             logger.info("    Solving Heat Field...");
             heat_field->assemble();
-            heat_field->applyBCs();
+            heat_field->applySources(); // Includes Joule heating
 
-            // Manually stabilize the matrix for the Voltage DOFs
-            auto &heat_K = heat_field->getStiffnessMatrix();
-            for (const auto &node: mesh.getNodes()) {
+            // Create temporary copies for the heat solve
+            Eigen::SparseMatrix<double> K_heat_solve = heat_field->getStiffnessMatrix();
+            Eigen::MatrixXd F_heat_solve = heat_field->getRHS();
+
+            // Constrain Voltage DOFs for this Heat solve step
+            for (const auto &node: problem.getMesh().getNodes()) {
                 int dof_idx = dof_manager.getEquationIndex(node->getId(), "Voltage");
-                if (dof_idx != -1) heat_K.coeffRef(dof_idx, dof_idx) = 1.0;
+                if (dof_idx != -1) {
+                    K_heat_solve.coeffRef(dof_idx, dof_idx) = 1.0;
+                    F_heat_solve(dof_idx, 0) = emag_field->getSolution()(dof_idx, 0);
+                }
             }
 
-            LinearSolver::solve(heat_K, heat_field->getRHS(), heat_field->getSolution());
+            // Apply Heat BCs to the temporary system
+            for (const auto& bc : heat_field->getBCs()) {
+                bc->apply(K_heat_solve, F_heat_solve);
+            }
+
+            LinearSolver::solve(K_heat_solve, F_heat_solve, heat_field->getSolution());
 
             // --- Step 4: Check for Convergence ---
-            double norm_diff = (heat_field->getSolution() - T_prev).norm();
+            double norm_diff = (heat_field->getSolution() - T_prev_iter).norm();
             double norm_sol = heat_field->getSolution().norm();
-            double relative_error = (norm_sol > 1e-9) ? (norm_diff / norm_sol) : norm_diff;
+            double relative_error = (norm_sol > 1e-12) ? (norm_diff / norm_sol) : norm_diff;
 
             logger.info("    Convergence Check: Relative Error = ", relative_error);
             if (relative_error < problem.getConvergenceTolerance()) {
@@ -66,7 +92,7 @@ namespace Solver {
                 return;
             }
 
-            T_prev = heat_field->getSolution();
+            T_prev_iter = heat_field->getSolution();
         }
 
         logger.warn("--- Coupled steady-state solver did not converge after ", problem.getMaxIterations(),

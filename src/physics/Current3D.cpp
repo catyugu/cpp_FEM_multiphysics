@@ -2,6 +2,7 @@
 #include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "utils/Quadrature.hpp"
+#include "utils/Exceptions.hpp"
 
 namespace Physics {
 
@@ -29,7 +30,7 @@ void Current3D::assemble() {
     logger.info("Assembling system for ", getName());
 
     K_.setZero();
-    F_.setZero();
+    // F_ is handled by applySources()
 
     double sigma = material_.getProperty("electrical_conductivity");
     Eigen::Matrix3d D = Eigen::Matrix3d::Identity() * sigma;
@@ -37,13 +38,15 @@ void Current3D::assemble() {
     std::vector<Eigen::Triplet<double>> triplet_list;
     auto quadrature_points = Utils::Quadrature::getTetrahedronQuadrature(element_order_);
 
+    int valid_elements_found = 0;
     for (const auto& elem_ptr : mesh_->getElements()) {
         auto* tet_elem = dynamic_cast<Core::TetElement*>(elem_ptr);
         if (tet_elem) {
+            valid_elements_found++;
             Eigen::Matrix4d ke_local = Eigen::Matrix4d::Zero();
+            double detJ = tet_elem->getVolume() * 6.0;
             for(const auto& qp : quadrature_points) {
                 auto B = tet_elem->getBMatrix();
-                double detJ = tet_elem->getVolume() * 6.0;
                 ke_local += B.transpose() * D * B * qp.weight * detJ;
             }
 
@@ -55,12 +58,23 @@ void Current3D::assemble() {
 
             for (int i = 0; i < 4; ++i) {
                 for (int j = 0; j < 4; ++j) {
-                    triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
+                    if (dofs[i] != -1 && dofs[j] != -1) {
+                        triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
+                    }
                 }
             }
         }
     }
+
+    if (valid_elements_found == 0) {
+        throw Exception::ConfigurationException(
+            "Assembly failed for " + std::string(getName()) +
+            ": No valid elements (TetElement) were found in the mesh. Check if the mesh is a 3D volume mesh."
+        );
+    }
+
     K_.setFromTriplets(triplet_list.begin(), triplet_list.end());
+
     logger.info("Assembly for ", getName(), " complete.");
 }
 

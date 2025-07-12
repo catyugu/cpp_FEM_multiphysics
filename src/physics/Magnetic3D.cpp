@@ -42,9 +42,9 @@ void Magnetic3D::assemble() {
         auto* tet_elem = dynamic_cast<Core::TetElement*>(elem_ptr);
         if (tet_elem) {
             Eigen::Matrix4d ke_local = Eigen::Matrix4d::Zero();
+            double detJ = tet_elem->getVolume() * 6.0;
             for (const auto& qp : quadrature_points) {
                 auto B = tet_elem->getBMatrix();
-                double detJ = tet_elem->getVolume() * 6.0;
                 ke_local += B.transpose() * D * B * qp.weight * detJ;
             }
 
@@ -56,12 +56,28 @@ void Magnetic3D::assemble() {
 
             for (int i = 0; i < 4; ++i) {
                 for (int j = 0; j < 4; ++j) {
-                    triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
+                    if (dofs[i] != -1 && dofs[j] != -1) {
+                        triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
+                    }
                 }
             }
         }
     }
     K_.setFromTriplets(triplet_list.begin(), triplet_list.end());
+
+    // Stabilize the matrix for degrees of freedom of other physics
+    const std::string my_var = getVariableName();
+    for(const auto& var_name : dof_manager_->getVariableNames()) {
+        if (var_name != my_var) {
+            for(const auto& node : mesh_->getNodes()) {
+                int dof_idx = dof_manager_->getEquationIndex(node->getId(), var_name);
+                if (dof_idx != -1) {
+                    K_.coeffRef(dof_idx, dof_idx) = 1.0;
+                }
+            }
+        }
+    }
+
     logger.info("Assembly for ", getName(), " complete.");
 }
 

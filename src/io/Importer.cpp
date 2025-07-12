@@ -2,7 +2,7 @@
 #include <core/mesh/Mesh.hpp>
 #include <core/mesh/Node.hpp>
 #include <core/mesh/TriElement.hpp> // For 2D meshes
-#include <core/mesh/TetElement.hpp>
+#include <core/mesh/TetElement.hpp> // For 3D meshes
 #include "utils/SimpleLogger.hpp"
 #include "utils/Exceptions.hpp"
 #include <fstream>
@@ -22,80 +22,91 @@ namespace IO {
         }
 
         auto mesh = std::make_unique<Core::Mesh>();
-        std::string line;
         int element_id_counter = 0;
-
-        // --- Two-Pass Parsing Approach for Robustness ---
+        std::string line;
 
         // --- Pass 1: Read all Vertices/Nodes ---
+        file.clear();
+        file.seekg(0, std::ios::beg);
         logger.info("Pass 1: Reading mesh vertices...");
         while (std::getline(file, line)) {
             if (line.find("number of mesh vertices") != std::string::npos) {
-                std::stringstream ss(line);
                 int num_vertices = 0;
+                std::stringstream ss(line);
                 ss >> num_vertices;
 
-                // Find the data header
                 while (std::getline(file, line) && line.find("# Mesh vertex coordinates") == std::string::npos);
 
-                // Read the specified number of vertex lines
                 for (int i = 0; i < num_vertices && std::getline(file, line); ++i) {
                     std::stringstream data_ss(line);
-                    double x, y;
-                    if (data_ss >> x >> y) {
-                        int node_id = mesh->getNodes().size();
-                        mesh->addNode(new Core::Node(node_id, x, y));
-                    }
+                    double x, y, z = 0.0;
+                    data_ss >> x >> y >> z;
+                    int node_id = mesh->getNodes().size();
+                    mesh->addNode(new Core::Node(node_id, x, y, z));
                 }
                 logger.info("Finished reading ", mesh->getNodes().size(), " vertices.");
-                break; // Vertices found and read, exit loop.
+                break;
             }
         }
 
-        // --- Pass 2: Read all Triangle Elements ---
-        file.clear(); // Clear any error flags (like EOF)
-        file.seekg(0, std::ios::beg); // Rewind file to the beginning
+        // --- Pass 2: Read all Triangle Elements (if any) ---
+        file.clear();
+        file.seekg(0, std::ios::beg);
         logger.info("Pass 2: Reading triangle elements...");
-
         while (std::getline(file, line)) {
-            if (line.find("3 tri # type name") != std::string::npos) {
+            if (line.find("tri # type name") != std::string::npos) {
+                while (std::getline(file, line) && line.find("# number of elements") == std::string::npos);
                 int num_elements = 0;
-                // Find the line that specifies the number of elements for this block
-                while (std::getline(file, line) && line.find("number of elements") == std::string::npos);
-
                 std::stringstream ss(line);
                 ss >> num_elements;
 
-                // Find the data header
                 while (std::getline(file, line) && line.find("# Elements") == std::string::npos);
 
-                // Read the specified number of element lines
                 for (int i = 0; i < num_elements && std::getline(file, line); ++i) {
                     std::stringstream data_ss(line);
                     int n1, n2, n3;
                     if (data_ss >> n1 >> n2 >> n3) {
-                        Core::Node *node1 = mesh->getNode(n1);
-                        Core::Node *node2 = mesh->getNode(n2);
-                        Core::Node *node3 = mesh->getNode(n3);
-
-                        if (node1 && node2 && node3) {
-                            auto *tri_elem = new Core::TriElement(element_id_counter++);
-                            tri_elem->addNode(node1);
-                            tri_elem->addNode(node2);
-                            tri_elem->addNode(node3);
-                            mesh->addElement(tri_elem);
-                        } else {
-                            logger.error("Invalid node index found in element definition: ", line);
-                        }
+                        auto *tri_elem = new Core::TriElement(element_id_counter++);
+                        tri_elem->addNode(mesh->getNode(n1));
+                        tri_elem->addNode(mesh->getNode(n2));
+                        tri_elem->addNode(mesh->getNode(n3));
+                        mesh->addElement(tri_elem);
                     }
                 }
-                logger.info("Finished reading ", mesh->getElements().size(), " elements.");
-                break; // Triangles found and read, exit loop.
+                break;
             }
         }
 
-        logger.info("Import finished. Total: ", mesh->getNodes().size(), " nodes, ", mesh->getElements().size(),
-                    " elements.");
+        // --- Pass 3: Read all Tetrahedron Elements (if any) ---
+        file.clear();
+        file.seekg(0, std::ios::beg);
+        logger.info("Pass 3: Reading tetrahedron elements...");
+        while (std::getline(file, line)) {
+            if (line.find("tet # type name") != std::string::npos) {
+                while (std::getline(file, line) && line.find("# number of elements") == std::string::npos);
+                int num_elements = 0;
+                std::stringstream ss(line);
+                ss >> num_elements;
+
+                while (std::getline(file, line) && line.find("# Elements") == std::string::npos);
+
+                for (int i = 0; i < num_elements && std::getline(file, line); ++i) {
+                    std::stringstream data_ss(line);
+                    int n1, n2, n3, n4;
+                    if (data_ss >> n1 >> n2 >> n3 >> n4) {
+                        auto *tet_elem = new Core::TetElement(element_id_counter++);
+                        tet_elem->addNode(mesh->getNode(n1));
+                        tet_elem->addNode(mesh->getNode(n2));
+                        tet_elem->addNode(mesh->getNode(n3));
+                        tet_elem->addNode(mesh->getNode(n4));
+                        mesh->addElement(tet_elem);
+                    }
+                }
+                break;
+            }
+        }
+
+        logger.info("Import finished. Total: ", mesh->getNodes().size(), " nodes, ", mesh->getElements().size(), " elements.");
 
         if (mesh->getNodes().empty() || mesh->getElements().empty()) {
             throw Exception::FileIOException(
@@ -122,7 +133,7 @@ namespace IO {
 
         while (std::getline(file, line)) {
             if (line.find("$Nodes") != std::string::npos) {
-                std::getline(file, line); // Read the line with the number of nodes
+                std::getline(file, line);
                 long long num_nodes;
                 std::stringstream(line) >> num_nodes;
 
@@ -139,7 +150,7 @@ namespace IO {
                     internal_node_id_counter++;
                 }
             } else if (line.find("$Elements") != std::string::npos) {
-                std::getline(file, line); // Read the line with the number of elements
+                std::getline(file, line);
                 long long num_elements;
                 std::stringstream(line) >> num_elements;
 
@@ -150,7 +161,6 @@ namespace IO {
                     int elem_tag, elem_type, num_tags;
                     ss >> elem_tag >> elem_type >> num_tags;
 
-                    // Skip tags
                     for (int j = 0; j < num_tags; ++j) {
                         int tag;
                         ss >> tag;
@@ -164,17 +174,17 @@ namespace IO {
 
                     Core::Element *new_elem = nullptr;
                     switch (elem_type) {
-                        case 1: // 2-node line
+                        case 1:
                             if (node_ids.size() == 2) {
                                 new_elem = new Core::LineElement(element_id_counter++);
                             }
                             break;
-                        case 2: // 3-node triangle
+                        case 2:
                             if (node_ids.size() == 3) {
                                 new_elem = new Core::TriElement(element_id_counter++);
                             }
                             break;
-                        case 4: // 4-node tetrahedron
+                        case 4:
                             if (node_ids.size() == 4) {
                                 new_elem = new Core::TetElement(element_id_counter++);
                             }
@@ -216,19 +226,16 @@ namespace IO {
         bool in_correct_data_array = false;
 
         while (std::getline(file, line)) {
-            // Find the start of the correct DataArray
             if (line.find("<DataArray") != std::string::npos && line.find("Name=\"" + data_array_name + "\"") !=
                 std::string::npos) {
                 in_correct_data_array = true;
-                continue; // Move to the next line to start reading data
+                continue;
             }
 
-            // Find the end of the DataArray
             if (in_correct_data_array && line.find("</DataArray>") != std::string::npos) {
-                break; // Stop reading
+                break;
             }
 
-            // If we are in the correct block, parse the numbers
             if (in_correct_data_array) {
                 std::stringstream ss(line);
                 double value;
@@ -263,10 +270,9 @@ namespace IO {
         std::string current_data_array_name;
 
         while (std::getline(file, line)) {
-            // Find and read points
             if (line.find("<Points>") != std::string::npos) {
                 in_points_section = true;
-                std::getline(file, line); // Skip the <DataArray> line for points for now
+                std::getline(file, line);
             } else if (in_points_section && line.find("</Points>") != std::string::npos) {
                 in_points_section = false;
             } else if (in_points_section && line.find("<DataArray") == std::string::npos) {
@@ -276,7 +282,6 @@ namespace IO {
                 vtu_data.points.push_back({x, y, z});
             }
 
-            // Find and read specified data arrays
             for (const auto &name: data_array_names) {
                 if (line.find("<DataArray") != std::string::npos && line.find("Name=\"" + name + "\"") !=
                     std::string::npos) {

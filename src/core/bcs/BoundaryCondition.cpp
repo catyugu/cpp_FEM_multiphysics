@@ -2,10 +2,11 @@
 #include "core/DOFManager.hpp"
 #include "utils/SimpleLogger.hpp"
 #include <vector>
+#include <limits>
 
 namespace Core {
 
-// --- DirichletBC Implementation ---
+// --- DirichletBC Implementation (Direct Elimination Method) ---
 DirichletBC::DirichletBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd value, const std::string& tag)
     : BoundaryCondition(tag), value_(value) {
     equation_index_ = dof_manager.getEquationIndex(node_id, var_name);
@@ -17,35 +18,29 @@ void DirichletBC::apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) cons
         return;
     }
 
-    if (F.cols() != value_.size()) {
-        SimpleLogger::Logger::instance().error("DirichletBC: Number of load cases in F does not match the size of the value vector.");
-        return;
+    // For all other rows j, update the RHS: F(j) = F(j) - K(j, i) * value
+    // This must be done BEFORE zeroing out the column.
+    for (int j = 0; j < K.rows(); ++j) {
+        if (j == equation_index_) continue;
+        F(j, 0) -= K.coeff(j, equation_index_) * value_(0);
     }
 
-    // Modify the RHS matrix for each load case
-    for (int j = 0; j < K.outerSize(); ++j) {
-        if (j == equation_index_) continue;
-        double k_ji = K.coeff(j, equation_index_);
-        if (k_ji != 0.0) {
-            for (int col = 0; col < F.cols(); ++col) {
-                F(j, col) -= k_ji * value_(col);
+    // Zero out the row and column corresponding to the boundary condition.
+    // This is a robust way to do it for a sparse matrix.
+    for (int k=0; k<K.outerSize(); ++k) {
+        for (Eigen::SparseMatrix<double>::InnerIterator it(K,k); it; ++it)
+        {
+            if(it.row() == equation_index_ || it.col() == equation_index_) {
+                it.valueRef() = 0;
             }
         }
     }
 
-    // Zero out the row and column in the stiffness matrix
-    for (int k = 0; k < K.outerSize(); ++k) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(K, k); it; ++it) {
-            if (it.row() == equation_index_) it.valueRef() = 0.0;
-        }
-    }
-    for (Eigen::SparseMatrix<double>::InnerIterator it(K, equation_index_); it; ++it) {
-        it.valueRef() = 0.0;
-    }
-
-    // Set the diagonal element to 1 and the RHS to the desired value
+    // Set the diagonal element to 1 and the RHS to the prescribed value.
     K.coeffRef(equation_index_, equation_index_) = 1.0;
-    F.row(equation_index_) = value_;
+    F(equation_index_, 0) = value_(0);
+
+    // It's good practice to prune the matrix of explicit zeros.
     K.prune(0.0);
 }
 
@@ -86,12 +81,7 @@ void CauchyBC::apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const {
         return;
     }
 
-    // The modification to the stiffness matrix K is often independent of the load case,
-    // assuming 'h' is constant across them. If 'h' can vary per load case, this would need
-    // a more complex solver structure. Here, we assume an average or primary 'h' value.
-    K.coeffRef(equation_index_, equation_index_) += h_(0); // Using the first value as representative
-
-    // Modify the RHS for each load case
+    K.coeffRef(equation_index_, equation_index_) += h_(0);
     for (int i = 0; i < F.cols(); ++i) {
         F(equation_index_, i) += h_(i) * T_inf_(i);
     }

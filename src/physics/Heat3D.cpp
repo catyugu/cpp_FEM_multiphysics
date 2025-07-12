@@ -2,6 +2,7 @@
 #include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "utils/Quadrature.hpp"
+#include "utils/Exceptions.hpp"
 
 namespace Physics {
 
@@ -21,6 +22,7 @@ void Heat3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
 
     size_t num_eq = dof_manager_->getNumEquations();
     K_.resize(num_eq, num_eq);
+    M_.resize(num_eq, num_eq);
     F_.resize(num_eq, 1);
     U_.resize(num_eq, 1);
     U_prev_.resize(num_eq, 1);
@@ -32,22 +34,32 @@ void Heat3D::assemble() {
     logger.info("Assembling system for ", getName());
 
     K_.setZero();
-    F_.setZero();
+    M_.setZero();
+    // F_ is handled by applySources()
 
-    // Material matrix for 3D isotropic heat conduction
     Eigen::Matrix3d D = Eigen::Matrix3d::Identity() * k_;
+    const double rho_cp = material_.getProperty("density") * material_.getProperty("specific_heat");
 
-    std::vector<Eigen::Triplet<double>> triplet_list;
+    std::vector<Eigen::Triplet<double>> k_triplets;
+    std::vector<Eigen::Triplet<double>> m_triplets;
     auto quadrature_points = Utils::Quadrature::getTetrahedronQuadrature(element_order_);
 
+    int valid_elements_found = 0;
     for (const auto& elem_ptr : mesh_->getElements()) {
         auto* tet_elem = dynamic_cast<Core::TetElement*>(elem_ptr);
         if (tet_elem) {
+            valid_elements_found++;
             Eigen::Matrix4d ke_local = Eigen::Matrix4d::Zero();
+            Eigen::Matrix4d me_local = Eigen::Matrix4d::Zero();
+            double detJ = tet_elem->getVolume() * 6.0;
+
             for(const auto& qp : quadrature_points) {
                 auto B = tet_elem->getBMatrix();
-                double detJ = tet_elem->getVolume() * 6.0;
                 ke_local += B.transpose() * D * B * qp.weight * detJ;
+
+                Eigen::Matrix<double, 1, 4> N;
+                N << 1.0 - qp.point(0) - qp.point(1) - qp.point(2), qp.point(0), qp.point(1), qp.point(2);
+                me_local += N.transpose() * rho_cp * N * qp.weight * detJ;
             }
 
             auto nodes = tet_elem->getNodes();
@@ -56,15 +68,27 @@ void Heat3D::assemble() {
                 dofs[i] = dof_manager_->getEquationIndex(nodes[i]->getId(), getVariableName());
             }
 
-            // Add element matrix to global matrix triplets
             for (int i = 0; i < 4; ++i) {
                 for (int j = 0; j < 4; ++j) {
-                    triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
+                    if (dofs[i] != -1 && dofs[j] != -1) {
+                        k_triplets.emplace_back(dofs[i], dofs[j], ke_local(i, j));
+                        m_triplets.emplace_back(dofs[i], dofs[j], me_local(i, j));
+                    }
                 }
             }
         }
     }
-    K_.setFromTriplets(triplet_list.begin(), triplet_list.end());
+
+    if (valid_elements_found == 0) {
+        throw Exception::ConfigurationException(
+            "Assembly failed for " + std::string(getName()) +
+            ": No valid elements (TetElement) were found in the mesh. Check if the mesh is a 3D volume mesh."
+        );
+    }
+
+    K_.setFromTriplets(k_triplets.begin(), k_triplets.end());
+    M_.setFromTriplets(m_triplets.begin(), m_triplets.end());
+
     logger.info("Assembly for ", getName(), " complete.");
 }
 

@@ -53,13 +53,14 @@ void Heat2D::assemble() {
         if (tri_elem) {
             Eigen::Matrix3d ke_local = Eigen::Matrix3d::Zero();
             Eigen::Matrix3d me_local = Eigen::Matrix3d::Zero();
+            double detJ = tri_elem->getArea() * 2.0; // Jacobian for triangle
 
             for (const auto& qp : quadrature_points) {
                 auto B = tri_elem->getBMatrix();
-                double detJ = tri_elem->getArea() * 2.0;
                 ke_local += B.transpose() * D * B * qp.weight * detJ;
 
                 Eigen::Matrix<double, 1, 3> N;
+                // Shape functions for a linear triangle in natural coordinates
                 N << 1.0 - qp.point(0) - qp.point(1), qp.point(0), qp.point(1);
                 me_local += N.transpose() * (rho * cp) * N * qp.weight * detJ;
             }
@@ -80,8 +81,6 @@ void Heat2D::assemble() {
     }
     K_.setFromTriplets(k_triplets.begin(), k_triplets.end());
     M_.setFromTriplets(m_triplets.begin(), m_triplets.end());
-
-    // THE FIX: The stabilization loop has been removed.
 
     logger.info("Assembly for ", getName(), " complete.");
 }

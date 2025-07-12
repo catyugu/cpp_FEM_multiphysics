@@ -43,15 +43,12 @@ namespace Physics {
         for (const auto& elem_ptr : mesh_->getElements()) {
             auto* tri_elem = dynamic_cast<Core::TriElement*>(elem_ptr);
             if (tri_elem) {
-
-;
-
                 double local_sigma = material_.getProperty("electrical_conductivity");
-
                 Eigen::Matrix3d ke_local = Eigen::Matrix3d::Zero();
+                double detJ = tri_elem->getArea() * 2.0;
+
                 for(const auto& qp : quadrature_points) {
                     auto B = tri_elem->getBMatrix();
-                    double detJ = tri_elem->getArea() * 2.0;
                     Eigen::Matrix2d D = Eigen::Matrix2d::Identity() * local_sigma;
                     ke_local += B.transpose() * D * B * qp.weight * detJ;
                 }
