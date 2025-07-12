@@ -4,7 +4,7 @@
 #include "physics/Heat1D.hpp"
 #include "physics/Current2D.hpp"
 #include "physics/Heat2D.hpp"
-#include "core/LinearSolver.hpp"
+#include <solver/LinearSolver.hpp>
 #include "utils/SimpleLogger.hpp"
 
 namespace Solver {
@@ -25,7 +25,7 @@ namespace Solver {
         logger.info("--> Solving EMag Field (initial)...");
         emag_field->assemble();
         emag_field->applyBCs();
-        Core::LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHS(), emag_field->getSolution());
+        LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHS(), emag_field->getSolution());
 
         // Couple the fields for subsequent calculations
         if (auto *emag2d = dynamic_cast<Physics::Current2D *>(emag_field)) {
@@ -46,7 +46,7 @@ namespace Solver {
         logger.info("--> Solving Heat Field...");
         heat_field->assemble();
         heat_field->applyBCs();
-        Core::LinearSolver::solve(heat_field->getStiffnessMatrix(), heat_field->getRHS(), heat_field->getSolution());
+        LinearSolver::solve(heat_field->getStiffnessMatrix(), heat_field->getRHS(), heat_field->getSolution());
     }
 
     void CoupledElectroThermalSolver::solveTransient(Core::Problem& problem) {
@@ -64,7 +64,7 @@ namespace Solver {
             // 1. Solve EMag field based on previous temperature
             emag_field->assemble();
             emag_field->applyBCs();
-            Core::LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHS(), emag_field->getSolution());
+            LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHS(), emag_field->getSolution());
 
             // 2. Calculate Joule Heat and set as source for thermal problem
             std::vector<double> joule_heat;
@@ -86,7 +86,7 @@ namespace Solver {
             for (const auto &bc: heat_field->getBCs()) {
                 bc->apply(A_bc, b_bc);
             }
-            Core::LinearSolver::solve(A_bc, b_bc, heat_field->getSolution());
+            LinearSolver::solve(A_bc, b_bc, heat_field->getSolution());
 
             // 4. Update temperature for the next step
             heat_field->updatePreviousSolution();

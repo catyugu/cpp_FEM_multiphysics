@@ -1,5 +1,5 @@
 #include "core/Problem.hpp"
-#include "core/LinearSolver.hpp"
+#include <solver/LinearSolver.hpp>
 #include <core/mesh/Mesh.hpp>
 #include "core/DOFManager.hpp"
 #include "physics/PhysicsField.hpp"
@@ -40,7 +40,7 @@ namespace Core {
         if (solver_) {
             solver_->solveSteadyState(*this);
         } else {
-            throw ConfigurationException("Solver not initialized. Did you forget to call setup()?");
+            throw Exception::ConfigurationException("Solver not initialized. Did you forget to call setup()?");
         }
     }
 
@@ -48,7 +48,7 @@ namespace Core {
         if (solver_) {
             solver_->solveTransient(*this);
         } else {
-            throw ConfigurationException("Solver not initialized. Did you forget to call setup()?");
+            throw Exception::ConfigurationException("Solver not initialized. Did you forget to call setup()?");
         }
     }
 

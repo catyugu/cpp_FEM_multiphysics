@@ -78,32 +78,19 @@ cpp_FEM_multiphysics/
 
 -----
 
-## II. Future Development and Complex Requirements
+## II. Future Development Requirements
 
 The following are high-priority areas for future development.
 
-### 1\. Non-Linear Solver Implementation
+### 1\. Advanced Mesh IO
 
-* **Problem**: The current solver is linear (`LinearSolver` uses LU decomposition). It cannot handle non-linearities, such as temperature-dependent material properties that require iterative solutions.
-* **Requirement**: Implement a **Newton-Raphson** iterative solver strategy.
+* **Problem**: The `Importer` and `Exporter` only supports a specific COMSOL text format and scalar output.
+* **Requirement**: Enhance the framework to support more complex geometries.
 * **Tasks**:
-    1.  Create a new `NonLinearSolver` strategy that inherits from `Core::Solver`.
-    2.  This solver will need to implement a loop that, at each iteration, re-assembles the tangent stiffness matrix (`K`) and the residual vector (`F`) based on the previous solution step.
-    3.  The `Material` class already supports temperature-dependent properties. The assembly process inside the physics classes must use this feature within the non-linear loop.
-    4.  Implement convergence criteria based on the norm of the residual or the solution increment, using the parameters `max_iterations_` and `convergence_tolerance_` from the `Problem` class.
+    1.  **Importer Upgrade**: Edit the class `Importer` that can read `.msh` files from the popular open-source mesher Gmsh. This will involve parsing its file format for nodes, elements (lines, triangles, tets), and physical groups (for assigning boundaries).
+    2.  **Exporter Upgrade**: Edit the class `Exporter` that can write `.vtk` files for visualization. This will involve writing the node coordinates and element connectivity.
 
-### 2\. Advanced Meshing and Element Types
-
-* **Problem**: The current mesh generators create simple uniform grids (`create_uniform_1d_mesh`, etc.). The `Importer` only supports a specific COMSOL text format.
-* **Requirement**: Enhance the framework to support more complex geometries and higher-order elements.
-* **Tasks**:
-    1.  **Gmsh Integration**: Edit the class `Importer` that can read `.msh` files from the popular open-source mesher Gmsh. This will involve parsing its file format for nodes, elements (lines, triangles, tets), and physical groups (for assigning boundaries).
-    2.  **Higher-Order Elements**: Implement quadratic element classes (e.g., `Tri6Element`, `Tet10Element`) that inherit from `Core::Element`. This will require:
-        * Updating the element classes to store the correct number of nodes.
-        * Implementing shape functions and their derivatives for these new elements.
-        * Modifying the assembly loop in physics classes to use numerical integration (Gaussian quadrature) to compute the element matrices, as the B-matrix will no longer be constant over the element.
-
-### 3\. New Physics: 2D Magnetic
+### 2\. New Physics: 2D Magnetic
 
 * **Problem**: The framework currently handles thermal and electromagnetic physics.
 * **Requirement**: Add a new physics module for **2D Magnetic field**.
@@ -113,7 +100,7 @@ The following are high-priority areas for future development.
     3.  **New Material Properties**: The `Material` class needs to support properties needed for the .
     4.  **New Element Formulation**: The `assemble` method in the new solid mechanics classes will compute the element stiffness matrix `k_e = integral(B^T * D * B) dV`, where `B` is the strain-displacement matrix and `D` is the constitutive matrix (stress-strain relationship).
 
-### 4\. Implement Adaptive Mesh Refinement (AMR)
+### 3\. Implement Adaptive Mesh Refinement (AMR)
 
 * **Problem**: Implement a posteriori error estimation and an adaptive mesh refinement loop to automatically improve solution accuracy in regions with high error gradients.
 

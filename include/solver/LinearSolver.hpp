@@ -6,7 +6,7 @@
 #include "utils/SimpleLogger.hpp"
 #include "utils/Exceptions.hpp"
 
-namespace Core {
+namespace Solver {
 
     class LinearSolver {
     public:
@@ -18,19 +18,19 @@ namespace Core {
             Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
             solver.compute(A);
             if(solver.info() != Eigen::Success) {
-                throw SolverException("LU decomposition failed.");
+                throw Exception::SolverException("LU decomposition failed.");
             }
 
             x = solver.solve(b);
             if(solver.info() != Eigen::Success) {
-                throw SolverException("The solve step failed.");
+                throw Exception::SolverException("The solve step failed.");
             }
 
             logger.info("Linear solve successful.");
         }
     };
 
-} // namespace Core
+} // namespace Solver
 
 
 #endif // LINEARSOLVER_HPP

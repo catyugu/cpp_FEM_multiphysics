@@ -84,13 +84,13 @@ int main() {
     SimpleLogger::Logger::instance().set_loglevel(SimpleLogger::LogLevel::info);
     try {
         run_comsol_circle_steadystate();
-    } catch (const Core::FileIOException& e) {
+    } catch (const Exception::FileIOException& e) {
         SimpleLogger::Logger::instance().error("A file I/O error occurred: ", e.what());
         return 1;
-    } catch (const Core::SolverException& e) {
+    } catch (const Exception::SolverException& e) {
         SimpleLogger::Logger::instance().error("A solver error occurred: ", e.what());
         return 1;
-    } catch (const Core::ConfigurationException& e) {
+    } catch (const Exception::ConfigurationException& e) {
         SimpleLogger::Logger::instance().error("A configuration error occurred: ", e.what());
         return 1;
     }

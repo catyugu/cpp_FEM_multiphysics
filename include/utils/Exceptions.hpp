@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace Core {
+namespace Exception {
 
     class FileIOException : public std::runtime_error {
     public:

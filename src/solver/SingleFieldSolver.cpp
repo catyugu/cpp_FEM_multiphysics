@@ -1,6 +1,6 @@
 #include "solver/SingleFieldSolver.hpp"
 #include "core/Problem.hpp"
-#include "core/LinearSolver.hpp"
+#include <solver/LinearSolver.hpp>
 #include "physics/PhysicsField.hpp"
 #include "utils/SimpleLogger.hpp"
 
@@ -15,7 +15,7 @@ namespace Solver {
             logger.info("Solving for field: ", field->getName());
             field->assemble();
             field->applyBCs();
-            Core::LinearSolver::solve(field->getStiffnessMatrix(), field->getRHS(), field->getSolution());
+            LinearSolver::solve(field->getStiffnessMatrix(), field->getRHS(), field->getSolution());
         }
     }
 
@@ -40,7 +40,7 @@ namespace Solver {
                 bc->apply(A_bc, b_bc);
             }
 
-            Core::LinearSolver::solve(A_bc, b_bc, field->getSolution());
+            LinearSolver::solve(A_bc, b_bc, field->getSolution());
             field->updatePreviousSolution();
         }
     }

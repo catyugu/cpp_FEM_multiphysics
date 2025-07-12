@@ -17,7 +17,7 @@ std::unique_ptr<Core::Mesh> Importer::read_comsol_mphtxt(const std::string& file
 
     std::ifstream file(filename);
     if (!file.is_open()) {
-        throw Core::FileIOException("Failed to open mesh file: " + filename);
+        throw Exception::FileIOException("Failed to open mesh file: " + filename);
     }
 
     auto mesh = std::make_unique<Core::Mesh>();
@@ -96,7 +96,7 @@ std::unique_ptr<Core::Mesh> Importer::read_comsol_mphtxt(const std::string& file
     logger.info("Import finished. Total: ", mesh->getNodes().size(), " nodes, ", mesh->getElements().size(), " elements.");
 
     if (mesh->getNodes().empty() || mesh->getElements().empty()) {
-        throw Core::FileIOException("The importer did not read any valid mesh data. Please check the .mphtxt file format and content.");
+        throw Exception::FileIOException("The importer did not read any valid mesh data. Please check the .mphtxt file format and content.");
     }
 
     return mesh;

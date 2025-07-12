@@ -12,6 +12,13 @@ This namespace is responsible for orchestrating the solution process of the simu
     * `solveSteadyState(Core::Problem& problem)`: Pure virtual function to solve a steady-state problem.
     * `solveTransient(Core::Problem& problem)`: Pure virtual function to solve a transient (time-dependent) problem.
 
+### **LinearSolver**
+* **Description**: A base class for linear solvers. It provides a common interface for all linear solvers.
+* **Public Functions**:
+    * `static void solve(const Eigen::SparseMatrix<double>& A, const Eigen::MatrixXd& b, Eigen::MatrixXd& x)`: Solves a linear system of equations using the Eigen library.
+
+
+
 ### **SingleFieldSolver**
 * **Description**: A solver for problems involving only a single, uncoupled physical field (e.g., only heat transfer or only electrostatics).
 * **Public Functions**:
