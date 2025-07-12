@@ -1,6 +1,12 @@
-# **C++ FEM Multiphysics Project: Contributor Onboarding Guide (Phase 2\)**
+Of course. It's crucial to leave a clear and up-to-date guide for the next developer. I have rewritten the `prompt.md` file to reflect the significant architectural improvements we've made and to outline the next exciting phase of development.
 
-Welcome to the next phase of the **C++ FEM Multiphysics** project\! This document serves as your guide to understanding the existing architecture, adhering to our coding practices, and tackling the next set of features. Our goal is to continue building a robust, scalable, and maintainable finite element analysis framework.
+Here is the new onboarding guide.
+
+-----
+
+# **C++ FEM Multiphysics Project: Contributor Onboarding Guide (Phase 3)**
+
+Welcome to the next phase of the **C++ FEM Multiphysics** project\! This document serves as your guide to our recently refactored architecture, our coding practices, and the next set of features. Our goal is to continue building a robust, scalable, and professional-grade finite element analysis framework.
 
 ## **I. Onboarding and Project Philosophy**
 
@@ -8,83 +14,109 @@ This project is a C++ implementation of the finite element method (FEM) designed
 
 We prioritize:
 
-* **Modularity**: Separating core logic from physics-specific implementations.
+* **Modularity**: Separating core logic from physics-specific implementations. Our refined `Coupling` and `SourceTerm` abstractions are prime examples of this principle in action.
 * **Clarity**: Writing self-documenting code with clear and consistent naming.
 * **Correctness**: Ensuring all implementations are backed by rigorous testing against analytical solutions or benchmarks.
-* **Safety**: Implementing robust error handling and exception safety.
-* **Extensibility**: Allowing new physics, element types, and solution strategies to be added easily.
+* **Safety**: Implementing robust error handling, exception safety, and safe resource management (e.g., our tag-based system for BCs and sources).
+* **Extensibility**: Allowing new features to be added easily.
 * **Testing**: All new features must be accompanied by comprehensive tests.
-* **Documentation**: All new code must be documented in the corresponding file in the docs/ folder.
+* **Documentation**: All new code must be documented in the corresponding file in the `docs/` folder.
 
 ## **II. Coding Guidelines and Practices**
 
 Adherence to these guidelines is essential for maintaining code quality and consistency.
 
-### **1\. Project Structure**
+### **1. Project Structure**
 
 The repository is organized into distinct directories. Please place new files in their appropriate locations.
 
-cpp\_FEM\_multiphysics/  
-├── CMakeLists.txt      \# Main build script  
-├── docs/               \# High-level documentation  
-├── include/            \# Header files (.hpp)  
-│   ├── core/           \# Core architectural components (Problem, Mesh, Solver)  
-│   ├── io/             \# Importer/Exporter utilities  
-│   ├── physics/        \# Physics-specific modules (Heat2D, Current1D)  
-│   └── utils/          \# General utilities (SimpleLogger, Exceptions)  
-├── src/                \# Source files (.cpp)  
-│   ├── core/  
-│   ├── io/  
-│   ├── physics/  
-│   └── main.cpp        \# Main application entry point  
-└── tests/              \# Google Test source files
+```
+cpp_FEM_multiphysics/
+├── CMakeLists.txt      # Main build script
+├── docs/               # High-level documentation
+├── include/            # Header files (.hpp)
+│   ├── core/           # Core components (Problem, Mesh, Material)
+│   │   ├── bcs/        # Boundary Condition classes
+│   │   ├── coupling/   # Coupling mechanism classes
+│   │   └── sources/    # SourceTerm classes
+│   ├── io/             # Importer/Exporter utilities
+│   ├── physics/        # Physics-specific modules (Heat2D, Current3D)
+│   └── utils/          # General utilities (Logger, Quadrature)
+├── src/                # Source files (.cpp)
+│   ├── core/
+│   │   ├── bcs/
+│   │   ├── coupling/
+│   │   └── sources/
+│   ├── io/
+│   ├── physics/
+│   ├── solver/
+│   └── main.cpp        # Main application entry point
+└── tests/              # Google Test source files
+```
 
-### **2\. C++ Language and Style**
+### **2. C++ Language and Style**
 
-* **C++ Standard**: The project uses **C++17**. Use C++17 features where they improve clarity and safety.
-* **Dependencies**: The primary dependencies are **Eigen** for linear algebra and **GTest** for testing.
+* **C++ Standard**: The project uses **C++17**.
+* **Dependencies**: **Eigen** for linear algebra and **GTest** for testing.
 * **Naming Conventions**:
-    * **Namespaces**: PascalCase (e.g., Core, Physics, IO). All code should reside within a namespace.
-    * **Classes/Structs**: PascalCase (e.g., DOFManager, TriElement).
-    * **Functions/Methods**: camelCase (e.g., getEquationIndex, solveSteadyState).
-    * **Member Variables**: snake\_case\_ with a trailing underscore (e.g., mesh\_, num\_equations\_). This is a strict project rule.
-    * **Local Variables**: snake\_case (e.g., k\_triplets, num\_steps).
+    * **Namespaces**: `PascalCase` (e.g., `Core`, `Physics`, `IO`).
+    * **Classes/Structs**: `PascalCase` (e.g., `DOFManager`, `TriElement`).
+    * **Functions/Methods**: `camelCase` (e.g., `getEquationIndex`, `solveSteadyState`).
+    * **Member Variables**: `snake_case_` with a trailing underscore. This is a strict project rule.
+    * **Local Variables**: `snake_case`.
 
-### **3\. Core Architectural Principles**
+## **III. Current Architecture Overview**
 
-* **Problem Class**: The Core::Problem class is the main orchestrator. It owns the mesh, DOF manager, and physics fields. It does **not** contain direct solving logic.
-* **Solver Strategy**: The actual solution logic is delegated to Solver objects (e.g., SingleFieldSolver, CoupledElectroThermalSolver). The correct solver is chosen by the SolverFactory.
-* **PhysicsField Abstraction**: All physics (e.g., thermal, electrical) must inherit from the Physics::PhysicsField base class. This class defines the interface for assembling matrices (K\_, M\_) and the RHS vector (F\_).
-* **Memory Management**: The project uses std::unique\_ptr to manage the lifetime of major components owned by the Problem class. Raw pointers are used within the Mesh class for nodes and elements, which are treated as non-owning containers.
+The framework has recently undergone significant refactoring to improve modularity and clarity. Understanding this new architecture is key.
 
-## **III. Future Development Requirements**
+* **Core Components**: The `Core::Problem` class orchestrates the simulation, owning the `Mesh`, `DOFManager`, and a collection of `PhysicsField` objects.
+
+* **Physics Abstraction (`PhysicsField`)**: This is the abstract base class for all physics. Its role is now clearly defined:
+
+    * `assemble()`: Assembles the stiffness (`K`) and mass (`M`) matrices only.
+    * `applySources()`: Assembles the force vector (`F`) by applying all registered `SourceTerm` objects.
+    * `applyBCs()`: Modifies the system matrices (`K` and `F`) according to the registered `BoundaryCondition` objects.
+
+* **Boundary and Source Abstractions**: We now make a clear distinction between conditions on the boundary and sources in the domain.
+
+    * **`BoundaryCondition`**: An interface for Dirichlet, Neumann, and Cauchy conditions applied at the boundaries.
+    * **`SourceTerm`**: A new, semantically correct interface for domain sources, like a volumetric heat source.
+    * **Tagging System**: Both `BoundaryCondition` and `SourceTerm` objects can be "tagged" with a string, allowing for safe, non-pointer-based removal (e.g., `removeSourcesByTag("joule_heating")`).
+
+* **Coupling Mechanism (`CouplingManager`, `ElectroThermalCoupling`)**: All physics-to-physics interaction logic is now fully encapsulated within classes derived from the `Coupling` interface. For example, `ElectroThermalCoupling::execute()` is responsible for calculating Joule heat and creating the appropriate `VolumetricSource` objects for the thermal field. The physics fields themselves are completely unaware of one another.
+
+* **Solver Strategy (`CoupledElectroThermalSolver`)**: The iterative solver has a refined and explicit workflow. In each iteration, it calls `assemble()`, `applySources()`, and `applyBCs()` in the correct order. It is also now responsible for stabilizing the system matrices for off-physics degrees of freedom just before calling the linear solver, ensuring a non-singular system.
+
+* **Numerical Integration (`Utils::Quadrature`)**: A new utility class provides Gauss quadrature points and weights for lines, triangles, and tetrahedra for integration orders 1 through 5. This is the foundation for our next major feature.
+
+## **IV. Future Development Requirements**
 
 The following are high-priority areas for the next development cycle. Please address them in the order presented.
 
-### **1\. Complete 3D Physics Capabilities**
+### **1. Implement 3D ElectroThermal Coupling**
 
-* **Goal**: Extend the framework to fully support 3D simulations for electromagnetics, matching the existing 3D heat transfer capabilities.
+* **Goal**: Implement the 3D electro-thermal coupling mechanism.
 * **Tasks**:
-    1. **Implement Current3D**: Create a Physics::Current3D class that inherits from PhysicsField. The primary variable will be "Voltage". The assemble method should compute the element stiffness matrix for TetElement using its getBMatrix() and getVolume() methods.
-    2. **Implement Magnetic3D**: Create a Physics::Magnetic3D class. The primary variable will be "MagneticPotential". The assembly will be similar to Current3D but will use magnetic permeability from the Material class.
-    3. **Validation Tests**: For both Current3D and Magnetic3D, create new test files in the /tests directory. Each test should solve a simple problem with a known analytical solution on a 3D mesh (e.g., a cube with fixed boundary conditions) to validate the implementation.
+    1.  **Implement `ElectroThermalCoupling`**: Create a new class `ElectroThermalCoupling` that inherits from `Coupling`. It should calculate Joule heating and create `VolumetricSource` objects for the thermal field.
+    2.  **Test**: Write comprehensive tests for the new `ElectroThermalCoupling` class, compare to the result from COMSOL, you may refer the [test_for_electro_thermal_linear_element.cpp](tests/test_for_electro_thermal_linear_element.cpp), which is the 2D case for the same model.
+### **1. Refactor `assemble` for Full Numerical Integration**
 
-### **2\. Code Health and Refactoring**
-
-* **Goal**: Improve code maintainability and remove obsolete code.
+* **Goal**: Leverage the new `Quadrature` utility and higher-order elements to perform true numerical integration.
 * **Tasks**:
-    1. **Review and Clean**: Perform a comprehensive review of all classes. Identify and remove any member variables, functions, or private helper methods that are no longer used or have been superseded by newer implementations.
-    2. **Consolidate Redundancy**: Look for opportunities to consolidate redundant code, especially within the assemble methods of the various PhysicsField classes.
+    1.  **Update `assemble` Methods**: Modify the `assemble` methods in all `PhysicsField` classes. Replace the simple `Area * B.transpose() * D * B` calculation with a proper integration loop that iterates over the quadrature points provided by `Utils::Quadrature`.
+    2.  **Jacobian Calculation**: Inside the loop, you will need to calculate the Jacobian of the transformation from natural to real coordinates and its determinant (`detJ`). The element stiffness matrix `ke` will be calculated by summing the contributions at each quadrature point: `ke += B.transpose() * D * B * qp.weight * detJ`.
 
-### **3\. Foundational Work for Higher-Order Elements**
+### **2. Implement Transient Coupled Solver**
 
-* **Goal**: Prepare the framework to support more advanced, higher-order (e.g., quadratic) finite elements. This will significantly improve solution accuracy without requiring extremely fine meshes.
+* **Goal**: The `CoupledElectroThermalSolver::solveTransient` method is currently a placeholder. It needs to be fully implemented.
 * **Tasks**:
-    1. **Element Degree Control**:
-        * Add a new integer member variable, element\_order\_, to the PhysicsField base class, with a corresponding setter (e.g., setElementOrder(int order)). The default value should be 1 (for linear elements).
-    2. **Numerical Integration Utilities**:
-        * Create a new utility class, Utils::Quadrature, to handle numerical integration.
-        * This class should provide static methods to get integration points (Gauss points) and their corresponding weights for different element types (e.g., getLineQuadrature(int order), getTriangleQuadrature(int order)). Initially, implement this for linear elements (order \= 1).
-    3. **Prepare for Higher-Order Shape Functions**:
-        * The current Element classes (e.g., TriElement, TetElement) assume simple linear behavior. While you do not need to implement full quadratic elements yet, refactor the assemble methods in the physics classes to use a numerical integration loop. This loop will iterate over the quadrature points provided by the new Quadrature utility.
-        * This change will replace the simple Area \* B^T \* D \* B calculation with a more general form: k\_e \= integral(B^T \* D \* B) dV, which is approximated by summing (B^T \* D \* B \* weight \* detJ) at each integration point. For now, with linear elements, the result will be the same, but the code structure will be ready for higher-order shape functions and their derivatives.
+    1.  **Time-Stepping Loop**: Implement the main loop that advances the simulation from t=0 to `total_time` in increments of `time_step`.
+    2.  **Coupling Iteration**: At each time step, you will likely need an inner iteration loop (similar to the steady-state solver) to converge the coupled physics.
+    3.  **Mass Matrix Term**: Correctly incorporate the mass matrix (`M`) and the solution from the previous time step (`U_prev_`) into the system of equations, typically using a time integration scheme like the backward Euler method: `(M/dt + K) * U_n = F + (M/dt) * U_{n-1}`.
+
+### **3. Documentation and Testing**
+
+* **Goal**: Maintain the high quality of the project.
+* **Tasks**:
+    1.  **Documentation**: Update the markdown files in the `docs/` folder to reflect the new higher-order element capabilities and transient solver.
+    2.  **Testing**: Create new validation tests in the `/tests` directory for the higher-order elements and the transient coupled solver. Compare the results against known analytical solutions or established benchmarks.
