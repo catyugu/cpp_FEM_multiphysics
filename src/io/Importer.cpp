@@ -1,7 +1,7 @@
 #include "io/Importer.hpp"
-#include "core/Mesh.hpp"
-#include "core/Node.hpp"
-#include "core/TriElement.hpp" // For 2D meshes
+#include <core/mesh/Mesh.hpp>
+#include <core/mesh/Node.hpp>
+#include <core/mesh/TriElement.hpp> // For 2D meshes
 #include "utils/SimpleLogger.hpp"
 #include "utils/Exceptions.hpp"
 #include <fstream>

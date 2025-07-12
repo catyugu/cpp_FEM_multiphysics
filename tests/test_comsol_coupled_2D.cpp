@@ -4,7 +4,7 @@
 
 #include "core/Problem.hpp"
 #include "core/Material.hpp"
-#include "core/BoundaryCondition.hpp"
+#include <core/bcs/BoundaryCondition.hpp>
 #include "physics/Current2D.hpp"
 #include "physics/Heat2D.hpp"
 #include "io/Importer.hpp"

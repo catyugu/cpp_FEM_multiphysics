@@ -82,11 +82,7 @@ cpp_FEM_multiphysics/
 
 The following are high-priority areas for future development.
 
-### 1\. Safety Optimization
-* **Problem** The prior developer didn't make the program robust enough for some edge cases, or error handling.
-* **Requirement**: Implement robust error handling and exception safety.
-
-### 2\. Non-Linear Solver Implementation
+### 1\. Non-Linear Solver Implementation
 
 * **Problem**: The current solver is linear (`LinearSolver` uses LU decomposition). It cannot handle non-linearities, such as temperature-dependent material properties that require iterative solutions.
 * **Requirement**: Implement a **Newton-Raphson** iterative solver strategy.
@@ -96,18 +92,18 @@ The following are high-priority areas for future development.
     3.  The `Material` class already supports temperature-dependent properties. The assembly process inside the physics classes must use this feature within the non-linear loop.
     4.  Implement convergence criteria based on the norm of the residual or the solution increment, using the parameters `max_iterations_` and `convergence_tolerance_` from the `Problem` class.
 
-### 3\. Advanced Meshing and Element Types
+### 2\. Advanced Meshing and Element Types
 
 * **Problem**: The current mesh generators create simple uniform grids (`create_uniform_1d_mesh`, etc.). The `Importer` only supports a specific COMSOL text format.
 * **Requirement**: Enhance the framework to support more complex geometries and higher-order elements.
 * **Tasks**:
-    1.  **Gmsh Integration**: Create a new `Importer` that can read `.msh` files from the popular open-source mesher Gmsh. This will involve parsing its file format for nodes, elements (lines, triangles, tets), and physical groups (for assigning boundaries).
+    1.  **Gmsh Integration**: Edit the class `Importer` that can read `.msh` files from the popular open-source mesher Gmsh. This will involve parsing its file format for nodes, elements (lines, triangles, tets), and physical groups (for assigning boundaries).
     2.  **Higher-Order Elements**: Implement quadratic element classes (e.g., `Tri6Element`, `Tet10Element`) that inherit from `Core::Element`. This will require:
         * Updating the element classes to store the correct number of nodes.
         * Implementing shape functions and their derivatives for these new elements.
         * Modifying the assembly loop in physics classes to use numerical integration (Gaussian quadrature) to compute the element matrices, as the B-matrix will no longer be constant over the element.
 
-### 4\. New Physics: 2D Magnetic
+### 3\. New Physics: 2D Magnetic
 
 * **Problem**: The framework currently handles thermal and electromagnetic physics.
 * **Requirement**: Add a new physics module for **2D Magnetic field**.
@@ -116,18 +112,8 @@ The following are high-priority areas for future development.
     2.  **DOFManager Update**: The `DOFManager` currently assumes one variable per node (e.g., "Temperature"). It must be updated to handle vector variables like displacement, registering "Displacement\_X", "Displacement\_Y", etc., for each node.
     3.  **New Material Properties**: The `Material` class needs to support properties needed for the .
     4.  **New Element Formulation**: The `assemble` method in the new solid mechanics classes will compute the element stiffness matrix `k_e = integral(B^T * D * B) dV`, where `B` is the strain-displacement matrix and `D` is the constitutive matrix (stress-strain relationship).
-    
-### 5\. Reconstruct the Coupling Machanism
 
-* **Problem**: The current coupling mechanism is manually registered and checked, it could be better if it can be registered as another high-level class.
-* **Requirement**: Create a new virtual `Coupling` class that manages the coupling between physics modules, and every type of coupling can inherit from it.
-* **Tasks**:
-    1.  **Coupling Registration**: Create a new `CouplingManager` class that manages the coupling between physics modules. It will register all physics modules and their coupling requirements.
-    2.  **Coupling Check**: It will check if the coupling requirements (e.g. corresponding params, and setup of single fields themselves etc.) are met, and throw an error if they are not.
-    3.  **Coupling Setup**: It will setup the coupling between physics modules, and throw an error if they are not compatible.
-    4.  **Solving**: The solving should still be done in the solver module. Make out a way to manage it gracefully
-
-### 6\. Implement Adaptive Mesh Refinement (AMR)
+### 4\. Implement Adaptive Mesh Refinement (AMR)
 
 * **Problem**: Implement a posteriori error estimation and an adaptive mesh refinement loop to automatically improve solution accuracy in regions with high error gradients.
 

@@ -1,4 +1,4 @@
-#include "core/BoundaryCondition.hpp"
+#include <core/bcs/BoundaryCondition.hpp>
 #include "core/DOFManager.hpp"
 #include "utils/SimpleLogger.hpp"
 #include <vector>

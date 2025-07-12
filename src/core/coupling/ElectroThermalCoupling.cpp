@@ -1,4 +1,4 @@
-#include "core/ElectroThermalCoupling.hpp"
+#include <core/coupling/ElectroThermalCoupling.hpp>
 #include "physics/Current1D.hpp"
 #include "physics/Heat1D.hpp"
 #include "physics/Current2D.hpp"

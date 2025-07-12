@@ -1,14 +1,14 @@
-#include "utils/SimpleLogger.hpp"
-#include "core/Problem.hpp"
-#include "core/Material.hpp"
-#include "core/BoundaryCondition.hpp"
-#include "physics/Heat2D.hpp"
-#include "io/Importer.hpp"
-#include "utils/Exceptions.hpp"
-#include <memory>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <vector>
+#include <core/bcs/BoundaryCondition.hpp>
+#include "core/Material.hpp"
+#include "core/Problem.hpp"
+#include "io/Importer.hpp"
+#include "physics/Heat2D.hpp"
+#include "utils/Exceptions.hpp"
+#include "utils/SimpleLogger.hpp"
 
 #undef max // Avoid conflict with std::numeric_limits<>::max() on Windows
 

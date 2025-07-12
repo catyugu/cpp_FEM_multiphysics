@@ -1,7 +1,7 @@
 #include "physics/Heat1D.hpp"
 #include "utils/SimpleLogger.hpp"
-#include "core/Element.hpp"
-#include "core/Node.hpp"
+#include <core/mesh/Element.hpp>
+#include <core/mesh/Node.hpp>
 
 namespace Physics {
 

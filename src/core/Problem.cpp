@@ -1,6 +1,6 @@
 #include "core/Problem.hpp"
 #include "core/LinearSolver.hpp"
-#include "core/Mesh.hpp"
+#include <core/mesh/Mesh.hpp>
 #include "core/DOFManager.hpp"
 #include "physics/PhysicsField.hpp"
 #include "solver/SolverFactory.hpp"

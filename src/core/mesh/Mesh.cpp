@@ -1,7 +1,7 @@
-#include "core/Mesh.hpp"
-#include "core/Element.hpp"      // Corrected: Includes LineElement
-#include "core/TriElement.hpp"
-#include "core/TetElement.hpp"
+#include <core/mesh/Mesh.hpp>
+#include <core/mesh/Element.hpp>      // Corrected: Includes LineElement
+#include <core/mesh/TriElement.hpp>
+#include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"
 
 namespace Core {

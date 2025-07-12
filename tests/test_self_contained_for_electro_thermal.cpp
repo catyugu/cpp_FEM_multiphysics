@@ -6,8 +6,8 @@
 
 #include "core/Problem.hpp"
 #include "core/Material.hpp"
-#include "core/BoundaryCondition.hpp"
-#include "core/ElectroThermalCoupling.hpp"
+#include <core/bcs/BoundaryCondition.hpp>
+#include "core/coupling/ElectroThermalCoupling.hpp"
 #include "physics/Heat1D.hpp"
 #include "physics/Heat2D.hpp"
 #include "physics/Heat3D.hpp"

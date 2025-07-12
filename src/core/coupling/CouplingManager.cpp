@@ -1,4 +1,4 @@
-#include "core/CouplingManager.hpp"
+#include <core/coupling/CouplingManager.hpp>
 #include "utils/SimpleLogger.hpp"
 
 namespace Core {

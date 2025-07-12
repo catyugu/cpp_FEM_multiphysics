@@ -1,4 +1,4 @@
-#include "core/Node.hpp"
+#include <core/mesh/Node.hpp>
 
 namespace Core {
 

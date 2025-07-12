@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 
-#include "CouplingManager.hpp"
+#include <core/coupling/CouplingManager.hpp>
 
 // Forward declarations
 namespace Core {

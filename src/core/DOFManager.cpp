@@ -1,6 +1,6 @@
 #include "core/DOFManager.hpp"
 #include "utils/SimpleLogger.hpp"
-#include "core/Node.hpp" // Required to get node details from the mesh
+#include <core/mesh/Node.hpp> // Required to get node details from the mesh
 
 namespace Core {
 

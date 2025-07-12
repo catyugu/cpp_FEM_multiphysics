@@ -1,7 +1,7 @@
 #include "io/Exporter.hpp"
 #include "core/Problem.hpp"
-#include "core/Node.hpp"
-#include "core/Element.hpp"
+#include <core/mesh/Node.hpp>
+#include <core/mesh/Element.hpp>
 #include "utils/SimpleLogger.hpp"
 #include <fstream>
 #include <iomanip>

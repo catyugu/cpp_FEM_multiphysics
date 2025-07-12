@@ -1,9 +1,9 @@
 #ifndef PHYSICSFIELD_HPP
 #define PHYSICSFIELD_HPP
 
-#include "core/Mesh.hpp"
+#include <core/mesh/Mesh.hpp>
 #include "core/DOFManager.hpp"
-#include "core/BoundaryCondition.hpp"
+#include <core/bcs/BoundaryCondition.hpp>
 #include <vector>
 #include <memory>
 #include <Eigen/Sparse>

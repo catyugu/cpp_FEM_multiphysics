@@ -1,7 +1,7 @@
 #ifndef DOFMANAGER_HPP
 #define DOFMANAGER_HPP
 
-#include "Mesh.hpp"
+#include "mesh/Mesh.hpp"
 #include <vector>
 #include <map>
 #include <string>

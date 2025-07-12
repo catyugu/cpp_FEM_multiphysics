@@ -1,6 +1,6 @@
 #include "physics/Current2D.hpp"
-#include "core/TriElement.hpp"
-#include "core/Node.hpp"
+#include <core/mesh/TriElement.hpp>
+#include <core/mesh/Node.hpp>
 #include "utils/SimpleLogger.hpp"
 #include <vector>
 

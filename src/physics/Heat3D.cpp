@@ -1,5 +1,5 @@
 #include "physics/Heat3D.hpp"
-#include "core/TetElement.hpp"
+#include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"
 
 namespace Physics {

@@ -1,4 +1,4 @@
-#include "core/TriElement.hpp"
+#include <core/mesh/TriElement.hpp>
 #include <stdexcept>
 
 namespace Core {
