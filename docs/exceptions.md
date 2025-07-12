@@ -1,4 +1,4 @@
-# **Exceptions**
+# **Exceptions Namespace**
 
 This document describes the custom exception classes used in the C++ FEM Multiphysics project.
 
