@@ -82,15 +82,7 @@ cpp_FEM_multiphysics/
 
 The following are high-priority areas for future development.
 
-### 1\. Advanced Mesh IO
-
-* **Problem**: The `Importer` and `Exporter` only supports a specific COMSOL text format and scalar output.
-* **Requirement**: Enhance the framework to support more complex geometries.
-* **Tasks**:
-    1.  **Importer Upgrade**: Edit the class `Importer` that can read `.msh` files from the popular open-source mesher Gmsh. This will involve parsing its file format for nodes, elements (lines, triangles, tets), and physical groups (for assigning boundaries).
-    2.  **Exporter Upgrade**: Edit the class `Exporter` that can write `.vtk` files for visualization. This will involve writing the node coordinates and element connectivity.
-
-### 2\. New Physics: 2D Magnetic
+### 1\. New Physics: 2D Magnetic
 
 * **Problem**: The framework currently handles thermal and electromagnetic physics.
 * **Requirement**: Add a new physics module for **2D Magnetic field**.
@@ -100,7 +92,7 @@ The following are high-priority areas for future development.
     3.  **New Material Properties**: The `Material` class needs to support properties needed for the .
     4.  **New Element Formulation**: The `assemble` method in the new solid mechanics classes will compute the element stiffness matrix `k_e = integral(B^T * D * B) dV`, where `B` is the strain-displacement matrix and `D` is the constitutive matrix (stress-strain relationship).
 
-### 3\. Implement Adaptive Mesh Refinement (AMR)
+### 2\. Implement Adaptive Mesh Refinement (AMR)
 
 * **Problem**: Implement a posteriori error estimation and an adaptive mesh refinement loop to automatically improve solution accuracy in regions with high error gradients.
 

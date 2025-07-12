@@ -24,6 +24,13 @@ namespace IO {
          * @return A unique_ptr to the newly created Mesh object, or nullptr on failure.
          */
         static std::unique_ptr<Core::Mesh> read_comsol_mphtxt(const std::string& filename);
+        /**
+         * @brief Reads a mesh from a GMSH .msh file.
+         * This parser expects a specific format containing vertex coordinates and triangular elements.
+         * @param filename The path to the input .msh file.
+         * @return A unique_ptr to the newly created Mesh object, or nullptr on failure.
+         */
+        std::unique_ptr<Core::Mesh> Importer::read_gmsh_msh(const std::string& filename);
     };
 
 } // namespace IO

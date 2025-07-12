@@ -8,6 +8,7 @@
 #include "core/Material.hpp"
 #include <core/bcs/BoundaryCondition.hpp>
 #include "core/coupling/ElectroThermalCoupling.hpp"
+#include "physics/Magnetic2D.hpp"
 #include "physics/Heat1D.hpp"
 #include "physics/Heat2D.hpp"
 #include "physics/Heat3D.hpp"
@@ -370,4 +371,60 @@ TEST_F(ComsolBenchmarkTest, CoupledBusbarVsComsol) {
     SimpleLogger::Logger::instance().info("Our FEM Max Temperature: ", fem_max_temp, " K");
 
     ASSERT_NEAR(fem_max_temp, COMSOL_MAX_TEMP, COMSOL_MAX_TEMP * 0.01);
+}
+
+class Magnetic2DTest : public ::testing::Test {
+protected:
+    std::unique_ptr<Core::Problem> problem;
+    Core::Material air{"Air"};
+
+    void SetUp() override {
+        // Define material properties for air
+        air.setProperty("magnetic_permeability", 4.0 * EIGEN_PI * 1e-7); // mu_0
+
+        // Create a simple 2D mesh
+        auto mesh = std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_2d_mesh(1.0, 1.0, 10, 10));
+        problem = std::make_unique<Core::Problem>(std::move(mesh));
+
+        // Add the magnetic field
+        problem->addField(std::make_unique<Physics::Magnetic2D>(air));
+
+        problem->setup();
+    }
+};
+
+TEST_F(Magnetic2DTest, SolenoidField) {
+    auto* magnetic_field = problem->getField("MagneticPotential");
+    ASSERT_NE(magnetic_field, nullptr);
+
+    auto& dof_manager = problem->getDofManager();
+    const auto& mesh_ref = problem->getMesh();
+
+    // Apply boundary conditions to simulate a solenoid
+    // For simplicity, we'll set the potential on the boundaries
+    // to mimic a uniform magnetic field.
+    for (const auto& node : mesh_ref.getNodes()) {
+        const auto& coords = node->getCoords();
+        if (std::abs(coords[0] - 0.0) < 1e-9) { // Left edge
+            magnetic_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "MagneticPotential", Eigen::Vector<double, 1>(0.0)));
+        } else if (std::abs(coords[0] - 1.0) < 1e-9) { // Right edge
+             magnetic_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "MagneticPotential", Eigen::Vector<double, 1>(0.1)));
+        }
+    }
+
+    // Solve the problem
+    ASSERT_NO_THROW(problem->solveSteadyState());
+
+    // Export results for visualization
+    problem->exportResults("results_magnetic_2D.vtk");
+
+    // Basic validation: Check that the potential varies linearly
+    const auto& solution = magnetic_field->getSolution();
+    for (const auto& node : mesh_ref.getNodes()) {
+        const auto& coords = node->getCoords();
+        double x = coords[0];
+        double analytical_A = 0.1 * x; // Linear potential
+        double fem_A = solution(dof_manager.getEquationIndex(node->getId(), "MagneticPotential"));
+        ASSERT_NEAR(fem_A, analytical_A, 1e-9);
+    }
 }

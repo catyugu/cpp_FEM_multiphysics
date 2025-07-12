@@ -10,15 +10,14 @@
 * **Multiphysics Support**:
     * **Heat Transfer**: Solves 1D, 2D, and 3D steady-state and transient heat conduction problems.
     * **Electromagnetics**: Simulates 1D and 2D current distribution (Voltage).
+    * **Magnetostatics**: Solves 2D magnetostatic problems using the magnetic vector potential.
     * **Coupled Physics**: Handles strongly coupled electro-thermal problems where electrical conductivity is temperature-dependent and Joule heating acts as a thermal source.
 * **Modern C++**: Built using C++17 features for clean, efficient, and maintainable code.
 * **Advanced Solvers**: Utilizes the powerful **Eigen** library for sparse linear algebra and provides a `SolverFactory` to select the appropriate solution strategy (single-field vs. coupled).
 * **Flexible Boundary Conditions**: Supports Dirichlet (fixed value), Neumann (flux), and Cauchy (mixed/convection) boundary conditions.
-* **Mesh Handling**: Includes built-in generators for uniform 1D, 2D, and 3D meshes and an importer for COMSOL's `.mphtxt` file format.
+* **Mesh Handling**: Includes built-in generators for uniform 1D, 2D, and 3D meshes and importers for COMSOL's `.mphtxt` and **Gmsh's `.msh`** file formats.
 * **Testing**: A comprehensive test suite using GoogleTest verifies the correctness of individual components and coupled simulations.
-* **Exporting**: Exports results to `.vtk` files for visualization in standard tools like ParaView or VisIt.
-
------
+* **Exporting**: Exports results to `.vtk` files for visualization in standard tools like ParaView or VisIt, supporting both nodal and cell data.
 
 ## Project Structure
 

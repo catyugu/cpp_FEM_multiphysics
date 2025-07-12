@@ -113,3 +113,14 @@ This namespace contains the specific implementations for different physical simu
 * **Private Members**:
   * `material_`: A constant reference to the `Core::Material` object (`const Core::Material&`).
   * `k_`: Thermal conductivity (`double`).
+
+### **Magnetic2D**
+* **Description**: Implements the `assemble` method for 2D Magnetostatics. The formulation uses the magnetic vector potential, `A_z`, as the primary unknown.
+* **Public Functions**:
+  * `Magnetic2D(const Core::Material& material)`: Constructor that takes a material object.
+  * `getName() const override`: Returns "Magnetic Field 2D".
+  * `getVariableName() const override`: Returns "MagneticPotential".
+  * `setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) override`: Sets up the 2D magnetic field.
+  * `assemble() override`: Assembles the system matrices for the 2D magnetic field based on the equation ∇ ⋅ ( (1/μ) ∇A_z ) = -J_z.
+* **Private Members**:
+  * `material_`: A constant reference to the `Core::Material` object (`const Core::Material&`).
