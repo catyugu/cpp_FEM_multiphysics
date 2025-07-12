@@ -6,32 +6,22 @@ This namespace is responsible for orchestrating the solution process of the simu
 ## **Classes**
 
 ### **Solver**
-* **Description**: This is an **interface** that defines the common structure for all solver implementations. It ensures that any solver can be used interchangeably by the main `Problem` class.
-* **Public Functions**:
-    * `~Solver()`: Virtual destructor.
-    * `solveSteadyState(Core::Problem& problem)`: Pure virtual function to solve a steady-state problem.
-    * `solveTransient(Core::Problem& problem)`: Pure virtual function to solve a transient (time-dependent) problem.
+* **Description**: An **interface** that defines the common structure for all solver implementations.
 
 ### **LinearSolver**
-* **Description**: A base class for linear solvers. It provides a common interface for all linear solvers.
-* **Public Functions**:
-    * `static void solve(const Eigen::SparseMatrix<double>& A, const Eigen::MatrixXd& b, Eigen::MatrixXd& x)`: Solves a linear system of equations using the Eigen library.
-
-
+* **Description**: A static utility class that solves a linear system of equations using the Eigen library.
 
 ### **SingleFieldSolver**
-* **Description**: A solver for problems involving only a single, uncoupled physical field (e.g., only heat transfer or only electrostatics).
-* **Public Functions**:
-    * `solveSteadyState(Core::Problem& problem) override`: Solves the steady-state system of equations for each physics field independently.
-    * `solveTransient(Core::Problem& problem) override`: Solves the transient system of equations for a single physics field using a time-stepping scheme.
+* **Description**: A solver for problems involving only a single, uncoupled physical field. Its workflow is to call `assemble()`, `applySources()`, and `applyBCs()` for each field before solving.
 
 ### **CoupledElectroThermalSolver**
-* **Description**: A solver specifically designed for bidirectionally coupled electro-thermal problems, where electrical properties depend on temperature and Joule heating from the electrical field acts as a source for the thermal field.
-* **Public Functions**:
-    * `solveSteadyState(Core::Problem& problem) override`: Solves the steady-state coupled problem. It first solves the electric field, calculates the resulting Joule heat, and then uses that as a source to solve the heat transfer field.
-    * `solveTransient(Core::Problem& problem) override`: Solves the time-dependent coupled problem. At each time step, it iteratively solves the electrical and thermal fields, updating material properties and heat sources until convergence is reached.
+* **Description**: A solver for bidirectionally coupled electro-thermal problems. It uses an iterative approach to find a converged solution between the electric and thermal fields.
+* **Workflow**:
+  1.  Solves the electric field system.
+  2.  Delegates to a `Coupling` object (e.g., `ElectroThermalCoupling`) to calculate the Joule heat and create the appropriate `SourceTerm` objects.
+  3.  Solves the thermal field, which now includes the heat sources from the coupling step.
+  4.  Repeats this process until the temperature solution converges.
+  5.  It is responsible for stabilizing the system matrix of each field for the degrees of freedom of the *other* field during the solve.
 
 ### **SolverFactory**
-* **Description**: A factory class that creates and returns the appropriate solver object based on the physics fields present in the `Problem`.
-* **Public Functions**:
-    * `createSolver(const Core::Problem& problem)`: A static method that inspects the problem's fields. It returns a `CoupledElectroThermalSolver` if both "Voltage" and "Temperature" fields are present; otherwise, it returns a `SingleFieldSolver`.
+* **Description**: A factory class that creates the appropriate solver (`SingleFieldSolver` or `CoupledElectroThermalSolver`) based on the physics fields present in the `Problem`.
