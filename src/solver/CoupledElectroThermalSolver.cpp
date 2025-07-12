@@ -1,135 +1,96 @@
-//
-// Created by HUAWEI on 2025/7/11.
-//
-
 #include "solver/CoupledElectroThermalSolver.hpp"
-
-#include <physics/Current1D.hpp>
-#include <physics/Heat1D.hpp>
-
+#include "core/Problem.hpp"
+#include "physics/Current1D.hpp"
+#include "physics/Heat1D.hpp"
 #include "physics/Current2D.hpp"
 #include "physics/Heat2D.hpp"
 #include "core/LinearSolver.hpp"
 #include "utils/SimpleLogger.hpp"
 
-using namespace Core;
-
 namespace Solver {
-    void CoupledElectroThermalSolver::solveSteadyState(Problem& problem) {
+    void CoupledElectroThermalSolver::solveSteadyState(Core::Problem& problem) {
         auto &logger = SimpleLogger::Logger::instance();
         logger.info("\n--- Solving Coupled Electro-Thermal Problem ---");
 
-        auto *emag_field_base = dynamic_cast<Physics::Current2D *>(problem.getField("Voltage"));
-        auto *heat_field_base = dynamic_cast<Physics::Heat2D *>(problem.getField("Temperature"));
-        if (auto *emag1d = dynamic_cast<Physics::Current1D *>(emag_field_base)) {
-            if (auto *heat1d = dynamic_cast<Physics::Heat1D *>(heat_field_base)) {
-                emag1d->setCoupledHeatField(heat_field_base);
-            }else {
-                logger.error("Dimensions of the fields must be the same!");
-                return;
-            }
-        } else if (auto *emag2d = dynamic_cast<Physics::Current2D *>(emag_field_base)) {
-            if (auto *heat1d = dynamic_cast<Physics::Heat2D *>(heat_field_base)) {
-                emag2d->setCoupledHeatField(heat_field_base);
-            }else {
-                logger.error("Dimensions of the fields must be the same!");
-                return;
-            }
-        } else {
-            logger.error("Unsupported field type for Coupled Electro-Thermal Solver.");
-            return;
+        auto *emag_field = problem.getField("Voltage");
+        auto *heat_field = problem.getField("Temperature");
+
+        // Uncouple for the first solve to use default temperature
+        if (auto *emag2d = dynamic_cast<Physics::Current2D *>(emag_field)) {
+            emag2d->setCoupledHeatField(nullptr);
+        } else if (auto *emag1d = dynamic_cast<Physics::Current1D *>(emag_field)) {
+            emag1d->setCoupledHeatField(nullptr);
         }
-        // 1. Ensure the heat field is unlinked before the first EMag solve.
-        //    This forces EMag2D::assemble to use a default temperature, preventing a crash.
-        emag_field_base->setCoupledHeatField(nullptr);
 
-        // 2. Solve the EMag field first.
-        logger.info("--> Solving EMag Field (assuming constant properties)...");
-        emag_field_base->assemble();
-        emag_field_base->applyBCs();
-        LinearSolver::solve(emag_field_base->getStiffnessMatrix(), emag_field_base->getRHS(), emag_field_base->getSolution());
+        logger.info("--> Solving EMag Field (initial)...");
+        emag_field->assemble();
+        emag_field->applyBCs();
+        Core::LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHS(), emag_field->getSolution());
 
-        // 3. Calculate Joule heat based on the solved voltage distribution
-        //    and set it as the source for the thermal problem.
-        auto joule_heat = emag_field_base->calculateJouleHeat();
-        heat_field_base->setVolumetricHeatSource(joule_heat);
+        // Couple the fields for subsequent calculations
+        if (auto *emag2d = dynamic_cast<Physics::Current2D *>(emag_field)) {
+            emag2d->setCoupledHeatField(heat_field);
+        } else if (auto *emag1d = dynamic_cast<Physics::Current1D *>(emag_field)) {
+            emag1d->setCoupledHeatField(heat_field);
+        }
 
-        // 4. Solve the Heat field with the calculated heat source.
+        std::vector<double> joule_heat;
+        if (auto *emag1d = dynamic_cast<Physics::Current1D *>(emag_field)) {
+            joule_heat = emag1d->calculateJouleHeat();
+            dynamic_cast<Physics::Heat1D*>(heat_field)->setVolumetricHeatSource(joule_heat);
+        } else if (auto *emag2d = dynamic_cast<Physics::Current2D *>(emag_field)) {
+            joule_heat = emag2d->calculateJouleHeat();
+            dynamic_cast<Physics::Heat2D*>(heat_field)->setVolumetricHeatSource(joule_heat);
+        }
+
         logger.info("--> Solving Heat Field...");
-        heat_field_base->assemble();
-        heat_field_base->applyBCs();
-        LinearSolver::solve(heat_field_base->getStiffnessMatrix(), heat_field_base->getRHS(), heat_field_base->getSolution());
+        heat_field->assemble();
+        heat_field->applyBCs();
+        Core::LinearSolver::solve(heat_field->getStiffnessMatrix(), heat_field->getRHS(), heat_field->getSolution());
     }
 
-    void CoupledElectroThermalSolver::solveTransient(Problem& problem) {
+    void CoupledElectroThermalSolver::solveTransient(Core::Problem& problem) {
         auto &logger = SimpleLogger::Logger::instance();
-        logger.info("\n--- Starting Transient Solve ---");
+        logger.info("\n--- Starting Coupled Transient Solve ---");
         logger.info("Time Step: ", problem.getTimeStep(), "s, Total Time: ", problem.getTotalTime(), "s");
 
-        auto *emag_field_base = problem.getField("Voltage");
-        auto *heat_field_base = problem.getField("Temperature");
+        auto *emag_field = problem.getField("Voltage");
+        auto *heat_field = problem.getField("Temperature");
 
-        if (emag_field_base && heat_field_base) {
-            logger.info("\n--- Solving Coupled Transient Problem ---");
+        int num_steps = static_cast<int>(problem.getTotalTime() / problem.getTimeStep());
+        for (int i = 0; i < num_steps; ++i) {
+            logger.info("Time Step ", i + 1, " / ", num_steps, ", Time = ", (i + 1) * problem.getTimeStep(), "s");
 
-            // --- FIX: Implement the full coupled transient loop ---
-            if (auto *emag1d = dynamic_cast<Physics::Current1D *>(emag_field_base)) {
-                if (auto *heat1d = dynamic_cast<Physics::Heat1D *>(heat_field_base)) {
-                    emag1d->setCoupledHeatField(heat_field_base);
-                }else {
-                    logger.error("Dimensions of the fields must be the same!");
-                    return;
-                }
-            } else if (auto *emag2d = dynamic_cast<Physics::Current2D *>(emag_field_base)) {
-                if (auto *heat1d = dynamic_cast<Physics::Heat2D *>(heat_field_base)) {
-                    emag2d->setCoupledHeatField(heat_field_base);
-                }else {
-                    logger.error("Dimensions of the fields must be the same!");
-                    return;
-                }
-            } else {
-                logger.error("Unsupported field type for Coupled Electro-Thermal Solver.");
-                return;
+            // 1. Solve EMag field based on previous temperature
+            emag_field->assemble();
+            emag_field->applyBCs();
+            Core::LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHS(), emag_field->getSolution());
+
+            // 2. Calculate Joule Heat and set as source for thermal problem
+            std::vector<double> joule_heat;
+            if (auto *emag1d = dynamic_cast<Physics::Current1D *>(emag_field)) {
+                joule_heat = emag1d->calculateJouleHeat();
+                dynamic_cast<Physics::Heat1D*>(heat_field)->setVolumetricHeatSource(joule_heat);
+            } else if (auto *emag2d = dynamic_cast<Physics::Current2D *>(emag_field)) {
+                joule_heat = emag2d->calculateJouleHeat();
+                dynamic_cast<Physics::Heat2D*>(heat_field)->setVolumetricHeatSource(joule_heat);
             }
 
-            int num_steps = static_cast<int>(problem.getTotalTime() / problem.getTimeStep());
-            for (int i = 0; i < num_steps; ++i) {
-                logger.info("Time Step ", i + 1, " / ", num_steps, ", Time = ", (i + 1) * problem.getTimeStep(), "s");
+            // 3. Solve Heat field for the current time step
+            heat_field->assemble();
+            Eigen::SparseMatrix<double> A = (heat_field->getMassMatrix() / problem.getTimeStep()) + heat_field->getStiffnessMatrix();
+            Eigen::MatrixXd b = heat_field->getRHS() + (heat_field->getMassMatrix() / problem.getTimeStep()) * heat_field->getPreviousSolution();
 
-                emag_field_base->assemble();
-                emag_field_base->applyBCs();
-                LinearSolver::solve(emag_field_base->getStiffnessMatrix(), emag_field_base->getRHS(),
-                                    emag_field_base->getSolution());
-
-                std::vector<double> joule_heat;
-                if (auto *emag1d = dynamic_cast<Physics::Current1D *>(emag_field_base)) {
-                    joule_heat = emag1d->calculateJouleHeat();
-                } else if (auto *emag2d = dynamic_cast<Physics::Current2D *>(emag_field_base)) {
-                    joule_heat = emag2d->calculateJouleHeat();
-                }
-
-                if (auto *heat1d = dynamic_cast<Physics::Heat1D *>(heat_field_base)) {
-                    heat1d->setVolumetricHeatSource(joule_heat);
-                } else if (auto *heat2d = dynamic_cast<Physics::Heat2D *>(heat_field_base)) {
-                    heat2d->setVolumetricHeatSource(joule_heat);
-                }
-
-                heat_field_base->assemble();
-                Eigen::SparseMatrix<double> A = (heat_field_base->getMassMatrix() / problem.getTimeStep()) + heat_field_base->
-                                                getStiffnessMatrix();
-                Eigen::MatrixXd b = heat_field_base->getRHS() + (heat_field_base->getMassMatrix() / problem.getTimeStep()) *
-                                    heat_field_base->getPreviousSolution();
-                auto A_bc = A;
-                auto b_bc = b;
-                for (const auto &bc: heat_field_base->getBCs()) {
-                    bc->apply(A_bc, b_bc);
-                }
-                LinearSolver::solve(A_bc, b_bc, heat_field_base->getSolution());
-                heat_field_base->updatePreviousSolution();
+            auto A_bc = A;
+            auto b_bc = b;
+            for (const auto &bc: heat_field->getBCs()) {
+                bc->apply(A_bc, b_bc);
             }
+            Core::LinearSolver::solve(A_bc, b_bc, heat_field->getSolution());
 
+            // 4. Update temperature for the next step
+            heat_field->updatePreviousSolution();
         }
+        logger.info("\n--- Transient Solve Finished ---");
     }
-
-
 } // Solver

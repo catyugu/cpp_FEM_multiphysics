@@ -37,7 +37,8 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 # 添加测试可执行文件
-add_executable(google_test tests/test_coupled_1d.cpp)
+file(GLOB_RECURSE TEST_SOURCES tests/*.cpp)
+add_executable(google_test ${TEST_SOURCES})
 target_include_directories(
         google_test
         PRIVATE

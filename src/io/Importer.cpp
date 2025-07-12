@@ -3,6 +3,7 @@
 #include "core/Node.hpp"
 #include "core/TriElement.hpp" // For 2D meshes
 #include "utils/SimpleLogger.hpp"
+#include "utils/Exceptions.hpp"
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -16,8 +17,7 @@ std::unique_ptr<Core::Mesh> Importer::read_comsol_mphtxt(const std::string& file
 
     std::ifstream file(filename);
     if (!file.is_open()) {
-        logger.error("Failed to open mesh file: ", filename);
-        return nullptr;
+        throw Core::FileIOException("Failed to open mesh file: " + filename);
     }
 
     auto mesh = std::make_unique<Core::Mesh>();
@@ -96,8 +96,7 @@ std::unique_ptr<Core::Mesh> Importer::read_comsol_mphtxt(const std::string& file
     logger.info("Import finished. Total: ", mesh->getNodes().size(), " nodes, ", mesh->getElements().size(), " elements.");
 
     if (mesh->getNodes().empty() || mesh->getElements().empty()) {
-        logger.error("The importer did not read any valid mesh data. Please check the .mphtxt file format and content.");
-        return nullptr;
+        throw Core::FileIOException("The importer did not read any valid mesh data. Please check the .mphtxt file format and content.");
     }
 
     return mesh;

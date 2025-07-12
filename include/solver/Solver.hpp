@@ -1,11 +1,9 @@
-//
-// Created by HUAWEI on 2025/7/11.
-//
-
 #ifndef SOLVER_HPP
 #define SOLVER_HPP
 
-#include "core/Problem.hpp"
+namespace Core {
+    class Problem;
+}
 
 namespace Solver {
     class Solver {

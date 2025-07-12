@@ -6,6 +6,8 @@
 #include <memory>
 #include <string>
 
+#include "CouplingManager.hpp"
+
 // Forward declarations
 namespace Core {
     class Mesh;
@@ -13,6 +15,9 @@ namespace Core {
 }
 namespace Physics {
     class PhysicsField;
+}
+namespace Solver {
+    class Solver;
 }
 
 namespace Core {
@@ -30,8 +35,8 @@ namespace Core {
         void setTimeSteppingParameters(double time_step, double total_time);
 
         // --- Solution Methods ---
-        void solveSteadyState() const;
-        void solveTransient() const;
+        void solveSteadyState();
+        void solveTransient();
 
         void exportResults(const std::string& filename) const;
         const Mesh& getMesh() const;
@@ -47,10 +52,14 @@ namespace Core {
         double getTimeStep() const { return time_step_;}
         double getTotalTime() const { return total_time_;}
 
+        CouplingManager& getCouplingManager() { return coupling_manager_; }
+
     private:
         std::unique_ptr<Mesh> mesh_;
         std::unique_ptr<DOFManager> dof_manager_;
+        std::unique_ptr<Solver::Solver> solver_;
         std::vector<std::unique_ptr<Physics::PhysicsField>> fields_;
+        CouplingManager coupling_manager_;
 
         int max_iterations_ = 20;
         double convergence_tolerance_ = 1e-4;
