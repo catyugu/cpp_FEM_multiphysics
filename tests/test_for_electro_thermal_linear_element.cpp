@@ -44,11 +44,11 @@ protected:
 };
 
 TEST_F(CoupledValidationTest, CompareAgainstVtuResult) {
-    const double V_in = 0.1;
-    const double T_sink = 293.15;
-    const double bar_width = 0.02;
-    const double bar_height = 0.01;
-    const double eps = 1e-8;
+    constexpr double V_in = 0.1;
+    constexpr double T_sink = 293.15;
+    constexpr double bar_width = 0.02;
+    constexpr double bar_height = 0.01;
+    constexpr double eps = 1e-8;
 
     auto *emag_field = problem->getField("Voltage");
     auto *heat_field = problem->getField("Temperature");
@@ -134,6 +134,6 @@ TEST_F(CoupledValidationTest, CompareAgainstVtuResult) {
     logger.info("Maximum voltage difference: ", max_volt_diff, " V");
 
     // Assert that the maximum differences are within an acceptable tolerance
-    ASSERT_LT(max_temp_diff, 1.0); // Allow up to 1K difference
-    ASSERT_LT(max_volt_diff, 1e-3); // Allow up to 1mV difference
+    ASSERT_LT(max_temp_diff, 1e-5);
+    ASSERT_LT(max_volt_diff, 1e-5);
 }
