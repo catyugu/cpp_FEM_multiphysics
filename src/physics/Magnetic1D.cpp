@@ -2,6 +2,7 @@
 #include <core/mesh/Element.hpp>
 #include <core/mesh/Node.hpp>
 #include "utils/SimpleLogger.hpp"
+#include "utils/Quadrature.hpp"
 
 namespace Physics {
 
@@ -21,7 +22,7 @@ void Magnetic1D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     K_.resize(num_eq, num_eq);
     F_.resize(num_eq, 1);
     U_.resize(num_eq, 1);
-    
+
     K_.setZero();
     F_.setZero();
     U_.setZero();
@@ -38,21 +39,31 @@ void Magnetic1D::assemble() {
     const double inv_mu = 1.0 / mu;
 
     std::vector<Eigen::Triplet<double>> k_triplets;
+    auto quadrature_points = Utils::Quadrature::getLineQuadrature(element_order_);
 
     for (const auto& elem_ptr : mesh_->getElements()) {
         auto* line_elem = dynamic_cast<Core::LineElement*>(elem_ptr);
         if (line_elem) {
             double h = line_elem->getLength();
-            double ke_val = inv_mu / h;
+
+            Eigen::Matrix2d ke_local = Eigen::Matrix2d::Zero();
+            for(const auto& qp : quadrature_points) {
+                double detJ = h / 2.0;
+                Eigen::Matrix<double, 1, 2> B;
+                B << -1/h, 1/h;
+                ke_local += B.transpose() * inv_mu * B * qp.weight * detJ;
+            }
 
             auto nodes = line_elem->getNodes();
             int dof_i = dof_manager_->getEquationIndex(nodes[0]->getId(), getVariableName());
             int dof_j = dof_manager_->getEquationIndex(nodes[1]->getId(), getVariableName());
+            int dofs[2] = {dof_i, dof_j};
 
-            k_triplets.emplace_back(dof_i, dof_i, ke_val);
-            k_triplets.emplace_back(dof_i, dof_j, -ke_val);
-            k_triplets.emplace_back(dof_j, dof_i, -ke_val);
-            k_triplets.emplace_back(dof_j, dof_j, ke_val);
+            for (int i = 0; i < 2; ++i) {
+                for (int j = 0; j < 2; ++j) {
+                    k_triplets.emplace_back(dofs[i], dofs[j], ke_local(i, j));
+                }
+            }
         }
     }
     K_.setFromTriplets(k_triplets.begin(), k_triplets.end());

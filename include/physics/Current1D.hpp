@@ -13,18 +13,14 @@ namespace Physics {
 
         const char* getName() const override;
         const char* getVariableName() const override;
+        const Core::Material& getMaterial() const override { return material_; }
+
 
         void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
         void assemble() override;
 
-        std::vector<double> calculateJouleHeat() const;
-
-        // Links this EMag field to a heat field for temperature-dependent calculations.
-        void setCoupledHeatField(const PhysicsField* heat_field);
-
     private:
         const Core::Material& material_;
-        const PhysicsField* heat_field_ = nullptr; // FIX: Add the missing member declaration
     };
 
 } // namespace Physics

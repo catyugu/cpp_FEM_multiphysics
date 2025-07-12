@@ -14,12 +14,45 @@ namespace Physics {
         }
     }
 
+    void PhysicsField::removeBC(Core::BoundaryCondition* bc_to_remove) {
+        auto it = std::remove_if(bcs_.begin(), bcs_.end(),
+            [&](const std::unique_ptr<Core::BoundaryCondition>& bc_ptr) {
+                return bc_ptr.get() == bc_to_remove;
+            });
+
+        if (it != bcs_.end()) {
+            bcs_.erase(it, bcs_.end());
+        }
+    }
+
+    void PhysicsField::addSource(std::unique_ptr<Core::SourceTerm> source) {
+        source_terms_.push_back(std::move(source));
+    }
+
+    void PhysicsField::removeSourcesByTag(const std::string& tag) {
+        auto it = std::remove_if(source_terms_.begin(), source_terms_.end(),
+            [&](const std::unique_ptr<Core::SourceTerm>& source_ptr) {
+                return source_ptr->getTag() == tag;
+            });
+
+        if (it != source_terms_.end()) {
+            source_terms_.erase(it, source_terms_.end());
+        }
+    }
     const std::vector<std::unique_ptr<Core::BoundaryCondition>>& PhysicsField::getBCs() const {
         return bcs_;
     }
 
     void PhysicsField::updatePreviousSolution() {
         U_prev_ = U_;
+    }
+
+    void PhysicsField::setElementOrder(int order) {
+        if (order < 1) {
+            SimpleLogger::Logger::instance().error("Element order must be at least 1.");
+            return;
+        }
+        element_order_ = order;
     }
 
 

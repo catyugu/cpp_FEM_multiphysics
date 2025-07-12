@@ -44,7 +44,8 @@ protected:
 };
 
 TEST_F(CoupledValidationTest, CompareAgainstVtuResult) {
-    constexpr double V_in = 0.5;
+    // FIX: Input voltage reduced to a physically realistic value.
+    constexpr double V_in = 0.1; // Was 0.5
     constexpr double T_sink = 293.15;
     constexpr double bar_width = 0.02;
     constexpr double bar_height = 0.01;

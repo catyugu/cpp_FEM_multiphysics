@@ -6,9 +6,10 @@
 #include <core/bcs/BoundaryCondition.hpp>
 #include <vector>
 #include <memory>
+#include <core/Material.hpp>
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
-
+#include <core/sources/SourceTerm.hpp>
 namespace Physics {
 
     class PhysicsField {
@@ -17,6 +18,7 @@ namespace Physics {
 
         virtual const char* getName() const = 0;
         virtual const char* getVariableName() const = 0;
+        virtual const Core::Material& getMaterial() const = 0;
 
         virtual void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) = 0;
         virtual void assemble() = 0;
@@ -24,28 +26,34 @@ namespace Physics {
         void addBC(std::unique_ptr<Core::BoundaryCondition> bc);
         void applyBCs();
 
-        // --- FIX: Add public accessors for transient solver ---
         const std::vector<std::unique_ptr<Core::BoundaryCondition>>& getBCs() const;
         void updatePreviousSolution();
 
-        // Getter for the solution at the previous time step
         const Eigen::MatrixXd& getPreviousSolution() const;
 
         void setInitialConditions(double initial_value);
-        // Set InitialConditions with a Lambda function
         template<typename F>
         void setInitialConditions(std::function<F> initial_conditions);
 
-        // Getters for matrices and vectors
+        void setElementOrder(int order);
+
         Eigen::SparseMatrix<double>& getStiffnessMatrix();
         Eigen::SparseMatrix<double>& getMassMatrix();
         Eigen::MatrixXd& getRHS();
         Eigen::MatrixXd& getSolution();
 
+
         const Eigen::SparseMatrix<double>& getStiffnessMatrix() const;
         const Eigen::SparseMatrix<double>& getMassMatrix() const;
         const Eigen::MatrixXd& getRHS() const;
         const Eigen::MatrixXd& getSolution() const;
+        const Core::Mesh* getMesh() const { return mesh_;}
+        // get DOFManager
+        const Core::DOFManager* getDofManager() const { return dof_manager_;}
+        void removeBC(Core::BoundaryCondition* bc_to_remove);
+
+        void addSource(std::unique_ptr<Core::SourceTerm> source);
+        void removeSourcesByTag(const std::string& tag); // New, safe removal method
 
         void enable(){ enabled = true;}
         void disable(){ enabled = false;}
@@ -54,6 +62,7 @@ namespace Physics {
         Core::Mesh* mesh_ = nullptr;
         Core::DOFManager* dof_manager_ = nullptr;
         bool enabled = true;
+        int element_order_ = 1;
 
         Eigen::SparseMatrix<double> K_;
         Eigen::SparseMatrix<double> M_;
@@ -62,6 +71,7 @@ namespace Physics {
         Eigen::MatrixXd U_prev_;
 
         std::vector<std::unique_ptr<Core::BoundaryCondition>> bcs_;
+        std::vector<std::unique_ptr<Core::SourceTerm>> source_terms_;
     };
 
 } // namespace Physics

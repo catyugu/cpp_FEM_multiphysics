@@ -1,14 +1,14 @@
-#ifndef MAGNETIC1D_HPP
-#define MAGNETIC1D_HPP
+#ifndef MAGNETIC3D_HPP
+#define MAGNETIC3D_HPP
 
 #include "PhysicsField.hpp"
 #include "core/Material.hpp"
 
 namespace Physics {
 
-    class Magnetic1D : public PhysicsField {
+    class Magnetic3D : public PhysicsField {
     public:
-        explicit Magnetic1D(const Core::Material& material);
+        explicit Magnetic3D(const Core::Material& material);
 
         const char* getName() const override;
         const char* getVariableName() const override;
@@ -23,4 +23,4 @@ namespace Physics {
 
 } // namespace Physics
 
-#endif // MAGNETIC1D_HPP
+#endif // MAGNETIC3D_HPP

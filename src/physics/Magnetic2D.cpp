@@ -2,6 +2,7 @@
 #include <core/mesh/TriElement.hpp>
 #include <core/mesh/Node.hpp>
 #include "utils/SimpleLogger.hpp"
+#include "utils/Quadrature.hpp"
 
 namespace Physics {
 
@@ -21,7 +22,7 @@ void Magnetic2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     K_.resize(num_eq, num_eq);
     F_.resize(num_eq, 1);
     U_.resize(num_eq, 1);
-    
+
     K_.setZero();
     F_.setZero();
     U_.setZero();
@@ -38,15 +39,17 @@ void Magnetic2D::assemble() {
     const double inv_mu = 1.0 / mu;
 
     std::vector<Eigen::Triplet<double>> k_triplets;
+    auto quadrature_points = Utils::Quadrature::getTriangleQuadrature(element_order_);
 
     for (const auto& elem_ptr : mesh_->getElements()) {
         auto* tri_elem = dynamic_cast<Core::TriElement*>(elem_ptr);
         if (tri_elem) {
-            double area = tri_elem->getArea();
-            auto B = tri_elem->getBMatrix();
-
-            // Element stiffness matrix
-            Eigen::Matrix3d ke = inv_mu * area * (B.transpose() * B);
+            Eigen::Matrix3d ke_local = Eigen::Matrix3d::Zero();
+            for (const auto& qp : quadrature_points) {
+                auto B = tri_elem->getBMatrix();
+                double detJ = tri_elem->getArea() * 2.0;
+                ke_local += B.transpose() * inv_mu * B * qp.weight * detJ;
+            }
 
             auto nodes = tri_elem->getNodes();
             int dofs[3];
@@ -56,14 +59,13 @@ void Magnetic2D::assemble() {
 
             for (int i = 0; i < 3; ++i) {
                 for (int j = 0; j < 3; ++j) {
-                    k_triplets.emplace_back(dofs[i], dofs[j], ke(i, j));
+                    k_triplets.emplace_back(dofs[i], dofs[j], ke_local(i, j));
                 }
             }
         }
     }
     K_.setFromTriplets(k_triplets.begin(), k_triplets.end());
-    
-    // Stabilization for other physics' DOFs
+
     const std::string my_var = getVariableName();
     for(const auto& var_name : dof_manager_->getVariableNames()) {
         if (var_name != my_var) {

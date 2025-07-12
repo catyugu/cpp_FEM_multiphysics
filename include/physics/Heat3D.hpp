@@ -12,6 +12,7 @@ namespace Physics {
 
         const char* getName() const override;
         const char* getVariableName() const override;
+        const Core::Material& getMaterial() const override { return material_; }
 
         void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
         void assemble() override;

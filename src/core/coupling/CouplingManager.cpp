@@ -20,4 +20,10 @@ namespace Core {
         logger.info("Couplings setup complete.");
     }
 
+    void CouplingManager::executeCouplings() {
+        for (const auto& coupling : couplings_) {
+            coupling->execute();
+        }
+    }
+
 } // namespace Core

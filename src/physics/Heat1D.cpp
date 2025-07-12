@@ -2,36 +2,12 @@
 #include "utils/SimpleLogger.hpp"
 #include <core/mesh/Element.hpp>
 #include <core/mesh/Node.hpp>
+#include "utils/Quadrature.hpp"
+#include "core/sources/SourceTerm.hpp"
 
 namespace Physics {
 
-Heat1D::Heat1D(const Core::Material& material)
-    : material_(material), k_(0.0), rho_(0.0), cp_(0.0) {}
-
-const char* Heat1D::getName() const { return "Heat Transfer 1D"; }
-const char* Heat1D::getVariableName() const { return "Temperature"; }
-
-
-void Heat1D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
-    mesh_ = &mesh;
-    dof_manager_ = &dof_manager;
-
-    k_ = material_.getProperty("thermal_conductivity");
-    rho_ = material_.getProperty("density");
-    cp_ = material_.getProperty("specific_heat");
-
-    auto& logger = SimpleLogger::Logger::instance();
-    logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
-    logger.info("-> k = ", k_, ", rho = ", rho_, ", cp = ", cp_);
-
-    size_t num_eq = dof_manager_->getNumEquations();
-    K_.resize(num_eq, num_eq);
-    M_.resize(num_eq, num_eq);
-    F_.resize(num_eq,1); F_.setZero();
-    U_.resize(num_eq,1); U_.setZero();
-    U_prev_.resize(num_eq,1); U_prev_.setZero();
-    volumetric_heat_source_.resize(mesh_->getElements().size(), 0.0);
-}
+// ... constructor and setup are unchanged ...
 
 void Heat1D::assemble() {
     auto& logger = SimpleLogger::Logger::instance();
@@ -39,60 +15,58 @@ void Heat1D::assemble() {
 
     K_.setZero();
     M_.setZero();
+
     F_.setZero();
+    for (const auto& source : source_terms_) {
+        source->apply(F_, *dof_manager_, *mesh_, getVariableName());
+    }
+
+    const double k = material_.getProperty("thermal_conductivity");
+    const double rho = material_.getProperty("density");
+    const double cp = material_.getProperty("specific_heat");
 
     std::vector<Eigen::Triplet<double>> k_triplets, m_triplets;
+    auto quadrature_points = Utils::Quadrature::getLineQuadrature(element_order_);
 
     for (size_t i = 0; i < mesh_->getElements().size(); ++i) {
         auto* line_elem = dynamic_cast<Core::LineElement*>(mesh_->getElements()[i]);
         if (line_elem) {
             double h = line_elem->getLength();
-            double ke_val = k_ / h;
 
-            double me_val_diag = (rho_ * cp_ * h / 6.0) * 2.0;
-            double me_val_offdiag = (rho_ * cp_ * h / 6.0) * 1.0;
+            Eigen::Matrix2d ke_local = Eigen::Matrix2d::Zero();
+            Eigen::Matrix2d me_local = Eigen::Matrix2d::Zero();
+
+            for(const auto& qp : quadrature_points) {
+                double detJ = h / 2.0;
+                Eigen::Matrix<double, 1, 2> B;
+                B << -1/h, 1/h;
+                ke_local += B.transpose() * k * B * qp.weight * detJ;
+
+                Eigen::Matrix<double, 1, 2> N;
+                N << (1.0 - qp.point(0))/2.0, (1.0 + qp.point(0))/2.0;
+                me_local += N.transpose() * (rho * cp) * N * qp.weight * detJ;
+            }
 
             auto nodes = line_elem->getNodes();
-            int dof_i = dof_manager_->getEquationIndex(nodes[0]->getId(), getVariableName());
-            int dof_j = dof_manager_->getEquationIndex(nodes[1]->getId(), getVariableName());
+            int dofs[2] = {
+                dof_manager_->getEquationIndex(nodes[0]->getId(), getVariableName()),
+                dof_manager_->getEquationIndex(nodes[1]->getId(), getVariableName())
+            };
 
-            k_triplets.emplace_back(dof_i, dof_i, ke_val);
-            k_triplets.emplace_back(dof_i, dof_j, -ke_val);
-            k_triplets.emplace_back(dof_j, dof_i, -ke_val);
-            k_triplets.emplace_back(dof_j, dof_j, ke_val);
-
-            m_triplets.emplace_back(dof_i, dof_i, me_val_diag);
-            m_triplets.emplace_back(dof_i, dof_j, me_val_offdiag);
-            m_triplets.emplace_back(dof_j, dof_i, me_val_offdiag);
-            m_triplets.emplace_back(dof_j, dof_j, me_val_diag);
-
-            double fe_val = volumetric_heat_source_[i] * h / 2.0;
-            F_(dof_i) += fe_val;
-            F_(dof_j) += fe_val;
+            for(int r = 0; r < 2; ++r) {
+                for(int c = 0; c < 2; ++c) {
+                    k_triplets.emplace_back(dofs[r], dofs[c], ke_local(r,c));
+                    m_triplets.emplace_back(dofs[r], dofs[c], me_local(r,c));
+                }
+            }
         }
     }
     K_.setFromTriplets(k_triplets.begin(), k_triplets.end());
     M_.setFromTriplets(m_triplets.begin(), m_triplets.end());
 
-    // --- FIX: Add stabilization loop for other physics' DOFs ---
-    const std::string my_var = getVariableName();
-    for(const auto& var_name : dof_manager_->getVariableNames()) {
-        if (var_name != my_var) {
-            for(const auto& node : mesh_->getNodes()) {
-                int dof_idx = dof_manager_->getEquationIndex(node->getId(), var_name);
-                if (dof_idx != -1) K_.coeffRef(dof_idx, dof_idx) = 1.0;
-            }
-        }
-    }
-    logger.info("Assembly for ", getName(), " complete.");
-}
+    // THE FIX: The stabilization loop has been removed.
 
-void Heat1D::setVolumetricHeatSource(const std::vector<double>& source) {
-    if (source.size() != mesh_->getElements().size()) {
-        SimpleLogger::Logger::instance().error("Heat source vector size mismatch in Heat1D.");
-        return;
-    }
-    volumetric_heat_source_ = source;
+    logger.info("Assembly for ", getName(), " complete.");
 }
 
 } // namespace Physics

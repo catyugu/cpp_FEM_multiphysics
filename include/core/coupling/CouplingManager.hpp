@@ -13,6 +13,7 @@ namespace Core {
         void registerField(Physics::PhysicsField& field);
         void addCoupling(std::unique_ptr<Coupling> coupling);
         void setupCouplings();
+        void executeCouplings(); // New method
 
     private:
         std::vector<Physics::PhysicsField*> fields_;

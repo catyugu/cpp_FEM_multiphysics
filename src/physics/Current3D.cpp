@@ -1,23 +1,20 @@
-#include "physics/Heat3D.hpp"
+#include "physics/Current3D.hpp"
 #include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "utils/Quadrature.hpp"
 
 namespace Physics {
 
-Heat3D::Heat3D(const Core::Material& material) : material_(material), k_(0.0) {}
+Current3D::Current3D(const Core::Material& material) : material_(material) {}
 
-const char* Heat3D::getName() const { return "Heat Transfer 3D"; }
-const char* Heat3D::getVariableName() const { return "Temperature"; }
+const char* Current3D::getName() const { return "Electromagnetics 3D"; }
+const char* Current3D::getVariableName() const { return "Voltage"; }
 
-void Heat3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
+void Current3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     mesh_ = &mesh;
     dof_manager_ = &dof_manager;
-    k_ = material_.getProperty("thermal_conductivity");
-
     auto& logger = SimpleLogger::Logger::instance();
     logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
-    logger.info("-> Thermal Conductivity (k): ", k_);
 
     size_t num_eq = dof_manager_->getNumEquations();
     K_.resize(num_eq, num_eq);
@@ -27,15 +24,15 @@ void Heat3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     F_.setZero();
 }
 
-void Heat3D::assemble() {
+void Current3D::assemble() {
     auto& logger = SimpleLogger::Logger::instance();
     logger.info("Assembling system for ", getName());
 
     K_.setZero();
     F_.setZero();
 
-    // Material matrix for 3D isotropic heat conduction
-    Eigen::Matrix3d D = Eigen::Matrix3d::Identity() * k_;
+    double sigma = material_.getProperty("electrical_conductivity");
+    Eigen::Matrix3d D = Eigen::Matrix3d::Identity() * sigma;
 
     std::vector<Eigen::Triplet<double>> triplet_list;
     auto quadrature_points = Utils::Quadrature::getTetrahedronQuadrature(element_order_);
@@ -56,7 +53,6 @@ void Heat3D::assemble() {
                 dofs[i] = dof_manager_->getEquationIndex(nodes[i]->getId(), getVariableName());
             }
 
-            // Add element matrix to global matrix triplets
             for (int i = 0; i < 4; ++i) {
                 for (int j = 0; j < 4; ++j) {
                     triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
