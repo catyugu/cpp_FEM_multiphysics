@@ -94,26 +94,23 @@ The framework has recently undergone significant refactoring to improve modulari
 The following are high-priority areas for the next development cycle. Please address them in the order presented.
 
 
-### **1. Implement and Test Transient Coupled Solver**
+### **1. Performance Optimization**
+* **Goal**: Improve computational efficiency for larger problems.
+* **Examples**: 
+  * **Parallel Computing**: Implement parallel computing paradigms (e.g., OpenMP for shared-memory parallelism, MPI for distributed-memory parallelism) for assembly and solver stages.
+  * **Memory Management**: Optimize memory usage by minimizing the number of allocations and deallocations.
+  * **Prevent RTTI** : Minimize the use of RTTI (Run-Time Type Information) to improve performance.
 
-* **Goal**: The `CoupledElectroThermalSolver::solveTransient` method is currently a placeholder. It needs to be fully implemented.
-* **Tasks**:
-    1.  **Time-Stepping Loop**: Implement the main loop that advances the simulation from t=0 to `total_time` in increments of `time_step`.
-    2.  **Coupling Iteration**: At each time step, you will likely need an inner iteration loop (similar to the steady-state solver) to converge the coupled physics.
-    3.  **Mass Matrix Term**: Correctly incorporate the mass matrix (`M`) and the solution from the previous time step (`U_prev_`) into the system of equations, typically using a time integration scheme like the backward Euler method: `(M/dt + K) * U_n = F + (M/dt) * U_{n-1}`.
+### **2. Implement Advanced Solver Techniques**
+* **Goal**: Enhance numerical robustness and performance.
+* **Examples**:
+  * **Iterative Solvers**: Integrate more sophisticated linear iterative solvers (e.g., Conjugate Gradient, BiCGSTAB, GMRES) beyond direct LU decomposition.
+  * **Non-Linear Solvers**: Implement robust non-linear solution strategies (e.g., Newton-Raphson method) to handle non-linear material properties or boundary conditions.
 
-### **2. Set Up Test for higher-order elements
-
-* **Goal**: Ensure that the framework can handle higher-order elements correctly.
-* **Tasks**:
-    1.  **Mesh Generation**: Create a mesh with higher-order elements (e.g., quadratic triangles or quadratic tetrahedra).
-    2.  **Validation Tests**: Create new validation tests in the `/tests` directory for the higher-order elements.
-    3.  **Analytical Solutions**: Create analytical solutions for the higher-order elements and compare them with the results from the framework.
+### **3. Enhance Element Formulations**
+* **Goal**: Improve approximation capabilities without necessarily changing mesh topology (P-refinement strategies).
+* **Examples**:
+  * Investigate and implement more advanced p-enrichment techniques for higher-order *shape functions* within existing linear element types, if feasible with current DOF management.
+  * Consider strategies for creating and importing meshes with true higher-order elements (e.g., 6-node triangles, 10-node tetrahedra) if a redesign of `Core::Element` and `DOFManager` is undertaken.
 
 
-### **3. Documentation and Testing**
-
-* **Goal**: Maintain the high quality of the project.
-* **Tasks**:
-    1.  **Documentation**: Update the markdown files in the `docs/` folder to reflect the new higher-order element capabilities and transient solver.
-    2.  **Testing**: Create new validation tests in the `/tests` directory for the higher-order elements and the transient coupled solver. Compare the results against known analytical solutions or established benchmarks.
