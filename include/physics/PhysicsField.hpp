@@ -10,6 +10,8 @@
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
 #include <core/sources/SourceTerm.hpp>
+#include <functional> // For std::function
+
 namespace Physics {
 
     class PhysicsField {
@@ -19,6 +21,7 @@ namespace Physics {
         virtual const char* getName() const = 0;
         virtual const char* getVariableName() const = 0;
         virtual const Core::Material& getMaterial() const = 0;
+        virtual int getDimension() const = 0; // New virtual function for dimension
 
         virtual void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) = 0;
         virtual void assemble() = 0;
@@ -55,8 +58,8 @@ namespace Physics {
         void removeBCsByTag(const std::string& tag);
 
         void addSource(std::unique_ptr<Core::SourceTerm> source);
-        void removeSourcesByTag(const std::string& tag); // New, safe removal method
-        void applySources(); // The new method
+        void removeSourcesByTag(const std::string& tag);
+        void applySources();
 
         void enable(){ enabled = true;}
         void disable(){ enabled = false;}
