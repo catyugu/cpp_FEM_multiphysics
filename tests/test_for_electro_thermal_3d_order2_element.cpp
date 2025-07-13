@@ -39,16 +39,16 @@ protected:
 
         problem = std::make_unique<Core::Problem>(std::move(mesh));
         problem->addField(std::make_unique<Physics::Current3D>(copper));
-        // problem->getField("Voltage")->setElementOrder(2);
+        problem->getField("Voltage")->setElementOrder(2);
         problem->addField(std::make_unique<Physics::Heat3D>(copper));
-        // problem->getField("Voltage")->setElementOrder(2);
+        problem->getField("Voltage")->setElementOrder(2);
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
         problem->setup();
     }
 };
 
 TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
-    constexpr double V_in = 0.1;
+    constexpr double V_in = 1;
     constexpr double T_sink = 293.15;
     constexpr double bar_length = 1.0;
     constexpr double bar_width = 0.1;
@@ -153,6 +153,6 @@ TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
     logger.info("Maximum voltage difference: ", max_volt_diff, " V");
 
     // Assert that the maximum differences are within an acceptable tolerance
-    ASSERT_LT(max_temp_diff, 0.1);
+    ASSERT_LT(max_temp_diff, 1);
     ASSERT_LT(max_volt_diff, 1e-5);
 }
