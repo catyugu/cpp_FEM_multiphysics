@@ -93,26 +93,23 @@ The framework has recently undergone significant refactoring to improve modulari
 
 The following are high-priority areas for the next development cycle. Please address them in the order presented.
 
-### **1. Implement 3D ElectroThermal Coupling**
 
-* **Goal**: Implement the 3D electro-thermal coupling mechanism.
-* **Tasks**:
-    1.  **Implement `ElectroThermalCoupling`**: Create a new class `ElectroThermalCoupling` that inherits from `Coupling`. It should calculate Joule heating and create `VolumetricSource` objects for the thermal field.
-    2.  **Test**: Write comprehensive tests for the new `ElectroThermalCoupling` class, compare to the result from COMSOL, you may refer the [test_for_electro_thermal_linear_element.cpp](tests/test_for_electro_thermal_linear_element.cpp), which is the 2D case for the same model.
-### **1. Refactor `assemble` for Full Numerical Integration**
-
-* **Goal**: Leverage the new `Quadrature` utility and higher-order elements to perform true numerical integration.
-* **Tasks**:
-    1.  **Update `assemble` Methods**: Modify the `assemble` methods in all `PhysicsField` classes. Replace the simple `Area * B.transpose() * D * B` calculation with a proper integration loop that iterates over the quadrature points provided by `Utils::Quadrature`.
-    2.  **Jacobian Calculation**: Inside the loop, you will need to calculate the Jacobian of the transformation from natural to real coordinates and its determinant (`detJ`). The element stiffness matrix `ke` will be calculated by summing the contributions at each quadrature point: `ke += B.transpose() * D * B * qp.weight * detJ`.
-
-### **2. Implement Transient Coupled Solver**
+### **1. Implement and Test Transient Coupled Solver**
 
 * **Goal**: The `CoupledElectroThermalSolver::solveTransient` method is currently a placeholder. It needs to be fully implemented.
 * **Tasks**:
     1.  **Time-Stepping Loop**: Implement the main loop that advances the simulation from t=0 to `total_time` in increments of `time_step`.
     2.  **Coupling Iteration**: At each time step, you will likely need an inner iteration loop (similar to the steady-state solver) to converge the coupled physics.
     3.  **Mass Matrix Term**: Correctly incorporate the mass matrix (`M`) and the solution from the previous time step (`U_prev_`) into the system of equations, typically using a time integration scheme like the backward Euler method: `(M/dt + K) * U_n = F + (M/dt) * U_{n-1}`.
+
+### **2. Set Up Test for higher-order elements
+
+* **Goal**: Ensure that the framework can handle higher-order elements correctly.
+* **Tasks**:
+    1.  **Mesh Generation**: Create a mesh with higher-order elements (e.g., quadratic triangles or quadratic tetrahedra).
+    2.  **Validation Tests**: Create new validation tests in the `/tests` directory for the higher-order elements.
+    3.  **Analytical Solutions**: Create analytical solutions for the higher-order elements and compare them with the results from the framework.
+
 
 ### **3. Documentation and Testing**
 
