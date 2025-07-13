@@ -22,7 +22,7 @@ protected:
     void SetUp() override {
         // Setup problem with a uniform 3D mesh
         // Using a smaller mesh for faster test execution, e.g., 2x2x2 hexes split into tets
-        auto mesh = std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(0.02, 0.01, 0.01, 10, 10, 10)); // Smaller cube
+        auto mesh = std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(0.02, 0.01, 0.01, 5, 5, 5)); // Smaller cube
         ASSERT_NE(mesh, nullptr);
 
         copper.setProperty("electrical_conductivity", 5.96e7);
