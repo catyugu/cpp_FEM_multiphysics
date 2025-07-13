@@ -111,6 +111,7 @@ The following are high-priority areas for the next development cycle. Please add
 * **Goal**: Improve approximation capabilities without necessarily changing mesh topology (P-refinement strategies).
 * **Examples**:
   * Investigate and implement more advanced p-enrichment techniques for higher-order *shape functions* within existing linear element types, if feasible with current DOF management.
-  * Consider strategies for creating and importing meshes with true higher-order elements (e.g., 6-node triangles, 10-node tetrahedra) if a redesign of `Core::Element` and `DOFManager` is undertaken.
+  * Consider strategies for solving physics field with true higher-order elements refined from linear element
+  * if a redesign of `Core::Element` and `DOFManager` is needed, just to it.
 
 
