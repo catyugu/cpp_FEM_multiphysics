@@ -107,36 +107,90 @@ namespace Solver {
         auto *emag_field = problem.getField("Voltage");
         auto *heat_field = problem.getField("Temperature");
         auto &coupling_manager = problem.getCouplingManager();
+        const auto& dof_manager = problem.getDofManager();
+
+        // Initialize temperature solution to a reasonable default if it's zero
+        if (heat_field->getSolution().isZero(1e-9)) {
+            heat_field->getSolution().setConstant(293.15); // Room temperature
+        }
 
         int num_steps = static_cast<int>(problem.getTotalTime() / problem.getTimeStep());
+        double dt = problem.getTimeStep();
+
         for (int i = 0; i < num_steps; ++i) {
-            logger.info("Time Step ", i + 1, " / ", num_steps, ", Time = ", (i + 1) * problem.getTimeStep(), "s");
+            logger.info("Time Step ", i + 1, " / ", num_steps, ", Time = ", (i + 1) * dt, "s");
 
-            // 1. Solve EMag field based on previous temperature
-            emag_field->assemble();
-            emag_field->applyBCs();
-            LinearSolver::solve(emag_field->getStiffnessMatrix(), emag_field->getRHS(), emag_field->getSolution());
+            // Store temperature from previous outer time step
+            heat_field->updatePreviousSolution(); // U_prev_ = U_ (at t_n-1)
 
-            // 2. Execute coupling
-            coupling_manager.executeCouplings();
+            Eigen::MatrixXd T_prev_iter_inner_loop = heat_field->getSolution();
 
-            // 3. Solve Heat field for the current time step
-            heat_field->assemble();
-            Eigen::SparseMatrix<double> A = (heat_field->getMassMatrix() / problem.getTimeStep()) + heat_field->
-                                            getStiffnessMatrix();
-            Eigen::MatrixXd b = heat_field->getRHS() + (heat_field->getMassMatrix() / problem.getTimeStep()) *
-                                heat_field->getPreviousSolution();
+            // Inner iteration loop for coupled convergence at current time step
+            for (int iter = 0; iter < problem.getMaxIterations(); ++iter) {
+                logger.info("  --> Inner Iteration ", iter + 1, " / ", problem.getMaxIterations());
 
-            auto A_bc = A;
-            auto b_bc = b;
-            for (const auto &bc: heat_field->getBCs()) {
-                bc->apply(A_bc, b_bc);
+                // --- Step 1: Solve EMag Field ---
+                logger.info("    Solving EMag Field (Inner Loop)...");
+                emag_field->assemble();
+                emag_field->applySources();
+
+                Eigen::SparseMatrix<double> K_emag_solve_inner = emag_field->getStiffnessMatrix();
+                Eigen::MatrixXd F_emag_solve_inner = emag_field->getRHS();
+
+                // Stabilize Temperature DOFs for this EMag solve step
+                for (const auto &node: problem.getMesh().getNodes()) {
+                    int dof_idx = dof_manager.getEquationIndex(node->getId(), "Temperature");
+                    if (dof_idx != -1) {
+                        K_emag_solve_inner.coeffRef(dof_idx, dof_idx) = 1.0;
+                        F_emag_solve_inner(dof_idx, 0) = heat_field->getSolution()(dof_idx, 0); // Use current converged T
+                    }
+                }
+                for (const auto& bc : emag_field->getBCs()) {
+                    bc->apply(K_emag_solve_inner, F_emag_solve_inner);
+                }
+                LinearSolver::solve(K_emag_solve_inner, F_emag_solve_inner, emag_field->getSolution());
+
+                // --- Step 2: Execute Coupling ---
+                coupling_manager.executeCouplings();
+
+                // --- Step 3: Solve Heat Field ---
+                logger.info("    Solving Heat Field (Inner Loop)...");
+                heat_field->assemble(); // Re-assemble as sources might have changed due to coupling (Joule heat)
+                heat_field->applySources();
+
+                // Backward Euler formulation: (M/dt + K) * U_n = F + (M/dt) * U_{n-1}
+                Eigen::SparseMatrix<double> A_eff_inner = (heat_field->getMassMatrix() / dt) + heat_field->getStiffnessMatrix();
+                Eigen::MatrixXd b_eff_inner = heat_field->getRHS() + (heat_field->getMassMatrix() / dt) * heat_field->getPreviousSolution();
+
+                Eigen::SparseMatrix<double> K_heat_solve_inner = A_eff_inner;
+                Eigen::MatrixXd F_heat_solve_inner = b_eff_inner;
+
+                // Stabilize Voltage DOFs for this Heat solve step
+                for (const auto &node: problem.getMesh().getNodes()) {
+                    int dof_idx = dof_manager.getEquationIndex(node->getId(), "Voltage");
+                    if (dof_idx != -1) {
+                        K_heat_solve_inner.coeffRef(dof_idx, dof_idx) = 1.0;
+                        F_heat_solve_inner(dof_idx, 0) = emag_field->getSolution()(dof_idx, 0); // Use current converged V
+                    }
+                }
+                for (const auto& bc : heat_field->getBCs()) {
+                    bc->apply(K_heat_solve_inner, F_heat_solve_inner);
+                }
+                LinearSolver::solve(K_heat_solve_inner, F_heat_solve_inner, heat_field->getSolution());
+
+                // --- Step 4: Check for Inner Loop Convergence ---
+                double norm_diff = (heat_field->getSolution() - T_prev_iter_inner_loop).norm();
+                double norm_sol = heat_field->getSolution().norm();
+                double relative_error = (norm_sol > 1e-12) ? (norm_diff / norm_sol) : norm_diff;
+
+                logger.info("    Inner Loop Convergence Check: Relative Error = ", relative_error);
+                if (relative_error < problem.getConvergenceTolerance()) {
+                    logger.info("  Inner loop converged for time step ", i + 1, " after ", iter + 1, " iterations.");
+                    break; // Inner loop converged, move to next time step
+                }
+                T_prev_iter_inner_loop = heat_field->getSolution();
             }
-            LinearSolver::solve(A_bc, b_bc, heat_field->getSolution());
-
-            // 4. Update temperature for the next step
-            heat_field->updatePreviousSolution();
         }
-        logger.info("\n--- Transient Solve Finished ---");
+        logger.info("\n--- Coupled Transient Solve Finished ---");
     }
 } // Solver

@@ -29,11 +29,11 @@ This namespace contains the specific implementations for different physical simu
   * `bcs_`: Vector of boundary conditions.
   * `source_terms_`: Vector of source terms.
 
-### **Current1D / Current2D**
+### **Current1D / Current2D / Current3D**
 * **Description**: Implements the `assemble` method for 1D and 2D Electromagnetics ("Voltage"). The classes are now purely responsible for assembling their own systems and are no longer aware of thermal coupling.
 
-### **Heat1D / Heat2D**
+### **Heat1D / Heat2D / Heat3D**
 * **Description**: Implements the `assemble` method for 1D and 2D Heat Transfer ("Temperature"). The classes no longer contain specialized methods for volumetric heat sources; all sources are now handled by the generic `SourceTerm` system.
 
-### **Magnetic1D / Magnetic2D**
+### **Magnetic1D / Magnetic2D / Magnetic3D**
 * **Description**: Implements the `assemble` method for 1D and 2D Magnetostatics ("MagneticPotential").
