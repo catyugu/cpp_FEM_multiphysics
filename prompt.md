@@ -99,7 +99,6 @@ The following are high-priority areas for the next development cycle. Please add
 * **Examples**: 
   * **Parallel Computing**: Implement parallel computing paradigms (e.g., OpenMP for shared-memory parallelism, MPI for distributed-memory parallelism) for assembly and solver stages.
   * **Memory Management**: Optimize memory usage by minimizing the number of allocations and deallocations.
-  * **Prevent RTTI** : Minimize the use of RTTI (Run-Time Type Information) to improve performance.
 
 ### **2. Implement Advanced Solver Techniques**
 * **Goal**: Enhance numerical robustness and performance.
