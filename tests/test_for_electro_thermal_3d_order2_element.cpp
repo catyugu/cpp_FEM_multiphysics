@@ -9,6 +9,7 @@
 #include "core/Problem.hpp"
 #include "core/Material.hpp"
 #include <core/bcs/BoundaryCondition.hpp>
+#include <solver/LinearSolver.hpp>
 #include <utils/Exceptions.hpp>
 
 #include "physics/Current3D.hpp"
@@ -44,6 +45,9 @@ protected:
         problem->getField("Voltage")->setElementOrder(2);
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
         problem->setup();
+
+        problem->setLinearSolverType(Solver::SolverType::BiCGSTAB); // NEW LINE
+        problem->setIterativeSolverParameters(1000, 1e-9); // Set max_iterations and tolerance for BiCGSTAB
     }
 };
 

@@ -3,10 +3,12 @@ project(cpp_FEM_multiphysics)
 include_directories(include)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os" )
-# Add the path to your Eigen installation to CMAKE_PREFIX_PATH
-# This helps CMake find the Eigen3 package.
-# If you installed to the default location, you might not need this.
+
+find_package(OpenMP REQUIRED) # Find OpenMP
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+
 set(EIGEN3_INCLUDE_DIR "E:/env/cpp/eigen-3.4.0")
+
 file(GLOB_RECURSE SOURCES
         ${PROJECT_SOURCE_DIR}/src/core/*.cpp
         ${PROJECT_SOURCE_DIR}/src/physics/*.cpp
@@ -16,6 +18,9 @@ file(GLOB_RECURSE SOURCES
         )
 add_library(femlib
         ${SOURCES}
+)
+target_link_libraries(femlib PUBLIC
+        OpenMP::OpenMP_CXX
 )
 target_include_directories(femlib PUBLIC
         ${PROJECT_SOURCE_DIR}/include

@@ -1,5 +1,5 @@
 #include "core/Problem.hpp"
-#include <solver/LinearSolver.hpp>
+#include <solver/LinearSolver.hpp> // Make sure this is included for SolverType
 #include <core/mesh/Mesh.hpp>
 #include "core/DOFManager.hpp"
 #include "physics/PhysicsField.hpp"
@@ -89,6 +89,13 @@ namespace Core {
         if (total_time <= 0) throw std::invalid_argument("Total time must be positive.");
         time_step_ = time_step;
         total_time_ = total_time;
+    }
+
+    // New method implementation
+    void Problem::setLinearSolverType(Solver::SolverType type) {
+        linear_solver_type_ = type;
+        SimpleLogger::Logger::instance().info("Problem: Set linear solver type to ",
+                                             (type == Solver::SolverType::LU ? "LU" : "BiCGSTAB"));
     }
 
 } // namespace Core

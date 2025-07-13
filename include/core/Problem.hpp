@@ -7,6 +7,8 @@
 #include <string>
 
 #include <core/coupling/CouplingManager.hpp>
+#include <solver/Solver.hpp> // Include Solver to use SolverType
+#include <solver/LinearSolver.hpp> // Include LinearSolver for SolverType enum
 
 // Forward declarations
 namespace Core {
@@ -33,6 +35,7 @@ namespace Core {
         // --- Solver Control ---
         void setIterativeSolverParameters(int max_iter, double tol);
         void setTimeSteppingParameters(double time_step, double total_time);
+        void setLinearSolverType(Solver::SolverType type); // New method: Allows setting the linear solver type
 
         // --- Solution Methods ---
         void solveSteadyState();
@@ -43,7 +46,7 @@ namespace Core {
         const DOFManager& getDofManager() const;
         Physics::PhysicsField* getField(const std::string& var_name) const;
 
-        // get all the  fields
+        // get all the fields
         const std::vector<std::unique_ptr<Physics::PhysicsField>>& getFields() const;
 
         // Solver control parameters
@@ -51,6 +54,7 @@ namespace Core {
         double getConvergenceTolerance() const { return convergence_tolerance_;}
         double getTimeStep() const { return time_step_;}
         double getTotalTime() const { return total_time_;}
+        Solver::SolverType getLinearSolverType() const { return linear_solver_type_; } // New accessor: Get the linear solver type
 
         CouplingManager& getCouplingManager() { return coupling_manager_; }
 
@@ -65,6 +69,7 @@ namespace Core {
         double convergence_tolerance_ = 1e-4;
         double time_step_ = 0.1;
         double total_time_ = 1.0;
+        Solver::SolverType linear_solver_type_ = Solver::SolverType::LU; // Default linear solver to LU
     };
 
 } // namespace Core
