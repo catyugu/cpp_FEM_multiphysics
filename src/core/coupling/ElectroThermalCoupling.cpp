@@ -9,6 +9,7 @@
 #include "physics/Current3D.hpp"
 #include "utils/SimpleLogger.hpp"
 #include <string>
+#include <core/mesh/LineElement.hpp>
 
 namespace Core {
 

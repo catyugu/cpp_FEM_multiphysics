@@ -34,15 +34,7 @@ namespace Core {
         std::vector<Node*> nodes_; // Pointers to the nodes of the element
     };
 
-    // Concrete implementation for a 1D line element with 2 nodes
-    class LineElement : public Element {
-    public:
-        LineElement(int id);
 
-        size_t getNumNodes() const override;
-        const char* getTypeName() const override;
-        double getLength() const;
-    };
 
 
 } // namespace Core

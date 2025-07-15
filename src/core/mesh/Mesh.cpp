@@ -1,5 +1,6 @@
 #include <core/mesh/Mesh.hpp>
-#include <core/mesh/Element.hpp>      // Corrected: Includes LineElement
+#include <core/mesh/Element.hpp>
+#include <core/mesh/LineElement.hpp>
 #include <core/mesh/TriElement.hpp>
 #include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"

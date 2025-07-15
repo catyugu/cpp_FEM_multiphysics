@@ -9,6 +9,7 @@
 #include <sstream>
 #include <vector>
 #include <string>
+#include <core/mesh/LineElement.hpp>
 
 
 namespace IO {

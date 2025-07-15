@@ -1,6 +1,6 @@
 #include "physics/Heat1D.hpp"
 #include "utils/SimpleLogger.hpp"
-#include <core/mesh/Element.hpp>
+#include <core/mesh/LineElement.hpp>
 #include <core/mesh/Node.hpp>
 #include "utils/Quadrature.hpp"
 #include "core/sources/SourceTerm.hpp"

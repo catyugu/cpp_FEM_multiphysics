@@ -1,5 +1,6 @@
 #include "physics/Magnetic1D.hpp"
 #include <core/mesh/Element.hpp>
+#include <core/mesh/LineElement.hpp>
 #include <core/mesh/Node.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "utils/Quadrature.hpp"
