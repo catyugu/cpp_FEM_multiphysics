@@ -16,7 +16,7 @@ void run_comsol_circle_steadystate() {
     auto& logger = SimpleLogger::Logger::instance();
     logger.info("--- Setting up 2D COMSOL Mesh Problem: Circle Steady-State ---");
 
-    const std::string mesh_filename = "circle_mesh.mphtxt";
+    const std::string mesh_filename = "../data/circle_mesh.mphtxt";
     std::unique_ptr<Core::Mesh> mesh = IO::Importer::read_comsol_mphtxt(mesh_filename);
 
     Core::Material copper("Copper");

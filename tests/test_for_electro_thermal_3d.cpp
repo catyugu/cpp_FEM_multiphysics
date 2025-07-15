@@ -40,9 +40,7 @@ protected:
 
         problem = std::make_unique<Core::Problem>(std::move(mesh));
         problem->addField(std::make_unique<Physics::Current3D>(copper));
-        problem->getField("Voltage")->setElementOrder(2);
         problem->addField(std::make_unique<Physics::Heat3D>(copper));
-        problem->getField("Voltage")->setElementOrder(2);
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
         problem->setup();
 

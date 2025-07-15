@@ -94,23 +94,21 @@ The framework has recently undergone significant refactoring to improve modulari
 The following are high-priority areas for the next development cycle. Please address them in the order presented.
 
 
-### **1. Performance Optimization**
-* **Goal**: Improve computational efficiency for larger problems.
-* **Examples**: 
-  * **Parallel Computing**: Implement parallel computing paradigms (e.g., OpenMP for shared-memory parallelism, MPI for distributed-memory parallelism) for assembly and solver stages.
-  * **Memory Management**: Optimize memory usage by minimizing the number of allocations and deallocations.
-
-### **2. Implement Advanced Solver Techniques**
-* **Goal**: Enhance numerical robustness and performance.
-* **Examples**:
-  * **Iterative Solvers**: Integrate more sophisticated linear iterative solvers (e.g., Conjugate Gradient, BiCGSTAB, GMRES) beyond direct LU decomposition.
-  * **Non-Linear Solvers**: Implement robust non-linear solution strategies (e.g., Newton-Raphson method) to handle non-linear material properties or boundary conditions.
-
-### **3. Enhance Element Formulations**
+### **1. Enhance Element Formulations**
 * **Goal**: Improve approximation capabilities without necessarily changing mesh topology (P-refinement strategies).
-* **Examples**:
+* **Requirements**:
   * Investigate and implement more advanced p-enrichment techniques for higher-order *shape functions* within existing linear element types, if feasible with current DOF management.
   * Consider strategies for solving physics field with true higher-order elements refined from linear element
   * if a redesign of `Core::Element` and `DOFManager` is needed, just to it.
 
+### **2. Implement Higher-Order Quadrature**
+* **Goal**: Improve accuracy and efficiency of numerical integration.
+* **Requirements**:
+  * Investigate and implement higher-order quadrature rules for existing element types.
+  * Consider implementing higher-order quadrature for non-linear elements.
+
+### **3. Documenting Code**
+* **Goal**: Improve readability and maintainability.
+* **Requirements**:
+* Document all public and private methods, classes, and functions in corresponding files in `docs/`.
 
