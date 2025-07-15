@@ -12,7 +12,7 @@ namespace Core {
     }
 
     void CouplingManager::setupCouplings() {
-        auto& logger = SimpleLogger::Logger::instance();
+        auto& logger = Utils::Logger::instance();
         logger.info("Setting up couplings...");
         for (const auto& coupling : couplings_) {
             coupling->setup(fields_);

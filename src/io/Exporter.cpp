@@ -11,7 +11,7 @@
 namespace IO {
 
 bool Exporter::write_vtk(const std::string& filename, const Core::Problem& problem) {
-    auto& logger = SimpleLogger::Logger::instance();
+    auto& logger = Utils::Logger::instance();
     logger.info("Exporting results to VTK file: ", filename);
 
     std::ofstream vtk_file(filename);

@@ -14,7 +14,7 @@
 
 namespace IO {
     std::unique_ptr<Core::Mesh> Importer::read_comsol_mphtxt(const std::string &filename) {
-        auto &logger = SimpleLogger::Logger::instance();
+        auto &logger = Utils::Logger::instance();
         logger.info("Importing COMSOL mesh from file: ", filename);
 
         std::ifstream file(filename);
@@ -118,7 +118,7 @@ namespace IO {
     }
 
     std::unique_ptr<Core::Mesh> Importer::read_gmsh_msh(const std::string &filename) {
-        auto &logger = SimpleLogger::Logger::instance();
+        auto &logger = Utils::Logger::instance();
         logger.info("Importing Gmsh mesh from file: ", filename);
 
         std::ifstream file(filename);
@@ -214,7 +214,7 @@ namespace IO {
     }
 
     std::vector<double> Importer::read_vtu_data(const std::string &filename, const std::string &data_array_name) {
-        auto &logger = SimpleLogger::Logger::instance();
+        auto &logger = Utils::Logger::instance();
         logger.info("Importing VTU data from file: ", filename, " for array: ", data_array_name);
 
         std::ifstream file(filename);
@@ -257,7 +257,7 @@ namespace IO {
 
     VtuData Importer::read_vtu_points_and_data(const std::string &filename,
                                                const std::vector<std::string> &data_array_names) {
-        auto &logger = SimpleLogger::Logger::instance();
+        auto &logger = Utils::Logger::instance();
         logger.info("Importing points and data from VTU file: ", filename);
 
         std::ifstream file(filename);

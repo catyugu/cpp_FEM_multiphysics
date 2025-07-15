@@ -14,7 +14,7 @@
 namespace Core {
 
     void ElectroThermalCoupling::setup(std::vector<Physics::PhysicsField*>& fields) {
-        auto& logger = SimpleLogger::Logger::instance();
+        auto& logger = Utils::Logger::instance();
         logger.info("Setting up Electro-Thermal coupling...");
 
         for (auto* field : fields) {
@@ -38,7 +38,7 @@ namespace Core {
         const std::string joule_heat_tag = "joule_heating_source";
         heat_field_->removeSourcesByTag(joule_heat_tag);
 
-        auto& logger = SimpleLogger::Logger::instance();
+        auto& logger = Utils::Logger::instance();
         logger.info("    Applying Joule Heat as a tagged volumetric source...");
 
         const auto* mesh = emag_field_->getMesh();

@@ -14,7 +14,7 @@
 #include <windows.h>
 #endif
 
-namespace SimpleLogger {
+namespace Utils {
     // Enum for log levels
     enum LogLevel {
         info,

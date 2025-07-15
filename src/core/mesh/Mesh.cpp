@@ -46,7 +46,7 @@ const std::vector<Node*>& Mesh::getNodes() const {
 
 
 Mesh* Mesh::create_uniform_1d_mesh(double length, int num_elements) {
-    auto& logger = SimpleLogger::Logger::instance();
+    auto& logger = Utils::Logger::instance();
     logger.info("Creating uniform 1D mesh...");
     Mesh* mesh = new Mesh();
     double h = length / num_elements;
@@ -64,7 +64,7 @@ Mesh* Mesh::create_uniform_1d_mesh(double length, int num_elements) {
 }
 
 Mesh* Mesh::create_uniform_2d_mesh(double width, double height, int nx, int ny) {
-    auto& logger = SimpleLogger::Logger::instance();
+    auto& logger = Utils::Logger::instance();
     logger.info("Creating uniform 2D mesh...");
     Mesh* mesh = new Mesh();
     double dx = width / nx;
@@ -99,7 +99,7 @@ Mesh* Mesh::create_uniform_2d_mesh(double width, double height, int nx, int ny) 
 }
 
 Mesh* Mesh::create_uniform_3d_mesh(double width, double height, double depth, int nx, int ny, int nz) {
-    auto& logger = SimpleLogger::Logger::instance();
+    auto& logger = Utils::Logger::instance();
     logger.info("Creating uniform 3D mesh...");
     Mesh* mesh = new Mesh();
     double dx = width / nx;

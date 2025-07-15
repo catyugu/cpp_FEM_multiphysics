@@ -6,7 +6,7 @@
 
 namespace Solver {
     void SingleFieldSolver::solveSteadyState(Core::Problem &problem) {
-        auto &logger = SimpleLogger::Logger::instance();
+        auto &logger = Utils::Logger::instance();
         logger.info("\n--- Solving Uncoupled Steady-State Physics ---");
         for (const auto &field: problem.getFields()) {
             if (!field->isEnabled()) {
@@ -20,7 +20,7 @@ namespace Solver {
     }
 
     void SingleFieldSolver::solveTransient(Core::Problem &problem) {
-        auto &logger = SimpleLogger::Logger::instance();
+        auto &logger = Utils::Logger::instance();
         logger.info("\n--- Solving Single-Field Transient Problem ---");
         auto* field = problem.getFields()[0].get(); // Assuming one field
         field->assemble();

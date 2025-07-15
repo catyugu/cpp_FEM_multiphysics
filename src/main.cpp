@@ -13,7 +13,7 @@
 #undef max // Avoid conflict with std::numeric_limits<>::max() on Windows
 
 void run_comsol_circle_steadystate() {
-    auto& logger = SimpleLogger::Logger::instance();
+    auto& logger = Utils::Logger::instance();
     logger.info("--- Setting up 2D COMSOL Mesh Problem: Circle Steady-State ---");
 
     const std::string mesh_filename = "../data/circle_mesh.mphtxt";
@@ -80,22 +80,22 @@ void run_comsol_circle_steadystate() {
 }
 
 int main() {
-    SimpleLogger::Logger::instance().set_logfile("femsolver.log");
-    SimpleLogger::Logger::instance().set_loglevel(SimpleLogger::LogLevel::info);
+    Utils::Logger::instance().set_logfile("femsolver.log");
+    Utils::Logger::instance().set_loglevel(Utils::LogLevel::info);
     try {
         run_comsol_circle_steadystate();
     } catch (const Exception::FileIOException& e) {
-        SimpleLogger::Logger::instance().error("A file I/O error occurred: ", e.what());
+        Utils::Logger::instance().error("A file I/O error occurred: ", e.what());
         return 1;
     } catch (const Exception::SolverException& e) {
-        SimpleLogger::Logger::instance().error("A solver error occurred: ", e.what());
+        Utils::Logger::instance().error("A solver error occurred: ", e.what());
         return 1;
     } catch (const Exception::ConfigurationException& e) {
-        SimpleLogger::Logger::instance().error("A configuration error occurred: ", e.what());
+        Utils::Logger::instance().error("A configuration error occurred: ", e.what());
         return 1;
     }
     catch (const std::exception& e) {
-        SimpleLogger::Logger::instance().error("An unexpected error occurred: ", e.what());
+        Utils::Logger::instance().error("An unexpected error occurred: ", e.what());
         return 1;
     }
     return 0;

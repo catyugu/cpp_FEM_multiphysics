@@ -28,7 +28,7 @@ namespace Solver {
         static void solve(const Eigen::SparseMatrix<double>& A, const Eigen::MatrixXd& b, Eigen::MatrixXd& x,
                           SolverType solver_type = SolverType::LU,
                           int max_iterations = 1000, double tolerance = 1e-6) {
-            auto& logger = SimpleLogger::Logger::instance();
+            auto& logger = Utils::Logger::instance();
             logger.info("Starting linear solve...");
 
             if (solver_type == SolverType::LU) {

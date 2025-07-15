@@ -15,6 +15,7 @@ This namespace contains the fundamental, high-level components that orchestrate 
   * `setup()`
   * `setIterativeSolverParameters(int max_iter, double tol)`
   * `setTimeSteppingParameters(double time_step, double total_time)`
+  * `setLinearSolverType(Solver::SolverType type)`
   * `solveSteadyState()`
   * `solveTransient()`
   * `exportResults(const std::string& filename) const`
@@ -32,12 +33,13 @@ This namespace contains the fundamental, high-level components that orchestrate 
 
 ### **DOFManager**
 
-* **Description**: The Degree of Freedom Manager. It maps the physics variables at each node to a unique index in the global system of equations.
+* **Description**: The Degree of Freedom (DOF) Manager. It intelligently maps physics variables to unique indices in the global system of equations. It is designed to handle both standard vertex-based DOFs and the additional DOFs required for higher-order element formulations (e.g., nodes on element edges).
 * **Public Functions**:
   * `DOFManager(Mesh& mesh)`
   * `registerVariable(const std::string& var_name)`
-  * `build()`
-  * `getEquationIndex(int node_id, const std::string& var_name) const`
+  * `build(const std::map<std::string, int>& field_orders)`: Builds the map based on the maximum element order required by any physics field.
+  * `getEquationIndex(int node_id, const std::string& var_name) const`: Gets the global equation index for a **vertex** DOF.
+  * `getEdgeEquationIndex(std::vector<int> node_ids, const std::string& var_name) const`: Gets the global equation index for a **higher-order edge** DOF. The edge is uniquely identified by the sorted IDs of its two vertex nodes.
   * `getNumEquations() const`: returns `size_t`
   * `getVariableNames() const`: returns `const std::vector<std::string>&`
 
@@ -58,12 +60,15 @@ This namespace contains the fundamental, high-level components that orchestrate 
 * **Public Functions**:
   * `BoundaryCondition(std::string tag = "")`
   * `apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const`: Pure virtual function to apply the BC.
+  * `getEquationIndex() const`: Pure virtual function to get the equation index this BC applies to.
   * `getTag() const`: Returns the BC's tag.
-* **Derived Classes**: `DirichletBC`, `NeumannBC`, `CauchyBC`.
+* **Derived Classes**:
+  * `DirichletBC`: Has two constructors. One for standard vertex nodes (taking a `node_id`) and a second, more direct constructor for higher-order DOFs (taking an `equation_index`). It uses the numerically stable **Penalty Method** for application.
+  * `NeumannBC`, `CauchyBC`.
 
 ### **SourceTerm**
 
-* **Description**: A new abstract base class for applying sources within the domain (e.g., a heat source). It modifies the force vector `F`.
+* **Description**: An abstract base class for applying sources within the domain (e.g., a heat source). It modifies the force vector `F`.
 * **Public Functions**:
   * `SourceTerm(std::string tag)`
   * `apply(Eigen::MatrixXd& F, const DOFManager& dof_manager, const Mesh& mesh, const std::string& var_name) const`: Pure virtual function to apply the source.

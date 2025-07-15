@@ -88,7 +88,7 @@ TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
     problem->exportResults("results_3d.vtk");
 
     // --- Load Reference Data (Coordinates and Values) ---
-    auto& logger = SimpleLogger::Logger::instance();
+    auto& logger = Utils::Logger::instance();
     std::vector<std::string> data_names = {"&#x6e29;&#x5ea6;", "&#x7535;&#x52bf;"}; // Names in COMSOL VTU
     IO::VtuData reference_data;
     try {

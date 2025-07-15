@@ -6,34 +6,19 @@ This namespace contains the specific implementations for different physical simu
 ## **Classes**
 
 ### **PhysicsField**
-* **Description**: This is an **abstract base class** for all physics implementations. It defines the common interface that the `Problem` class uses to interact with any physics module.
+* **Description**: This is an **abstract base class** for all physics implementations. It defines the common interface that the `Problem` class uses to interact with any physics module. It now supports **P-Refinement** (higher-order elements).
+* **Key Concept: P-Refinement**:
+  * The mesh is always composed of simple, geometrically linear elements (e.g., 3-node triangles).
+  * The accuracy of the simulation can be improved by increasing the mathematical order of the shape functions used to approximate the solution over these simple elements.
+  * Setting `element_order_` to `2` instructs the `assemble` method to behave as if the element were quadratic, creating "virtual" nodes on the midpoints of its edges and using 2nd-order shape functions. This is handled internally and does not require a different mesh file.
 * **Public Functions**:
   * `~PhysicsField()`: Virtual destructor.
-  * `getName() const`: Returns the name of the physics field (e.g., "Heat Transfer 2D"). Pure virtual.
-  * `getVariableName() const`: Returns the name of the primary variable (e.g., "Temperature"). Pure virtual.
-  * `getMaterial() const`: Returns a constant reference to the `Core::Material` object. Pure virtual.
-  * `setup(Core::Mesh& mesh, Core::DOFManager& dof_manager)`: Sets up the field. Pure virtual.
-  * `assemble()`: Assembles the system matrices (K, M). Pure virtual.
+  * `setElementOrder(int order)` and `getElementOrder() const`: Sets and gets the mathematical order of the approximation (e.g., 1 for linear, 2 for quadratic).
+  * `setup(Core::Mesh& mesh, Core::DOFManager& dof_manager)`: Sets up the field.
+  * `assemble()`: Assembles the system matrices (K, M). This method is now much more powerful. It internally constructs a "virtual" higher-order element, gathers DOFs for both vertex and edge nodes, and uses the appropriate higher-order shape functions from `Utils::ShapeFunctions`.
   * `addBC(std::unique_ptr<Core::BoundaryCondition> bc)`: Adds a boundary condition.
-  * `removeBCsByTag(const std::string& tag)`: Removes all BCs with a matching tag.
-  * `applyBCs()`: Applies all added boundary conditions to the system matrices.
-  * `addSource(std::unique_ptr<Core::SourceTerm> source)`: Adds a domain source term.
-  * `removeSourcesByTag(const std::string& tag)`: Removes all sources with a matching tag.
-  * `applySources()`: Assembles the force vector `F` from all added source terms.
-  * `setInitialConditions(...)`: Sets initial values for the field.
-  * `updatePreviousSolution()`: Copies the current solution to the previous time step.
-  * `getStiffnessMatrix()`, `getMassMatrix()`, `getRHS()`, `getSolution()`: Accessors for matrices and vectors.
-* **Protected Members**:
-  * `mesh_`, `dof_manager_`, `enabled`, `element_order_`.
-  * `K_`, `M_`, `F_`, `U_`, `U_prev_`: System matrices and vectors.
-  * `bcs_`: Vector of boundary conditions.
-  * `source_terms_`: Vector of source terms.
+  * `applyBCs()`: Applies all added boundary conditions. This method now intelligently consolidates BCs to ensure each degree of freedom is constrained only once.
+  * ... (other functions remain the same) ...
 
-### **Current1D / Current2D / Current3D**
-* **Description**: Implements the `assemble` method for 1D and 2D Electromagnetics ("Voltage"). The classes are now purely responsible for assembling their own systems and are no longer aware of thermal coupling.
-
-### **Heat1D / Heat2D / Heat3D**
-* **Description**: Implements the `assemble` method for 1D and 2D Heat Transfer ("Temperature"). The classes no longer contain specialized methods for volumetric heat sources; all sources are now handled by the generic `SourceTerm` system.
-
-### **Magnetic1D / Magnetic2D / Magnetic3D**
-* **Description**: Implements the `assemble` method for 1D and 2D Magnetostatics ("MagneticPotential").
+### **Current1D/2D/3D**, **Heat1D/2D/3D**, **Magnetic1D/2D/3D**
+* **Description**: These classes now all implement the advanced `assemble` method. They correctly gather DOFs for both vertex and higher-order edge nodes and use the `Utils::Quadrature` and `Utils::ShapeFunctions` libraries to perform accurate numerical integration for any specified element order.
