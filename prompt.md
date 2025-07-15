@@ -67,48 +67,59 @@ cpp_FEM_multiphysics/
 
 ## **III. Current Architecture Overview**
 
-The framework has recently undergone significant refactoring to improve modularity and clarity. Understanding this new architecture is key.
 
-* **Core Components**: The `Core::Problem` class orchestrates the simulation, owning the `Mesh`, `DOFManager`, and a collection of `PhysicsField` objects.
+The framework has evolved significantly. Understanding this new architecture, which enables higher-order approximations on simple linear meshes, is key.
 
-* **Physics Abstraction (`PhysicsField`)**: This is the abstract base class for all physics. Its role is now clearly defined:
+### **1. P-Refinement Strategy**
 
-    * `assemble()`: Assembles the stiffness (`K`) and mass (`M`) matrices only.
-    * `applySources()`: Assembles the force vector (`F`) by applying all registered `SourceTerm` objects.
-    * `applyBCs()`: Modifies the system matrices (`K` and `F`) according to the registered `BoundaryCondition` objects.
+The most significant recent upgrade is the implementation of a **p-refinement** (or p-enrichment) strategy.
 
-* **Boundary and Source Abstractions**: We now make a clear distinction between conditions on the boundary and sources in the domain.
-
-    * **`BoundaryCondition`**: An interface for Dirichlet, Neumann, and Cauchy conditions applied at the boundaries.
-    * **`SourceTerm`**: A new, semantically correct interface for domain sources, like a volumetric heat source.
-    * **Tagging System**: Both `BoundaryCondition` and `SourceTerm` objects can be "tagged" with a string, allowing for safe, non-pointer-based removal (e.g., `removeSourcesByTag("joule_heating")`).
-
-* **Coupling Mechanism (`CouplingManager`, `ElectroThermalCoupling`)**: All physics-to-physics interaction logic is now fully encapsulated within classes derived from the `Coupling` interface. For example, `ElectroThermalCoupling::execute()` is responsible for calculating Joule heat and creating the appropriate `VolumetricSource` objects for the thermal field. The physics fields themselves are completely unaware of one another.
-
-* **Solver Strategy (`CoupledElectroThermalSolver`)**: The iterative solver has a refined and explicit workflow. In each iteration, it calls `assemble()`, `applySources()`, and `applyBCs()` in the correct order. It is also now responsible for stabilizing the system matrices for off-physics degrees of freedom just before calling the linear solver, ensuring a non-singular system.
-
-* **Numerical Integration (`Utils::Quadrature`)**: A new utility class provides Gauss quadrature points and weights for lines, triangles, and tetrahedra for integration orders 1 through 5. This is the foundation for our next major feature.
-
-## **IV. Future Development Requirements**
-
-The following are high-priority areas for the next development cycle. Please address them in the order presented.
+* **Fixed Geometric Mesh**: The `Mesh` is always composed of simple, geometrically linear elements (e.g., a triangle always has 3 vertex nodes, a tetrahedron has 4). This decouples the geometric representation from the mathematical approximation.
+* **Mathematical Order**: The accuracy of the simulation is controlled by the `element_order` property within each `PhysicsField`. Setting this to `2` or higher instructs the physics assembly to use more complex shape functions over the simple geometric element, effectively creating a higher-order approximation.
+* **"Virtual" Nodes**: The `DOFManager` now intelligently creates and manages degrees of freedom for "virtual" nodes that don't exist in the mesh file but are mathematically required for higher-order elements. It currently supports nodes on the midpoints of element edges for 2nd-order approximations.
 
 
-### **1. Enhance Element Formulations**
-* **Goal**: Improve approximation capabilities without necessarily changing mesh topology (P-refinement strategies).
+
+### **2. Advanced Degree of Freedom (DOF) Management**
+
+To support p-refinement, the `DOFManager` has been completely redesigned.
+
+* **Multiple DOF Maps**: It now maintains separate maps for different types of DOFs: one for vertices (`vertex_dof_map_`) and one for edges (`edge_dof_map_`).
+* **Unique Edge Identification**: To uniquely identify a higher-order DOF on an edge, it uses a key composed of the **sorted** vertex IDs of that edge. This guarantees that `(Node1, Node2)` and `(Node2, Node1)` refer to the same edge DOF.
+* **Order-Aware Build Process**: The `build()` method now requires the element orders of all physics fields to determine exactly which higher-order DOFs need to be created.
+
+### **3. Robust Boundary Condition (BC) System**
+
+Applying constraints to higher-order elements required a more sophisticated BC system.
+
+* **Dual-Constructor `DirichletBC`**: The `DirichletBC` class now has two constructors: one that uses a `node_id` (for vertices) and a second that directly accepts an `equation_index`. This second constructor is essential for constraining the "virtual" higher-order DOFs, which do not have a node ID.
+* **Consolidated Application**: The `PhysicsField::applyBCs()` method is now intelligent. It first consolidates all BCs into a map where each DOF index appears only once. This prevents common errors from redundantly applying constraints to the same node (e.g., a corner node shared by multiple boundary edges), which previously caused solver failures.
+
+### **4. Solver and Performance**
+
+* **Mixed-Order Coupled Solver**: The `CoupledElectroThermalSolver` has been upgraded to correctly stabilize and solve systems where different physics fields have different element orders. This is crucial for advanced multiphysics simulations.
+
+## **III. Future Development Requirements**
+
+With a robust p-refinement system in place, we can now focus on expanding the framework's capabilities. Please address the following tasks.
+
+### **1. Implement Higher-Order (p > 2) Formulations**
+* **Goal**: Extend the framework to support cubic, quartic, etc., elements.
 * **Requirements**:
-  * Investigate and implement more advanced p-enrichment techniques for higher-order *shape functions* within existing linear element types, if feasible with current DOF management.
-  * Consider strategies for solving physics field with true higher-order elements refined from linear element
-  * if a redesign of `Core::Element` and `DOFManager` is needed, just to it.
+  * Implement the mathematical formulas for 3rd-order and higher shape functions in `utils/ShapeFunctions.cpp` for all element types.
+  * Extend the `DOFManager` to handle DOFs on element **faces** (for 3rd-order 3D elements) and **internal/volume** DOFs (for 4th-order+ elements). This will likely require adding a `getFaceEquationIndex` method.
+  * Update the `get_element_dofs` lambda function inside the `assemble` methods to correctly gather these new face and volume DOFs.
 
-### **2. Implement Higher-Order Quadrature**
-* **Goal**: Improve accuracy and efficiency of numerical integration.
+### **2. Add Support for Non-Linear Materials**
+* **Goal**: Simulate materials whose properties change with the field itself (e.g., magnetic permeability changing with B-field strength).
 * **Requirements**:
-  * Investigate and implement higher-order quadrature rules for existing element types.
-  * Consider implementing higher-order quadrature for non-linear elements.
+  * Update the `Material::getProperty` method to accept the current element's field values as an optional argument.
+  * Implement a non-linear solver loop (e.g., Newton-Raphson) within the `SingleFieldSolver` and `CoupledElectroThermalSolver`. This involves calculating a tangent stiffness matrix at each iteration.
+  * Create a new test case for a simple non-linear problem to validate the implementation.
 
-### **3. Documenting Code**
-* **Goal**: Improve readability and maintainability.
+### **3. Performance Optimization with Parallelism**
+* **Goal**: Significantly speed up the assembly process, which is the next major bottleneck after the linear solve.
 * **Requirements**:
-* Document all public and private methods, classes, and functions in corresponding files in `docs/`.
-
+  * The `assemble` loop over elements is a prime candidate for parallelization. Use **OpenMP** (which is already included in the project) to parallelize this loop.
+  * Ensure that the accumulation of triplets into the `k_triplets` and `m_triplets` vectors is done in a thread-safe manner. A standard approach is to have each thread work on its own private list of triplets and merge them all at the end.
+  * Benchmark the performance improvement on a large test case.
