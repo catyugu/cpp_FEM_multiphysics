@@ -1,10 +1,7 @@
-//
-// Created by HUAWEI on 2025/7/15.
-//
-
-#include <stdexcept>
 #include <core/mesh/LineElement.hpp>
+#include <stdexcept>
 #include <cmath>
+#include "utils/ShapeFunctions.hpp"
 
 
 namespace Core {
@@ -13,7 +10,11 @@ namespace Core {
     LineElement::LineElement(int id) : Element(id) {}
 
     size_t LineElement::getNumNodes() const {
-        return 2;
+        if (order_ > 0 && order_ <= Utils::MAX_LINE_ORDER_SUPPORTED) {
+            // The number of nodes for a line element of order p is p+1
+            return order_ + 1;
+        }
+        throw std::runtime_error("Unsupported order " + std::to_string(order_) + " for LineElement. Maximum supported order is " + std::to_string(Utils::MAX_LINE_ORDER_SUPPORTED) + ".");
     }
 
     const char* LineElement::getTypeName() const {

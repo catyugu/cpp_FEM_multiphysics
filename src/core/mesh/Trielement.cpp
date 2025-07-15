@@ -1,12 +1,17 @@
 #include <core/mesh/TriElement.hpp>
 #include <stdexcept>
+#include "utils/ShapeFunctions.hpp"
 
 namespace Core {
 
     TriElement::TriElement(int id) : Element(id) {}
 
     size_t TriElement::getNumNodes() const {
-        return 3;
+        if (order_ > 0 && order_ <= Utils::MAX_TRI_ORDER_SUPPORTED) {
+            // The number of nodes for a triangular element of order p is (p+1)(p+2)/2
+            return (order_ + 1) * (order_ + 2) / 2;
+        }
+        throw std::runtime_error("Unsupported order " + std::to_string(order_) + " for TriElement. Maximum supported order is " + std::to_string(Utils::MAX_TRI_ORDER_SUPPORTED) + ".");
     }
 
     const char* TriElement::getTypeName() const {
@@ -14,8 +19,8 @@ namespace Core {
     }
 
     double TriElement::getArea() const {
-        if (nodes_.size() != 3) {
-            throw std::runtime_error("TriElement must have exactly 3 nodes to calculate area.");
+        if (nodes_.size() < 3) {
+            throw std::runtime_error("TriElement must have at least 3 nodes to calculate area.");
         }
         const auto& p1 = nodes_[0]->getCoords();
         const auto& p2 = nodes_[1]->getCoords();

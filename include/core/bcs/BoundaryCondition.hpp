@@ -19,8 +19,8 @@ namespace Core {
         virtual ~BoundaryCondition() = default;
 
         virtual void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const = 0;
+        virtual int getEquationIndex() const = 0; // New pure virtual function
         const std::string& getTag() const { return tag_; }
-
     protected:
         std::string tag_;
     };
@@ -30,8 +30,10 @@ namespace Core {
     class DirichletBC : public BoundaryCondition {
     public:
         DirichletBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd value, const std::string& tag = "");
-        void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
+        DirichletBC(int equation_index, Eigen::VectorXd value, const std::string& tag = "");
 
+        void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
+        int getEquationIndex() const override { return equation_index_; }
     private:
         int equation_index_;
         Eigen::VectorXd value_;
@@ -41,7 +43,7 @@ namespace Core {
     public:
         NeumannBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd flux_value, const std::string& tag = "");
         void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
-
+        int getEquationIndex() const override { return equation_index_; }
     private:
         int equation_index_;
         Eigen::VectorXd flux_value_;
@@ -51,7 +53,7 @@ namespace Core {
     public:
         CauchyBC(const DOFManager& dof_manager, int node_id, const std::string& var_name, Eigen::VectorXd h, Eigen::VectorXd T_inf, const std::string& tag = "");
         void apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const override;
-
+        int getEquationIndex() const override { return equation_index_; }
     private:
         int equation_index_;
         Eigen::VectorXd h_;

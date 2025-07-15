@@ -1,12 +1,17 @@
 #include <core/mesh/TetElement.hpp>
 #include <stdexcept>
+#include "utils/ShapeFunctions.hpp"
 
 namespace Core {
 
 TetElement::TetElement(int id) : Element(id) {}
 
 size_t TetElement::getNumNodes() const {
-    return 4;
+    if (order_ > 0 && order_ <= Utils::MAX_TET_ORDER_SUPPORTED) {
+         // The number of nodes for a tetrahedral element of order p is (p+1)(p+2)(p+3)/6
+        return (order_ + 1) * (order_ + 2) * (order_ + 3) / 6;
+    }
+     throw std::runtime_error("Unsupported order " + std::to_string(order_) + " for TetElement. Maximum supported order is " + std::to_string(Utils::MAX_TET_ORDER_SUPPORTED) + ".");
 }
 
 const char* TetElement::getTypeName() const {

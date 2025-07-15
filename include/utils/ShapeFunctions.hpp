@@ -1,11 +1,13 @@
 #ifndef SHAPEFUNCTIONS_HPP
 #define SHAPEFUNCTIONS_HPP
-
+#define MAX_ELEMENT_ORDER_SUPPORTED 2
 #include <Eigen/Dense>
 #include <vector>
 
 namespace Utils {
-
+    constexpr int MAX_LINE_ORDER_SUPPORTED = 5;
+    constexpr int MAX_TRI_ORDER_SUPPORTED = 2;
+    constexpr int MAX_TET_ORDER_SUPPORTED = 2;
     class ShapeFunctions {
     public:
         // For 1D Line Elements

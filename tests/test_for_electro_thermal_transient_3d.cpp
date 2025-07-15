@@ -38,6 +38,8 @@ protected:
         // Set time stepping parameters
         problem->setTimeSteppingParameters(0.1, 1.0); // 0.1s time step, 1.0s total time
         problem->setIterativeSolverParameters(20, 1e-4); // Max 20 inner iterations, 1e-4 tolerance
+        // problem->getField("Voltage")->setElementOrder(2);
+        // problem->getField("Temperature")->setElementOrder(2);
 
         problem->setup();
     }
@@ -96,7 +98,7 @@ TEST_F(CoupledTransient3DTest, Simple3DTransientRun) {
         max_temp_diff = std::max(max_temp_diff, std::abs(final_temp_solution(i) - initial_temp_solution(i)));
     }
 
-    SimpleLogger::Logger::instance().info("Maximum temperature change from initial: ", max_temp_diff, " K");
+    Utils::Logger::instance().info("Maximum temperature change from initial: ", max_temp_diff, " K");
 
     // Expect some temperature change if Joule heating occurs and boundary conditions allow
     ASSERT_GT(max_temp_diff, 1e-6); // Expect a noticeable change

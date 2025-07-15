@@ -88,15 +88,10 @@ Eigen::VectorXd ShapeFunctions::getTriShapeFunctions(int order, double xi, doubl
     throw std::invalid_argument("Triangle shape function order > 2 not yet implemented.");
 }
 
-Eigen::MatrixXd ShapeFunctions::getTriShapeFunctionDerivatives(int order, double xi, double eta) {
+    Eigen::MatrixXd ShapeFunctions::getTriShapeFunctionDerivatives(int order, double xi, double eta) {
     double L1 = 1.0 - xi - eta;
     double L2 = xi;
     double L3 = eta;
-
-    // Derivatives of L-coordinates w.r.t xi and eta
-    // dL1/dxi = -1, dL1/deta = -1
-    // dL2/dxi = 1,  dL2/deta = 0
-    // dL3/dxi = 0,  dL3/deta = 1
 
     if (order == 1) {
         Eigen::MatrixXd dN(3, 2);
@@ -108,25 +103,31 @@ Eigen::MatrixXd ShapeFunctions::getTriShapeFunctionDerivatives(int order, double
     }
     if (order == 2) {
         Eigen::MatrixXd dN(6, 2);
-        // dN/dxi
-        dN(0, 0) = -1.0 * (4 * L1 - 1);       // d(N1)/dxi
-        dN(1, 0) = 4 * L2 - 1;                // d(N2)/dxi
-        dN(2, 0) = 0;                         // d(N3)/dxi
-        dN(3, 0) = 4 * (L1 - L2);             // d(N4)/dxi
-        dN(4, 0) = 4 * L3;                    // d(N5)/dxi
-        dN(5, 0) = -4 * L3;                   // d(N6)/dxi
-        // dN/deta
-        dN(0, 1) = -1.0 * (4 * L1 - 1);       // d(N1)/deta
-        dN(1, 1) = 0;                         // d(N2)/deta
-        dN(2, 1) = 4 * L3 - 1;                // d(N3)/deta
-        dN(3, 1) = -4 * L2;                   // d(N4)/deta
-        dN(4, 1) = 4 * (L2 - L3);             // d(N5)/deta
-        dN(5, 1) = 4 * (L1 - L3);             // d(N6)/deta
+        // Derivatives w.r.t. xi (the first column)
+        dN(0, 0) = -1.0 * (4 * L1 - 1);
+        dN(1, 0) = 4 * L2 - 1;
+        dN(2, 0) = 0;
+        dN(3, 0) = 4 * (L1 - L2);
+        dN(4, 0) = 4 * L3;
+        dN(5, 0) = -4 * L3;
+
+        // Derivatives w.r.t. eta (the second column)
+        dN(0, 1) = -1.0 * (4 * L1 - 1);
+        dN(1, 1) = 0;
+        dN(2, 1) = 4 * L3 - 1;
+        dN(3, 1) = -4 * L2;
+
+        // --- THE FIX IS HERE ---
+        // The shape function N5 is 4*L2*L3.
+        // Its derivative with respect to eta is 4 * ( (dL2/deta * L3) + (L2 * dL3/deta) )
+        // Since dL2/deta = 0 and dL3/deta = 1, the result is 4 * L2.
+        // The old code incorrectly had 4 * (L2 - L3).
+        dN(4, 1) = 4 * L2;
+
+        dN(5, 1) = 4 * (L1 - L3);
         return dN;
     }
-    throw std::invalid_argument("Triangle shape function derivative order > 2 not yet implemented.");
 }
-
 
 // --- 3D Tetrahedron Shape Functions ---
 

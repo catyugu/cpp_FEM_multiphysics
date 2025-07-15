@@ -2,6 +2,7 @@
 #include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "utils/Quadrature.hpp"
+#include "utils/ShapeFunctions.hpp"
 
 namespace Physics {
 
@@ -13,7 +14,7 @@ const char* Magnetic3D::getVariableName() const { return "MagneticPotential"; }
 void Magnetic3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     mesh_ = &mesh;
     dof_manager_ = &dof_manager;
-    auto& logger = SimpleLogger::Logger::instance();
+    auto& logger = Utils::Logger::instance();
     logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
 
     size_t num_eq = dof_manager_->getNumEquations();
@@ -22,11 +23,12 @@ void Magnetic3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     U_.resize(num_eq, 1);
     U_prev_.resize(num_eq, 1);
     F_.setZero();
+    U_.setZero();
+    U_prev_.setZero();
 }
-
 void Magnetic3D::assemble() {
-    auto& logger = SimpleLogger::Logger::instance();
-    logger.info("Assembling system for ", getName());
+    auto& logger = Utils::Logger::instance();
+    logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
     K_.setZero();
     F_.setZero();
@@ -41,21 +43,46 @@ void Magnetic3D::assemble() {
     for (const auto& elem_ptr : mesh_->getElements()) {
         auto* tet_elem = dynamic_cast<Core::TetElement*>(elem_ptr);
         if (tet_elem) {
-            Eigen::Matrix4d ke_local = Eigen::Matrix4d::Zero();
-            double detJ = tet_elem->getVolume() * 6.0;
-            for (const auto& qp : quadrature_points) {
-                auto B = tet_elem->getBMatrix();
+            const auto& vertex_nodes = tet_elem->getNodes();
+            if (vertex_nodes.size() != 4) continue;
+
+            int order = element_order_;
+            size_t num_elem_nodes = (order + 1) * (order + 2) * (order + 3) / 6;
+
+            Eigen::Matrix<double, 3, Eigen::Dynamic> all_node_coords(3, num_elem_nodes);
+            std::vector<int> dofs(num_elem_nodes);
+
+            for(size_t i = 0; i < 4; ++i) {
+                const auto& coords = vertex_nodes[i]->getCoords();
+                all_node_coords(0, i) = coords[0];
+                all_node_coords(1, i) = coords[1];
+                all_node_coords(2, i) = coords[2];
+                dofs[i] = dof_manager_->getEquationIndex(vertex_nodes[i]->getId(), getVariableName());
+            }
+
+            if (order > 1) {
+                int edge_node_idx = 4;
+                const std::vector<std::pair<int, int>> edges = {{0,1}, {0,2}, {0,3}, {1,2}, {1,3}, {2,3}};
+                for (const auto& edge : edges) {
+                    all_node_coords.col(edge_node_idx) = (all_node_coords.col(edge.first) + all_node_coords.col(edge.second)) * 0.5;
+                    dofs[edge_node_idx] = dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName());
+                    edge_node_idx++;
+                }
+            }
+
+            Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
+
+            for(const auto& qp : quadrature_points) {
+                Eigen::MatrixXd dN_dnat = Utils::ShapeFunctions::getTetShapeFunctionDerivatives(order, qp.point(0), qp.point(1), qp.point(2));
+                Eigen::Matrix3d J = all_node_coords * dN_dnat;
+                double detJ = std::abs(J.determinant());
+                Eigen::MatrixXd B = (dN_dnat * J.inverse()).transpose();
+
                 ke_local += B.transpose() * D * B * qp.weight * detJ;
             }
 
-            auto nodes = tet_elem->getNodes();
-            int dofs[4];
-            for(int i=0; i<4; ++i) {
-                dofs[i] = dof_manager_->getEquationIndex(nodes[i]->getId(), getVariableName());
-            }
-
-            for (int i = 0; i < 4; ++i) {
-                for (int j = 0; j < 4; ++j) {
+            for (size_t i = 0; i < num_elem_nodes; ++i) {
+                for (size_t j = 0; j < num_elem_nodes; ++j) {
                     if (dofs[i] != -1 && dofs[j] != -1) {
                         triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
                     }
@@ -64,21 +91,6 @@ void Magnetic3D::assemble() {
         }
     }
     K_.setFromTriplets(triplet_list.begin(), triplet_list.end());
-
-    // Stabilize the matrix for degrees of freedom of other physics
-    const std::string my_var = getVariableName();
-    for(const auto& var_name : dof_manager_->getVariableNames()) {
-        if (var_name != my_var) {
-            for(const auto& node : mesh_->getNodes()) {
-                int dof_idx = dof_manager_->getEquationIndex(node->getId(), var_name);
-                if (dof_idx != -1) {
-                    K_.coeffRef(dof_idx, dof_idx) = 1.0;
-                }
-            }
-        }
-    }
-
     logger.info("Assembly for ", getName(), " complete.");
 }
-
-} // namespace Physics
+}

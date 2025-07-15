@@ -56,6 +56,7 @@ namespace Physics {
 
         const Core::DOFManager* getDofManager() const { return dof_manager_;}
         void removeBCsByTag(const std::string& tag);
+        int getElementOrder() const { return element_order_; }
 
         void addSource(std::unique_ptr<Core::SourceTerm> source);
         void removeSourcesByTag(const std::string& tag);

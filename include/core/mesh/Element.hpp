@@ -28,10 +28,15 @@ namespace Core {
         // Pure virtual function to get the element type name
         virtual const char* getTypeName() const = 0;
 
+        // Get and set the order of the element
+        int getOrder() const { return order_; }
+        void setOrder(int order) { order_ = order; }
+
 
     protected:
         int id_;
         std::vector<Node*> nodes_; // Pointers to the nodes of the element
+        int order_ = 1; // Default to linear elements
     };
 
 

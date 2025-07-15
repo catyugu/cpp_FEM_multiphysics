@@ -8,11 +8,25 @@ namespace Physics {
     }
 
     void PhysicsField::applyBCs() {
-        SimpleLogger::Logger::instance().info("Applying ", bcs_.size(), " BCs for ", getName());
-        for(const auto& bc : bcs_) {
-            bc->apply(K_, F_);
+        auto& logger = Utils::Logger::instance();
+        logger.info("Applying ", bcs_.size(), " defined BCs for ", getName());
+
+        std::map<int, const Core::BoundaryCondition*> consolidated_bcs;
+        for (const auto& bc : bcs_) {
+            if(bc->getEquationIndex() != -1) {
+                consolidated_bcs[bc->getEquationIndex()] = bc.get();
+            }
         }
+
+        logger.info("Applying ", consolidated_bcs.size(), " unique, consolidated BCs.");
+
+        // Iterate through the consolidated map and apply the final, unique BCs.
+        for (const auto& pair : consolidated_bcs) {
+            pair.second->apply(K_, F_);
+        }
+        // --- END OF FIX ---
     }
+
 
     void PhysicsField::applySources() {
         // This is the new implementation
@@ -58,7 +72,7 @@ namespace Physics {
 
     void PhysicsField::setElementOrder(int order) {
         if (order < 1) {
-            SimpleLogger::Logger::instance().error("Element order must be at least 1.");
+            Utils::Logger::instance().error("Element order must be at least 1.");
             return;
         }
         element_order_ = order;
@@ -73,9 +87,9 @@ namespace Physics {
         if (U_.size() > 0) {
             U_.setConstant(initial_value);
             U_prev_ = U_;
-            SimpleLogger::Logger::instance().info("Set initial condition for '", getVariableName(), "' to ", initial_value);
+            Utils::Logger::instance().info("Set initial condition for '", getVariableName(), "' to ", initial_value);
         } else {
-            SimpleLogger::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(), "'.");
+            Utils::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(), "'.");
         }
     }
 
@@ -86,9 +100,9 @@ namespace Physics {
                 U_(i) = func(mesh_->getNode(i));
             }
             U_prev_ = U_;
-            SimpleLogger::Logger::instance().info("Set initial condition for '", getVariableName(), "' to ", func);
+            Utils::Logger::instance().info("Set initial condition for '", getVariableName(), "' to ", func);
         } else {
-            SimpleLogger::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(), "'.");
+            Utils::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(), "'.");
         }
     }
 

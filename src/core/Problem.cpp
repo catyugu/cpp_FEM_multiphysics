@@ -24,10 +24,20 @@ namespace Core {
         fields_.push_back(std::move(field));
     }
 
+    // ... inside Problem::setup() ...
     void Problem::setup() {
-        auto &logger = SimpleLogger::Logger::instance();
+        auto &logger = Utils::Logger::instance();
         logger.info("--- Problem Setup ---");
-        dof_manager_->build();
+
+        // --- FIX IS HERE ---
+        // Collect the element order for each field before building the DOF Manager
+        std::map<std::string, int> field_orders;
+        for (const auto &field: fields_) {
+            field_orders[field->getVariableName()] = field->getElementOrder();
+        }
+        dof_manager_->build(field_orders);
+        // --- End of Fix ---
+
         for (const auto &field: fields_) {
             field->setup(*mesh_, *dof_manager_);
         }
@@ -94,7 +104,7 @@ namespace Core {
     // New method implementation
     void Problem::setLinearSolverType(Solver::SolverType type) {
         linear_solver_type_ = type;
-        SimpleLogger::Logger::instance().info("Problem: Set linear solver type to ",
+        Utils::Logger::instance().info("Problem: Set linear solver type to ",
                                              (type == Solver::SolverType::LU ? "LU" : "BiCGSTAB"));
     }
 
