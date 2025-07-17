@@ -191,7 +191,7 @@ TEST(HigherOrderSingleFieldTest, Magnetic2D_Order2) {
 void setup_and_validate_3D_problem(const std::string& field_name, Physics::PhysicsField* field) {
     auto problem = std::make_unique<Core::Problem>(std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(1.0, 1.0, 1.0, 5, 5, 5)));
 
-    field->setElementOrder(1); // Assuming Order 2 for this test
+    field->setElementOrder(2); // Assuming Order 2 for this test
     problem->addField(std::unique_ptr<Physics::PhysicsField>(field));
     problem->setup();
 
