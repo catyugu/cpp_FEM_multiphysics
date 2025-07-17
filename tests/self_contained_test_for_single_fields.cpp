@@ -194,7 +194,7 @@ void setup_and_validate_3D_problem(const std::string& field_name, Physics::Physi
     // Using an iterative solver is still good practice for 3D problems.
     // problem->setLinearSolverType(Solver::SolverType::BiCGSTAB);
 
-    field->setElementOrder(2);
+    field->setElementOrder(1);
     problem->addField(std::unique_ptr<Physics::PhysicsField>(field));
     problem->setup();
 
