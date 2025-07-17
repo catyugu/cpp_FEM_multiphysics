@@ -137,14 +137,6 @@ This class holds the pure geometric information of an element.
 **2. Introduce `FEValues` (Finite Element Values)**
 This is the most important new concept. The `FEValues` object is a "calculator" that, for a given quadrature point on an element, provides everything needed for assembly.
 
-* **File**: `include/core/FEValues.hpp`
-* **Constructor**: `FEValues(ElementGeometry& geom, int order, int quad_order)`
-* **Key Methods**:
-  * `reinit(int q_point_index)`: Sets the object to a specific quadrature point.
-  * `get_shape_values()`: Returns the shape function values, `N`.
-  * `get_shape_gradients()`: Returns the shape function gradients in the real coordinate system, `∇N`.
-  * `get_detJ_times_weight()`: Returns `det(J) * w_q`, the combined Jacobian determinant and quadrature weight.
-
 When an `FEValues` object is created, it pre-calculates and caches all shape function information for all quadrature points, making the assembly loop incredibly fast.
 
 **3. Redesign the `Element` Class**
@@ -156,35 +148,6 @@ The `Element` class now becomes a container that holds its geometry and can crea
 #### Phase 2: Simplify the `assemble` Methods
 
 With the new `FEValues` object, the `assemble` method in every single physics field becomes dramatically simpler, cleaner, and nearly identical.
-
-**Example: The New `Heat3D::assemble`**
-
-```cpp
-void Heat3D::assemble() {
-    // ... (setup code remains the same) ...
-    
-    for (const auto& elem_ptr : mesh_->getElements()) {
-        const auto& dofs = get_element_dofs(elem_ptr); // Get all DOFs for this element
-        
-        // The Element creates the FEValues object for the requested order
-        auto fe_values = elem_ptr->create_fe_values(element_order_, quadrature_order_);
-
-        Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(dofs.size(), dofs.size());
-        
-        // Loop over quadrature points becomes trivial
-        for (int q = 0; q < fe_values->num_quadrature_points(); ++q) {
-            fe_values->reinit(q); // Move to the next quadrature point
-
-            const auto& B = fe_values->get_shape_gradients(); // Get pre-calculated gradients
-            const double dV = fe_values->get_detJ_times_weight(); // Get pre-calculated dV
-
-            ke_local += B.transpose() * D_mat * B * dV;
-        }
-        
-        // Add ke_local to the global matrix K...
-    }
-}
-```
 
 Notice how the `PhysicsField` no longer knows anything about Jacobians or shape function derivatives. It just asks for the values it needs. **This is the hallmark of a mature FEM core.**
 

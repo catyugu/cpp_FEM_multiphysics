@@ -1,10 +1,7 @@
 #include "physics/Magnetic2D.hpp"
 #include <core/mesh/TriElement.hpp>
-#include <core/mesh/Node.hpp>
 #include "utils/SimpleLogger.hpp"
-#include "utils/Quadrature.hpp"
-#include "utils/ShapeFunctions.hpp"
-#include <cmath> // For std::abs
+#include "core/FEValues.hpp" // Use the FEValues calculator
 
 namespace Physics {
 
@@ -38,50 +35,28 @@ void Magnetic2D::assemble() {
     K_.setZero();
     F_.setZero();
 
-    const double mu = material_.getProperty("magnetic_permeability");
-    const double inv_mu = 1.0 / mu;
+    const double inv_mu = 1.0 / material_.getProperty("magnetic_permeability");
 
     std::vector<Eigen::Triplet<double>> k_triplets;
-    auto quadrature_points = Utils::Quadrature::getTriangleQuadrature(element_order_);
 
     for (const auto& elem_ptr : mesh_->getElements()) {
-        auto* tri_elem = dynamic_cast<Core::TriElement*>(elem_ptr);
-        if (tri_elem) {
-            const auto& vertex_nodes = tri_elem->getNodes();
-            if (vertex_nodes.size() != 3) continue;
+        if (auto* tri_elem = dynamic_cast<Core::TriElement*>(elem_ptr)) {
+            // Set the element's mathematical order before creating FEValues
+            tri_elem->setOrder(element_order_);
 
-            int order = element_order_;
-            size_t num_elem_nodes = (order + 1) * (order + 2) / 2;
-
-            Eigen::Matrix<double, 2, Eigen::Dynamic> all_node_coords(2, num_elem_nodes);
-            std::vector<int> dofs(num_elem_nodes);
-
-            for(size_t i = 0; i < 3; ++i) {
-                const auto& coords = vertex_nodes[i]->getCoords();
-                all_node_coords(0, i) = coords[0];
-                all_node_coords(1, i) = coords[1];
-                dofs[i] = dof_manager_->getEquationIndex(vertex_nodes[i]->getId(), getVariableName());
-            }
-
-            if (order > 1) {
-                int edge_node_idx = 3;
-                const std::vector<std::pair<int, int>> edges = {{0,1}, {1,2}, {2,0}};
-                for (const auto& edge : edges) {
-                    all_node_coords.col(edge_node_idx) = (all_node_coords.col(edge.first) + all_node_coords.col(edge.second)) * 0.5;
-                    dofs[edge_node_idx] = dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName());
-                    edge_node_idx++;
-                }
-            }
+            auto fe_values = tri_elem->create_fe_values(element_order_);
+            const auto dofs = get_element_dofs(tri_elem);
+            const size_t num_elem_nodes = tri_elem->getNumNodes();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-            for (const auto& qp : quadrature_points) {
-                Eigen::MatrixXd dN_dnat = Utils::ShapeFunctions::getTriShapeFunctionDerivatives(order, qp.point(0), qp.point(1));
-                Eigen::Matrix2d J = all_node_coords * dN_dnat;
-                double detJ = std::abs(J.determinant());
-                Eigen::MatrixXd B = (dN_dnat * J.inverse()).transpose();
+            for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+                fe_values->reinit(q_p);
 
-                ke_local += B.transpose() * inv_mu * B * qp.weight * detJ;
+                const auto& B = fe_values->get_shape_gradients();
+                const double detJ_x_w = fe_values->get_detJ_times_weight();
+
+                ke_local += B.transpose() * inv_mu * B * detJ_x_w;
             }
 
             for (size_t i = 0; i < num_elem_nodes; ++i) {

@@ -71,6 +71,7 @@ namespace IO {
                         tri_elem->addNode(mesh->getNode(n1));
                         tri_elem->addNode(mesh->getNode(n2));
                         tri_elem->addNode(mesh->getNode(n3));
+                        tri_elem->update_geometry();
                         mesh->addElement(tri_elem);
                     }
                 }
@@ -100,6 +101,7 @@ namespace IO {
                         tet_elem->addNode(mesh->getNode(n2));
                         tet_elem->addNode(mesh->getNode(n3));
                         tet_elem->addNode(mesh->getNode(n4));
+                        tet_elem->update_geometry();
                         mesh->addElement(tet_elem);
                     }
                 }
@@ -199,6 +201,7 @@ namespace IO {
                         for (int id: node_ids) {
                             new_elem->addNode(mesh->getNode(id));
                         }
+                        new_elem->update_geometry();
                         mesh->addElement(new_elem);
                     }
                 }

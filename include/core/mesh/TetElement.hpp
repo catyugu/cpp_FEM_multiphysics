@@ -17,6 +17,8 @@ namespace Core {
         size_t getNumNodes() const override;
         const char* getTypeName() const override;
 
+        int getDimension() const override { return 3;}
+
         // Calculates the volume of the tetrahedral element.
         double getVolume() const;
 

@@ -43,8 +43,10 @@ protected:
         problem->addField(std::make_unique<Physics::Heat3D>(copper));
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
         problem->setup();
+        // problem->getField("Voltage")->setElementOrder(2);
+        // problem->getField("Temperature")->setElementOrder(2);
 
-        problem->setLinearSolverType(Solver::SolverType::BiCGSTAB); // NEW LINE
+        // problem->setLinearSolverType(Solver::SolverType::BiCGSTAB);
         problem->setIterativeSolverParameters(1000, 1e-9); // Set max_iterations and tolerance for BiCGSTAB
     }
 };

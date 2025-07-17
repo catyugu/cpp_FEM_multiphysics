@@ -28,13 +28,12 @@ namespace Physics {
         for (const auto &pair: consolidated_bcs) {
             pair.second->apply(K_, F_);
         }
-        // --- END OF FIX ---
     }
 
 
     void PhysicsField::applySources() {
-        // This is the new implementation
-        F_.setZero(); // Start with a fresh force vector
+        // Clear the force vector before applying sources to avoid accumulation across steps/iterations
+        F_.setZero();
         for (const auto &source: source_terms_) {
             source->apply(F_, *dof_manager_, *mesh_, getVariableName());
         }
@@ -114,52 +113,46 @@ namespace Physics {
         }
     }
 
-    std::vector<int> PhysicsField::get_element_dofs(const Core::Element *elem) const {
-        const auto &vertex_nodes = elem->getNodes();
-        const int order = elem->getOrder();
-        size_t num_elem_nodes = elem->getNumNodes();
+  std::vector<int> PhysicsField::get_element_dofs(Core::Element* elem) const {
+        const auto& vertex_nodes = elem->getNodes();
+        const size_t num_vertices = vertex_nodes.size();
+        elem->setOrder(element_order_);
+        const size_t num_elem_nodes = elem->getNumNodes();
         std::vector<int> dofs(num_elem_nodes);
 
         // --- 1. Get Vertex DOFs (always first) ---
-        for (size_t i = 0; i < vertex_nodes.size(); ++i) {
+        for (size_t i = 0; i < num_vertices; ++i) {
             dofs[i] = dof_manager_->getEquationIndex(vertex_nodes[i]->getId(), getVariableName());
         }
 
-        // --- 2. Get Higher-Order DOFs in their canonical order ---
-        if (order > 1) {
-            if (dynamic_cast<const Core::LineElement *>(elem)) {
-                // Order for quadratic line: [v0, v1, e01] - but our shape functions expect [v0, e01, v1]
-                // We will handle this reordering inside the assembly if needed, or adjust shape functions.
-                // For now, assume the helper gathers them in a standard way.
-                // Let's stick to the most robust pattern:
-                dofs[0] = dof_manager_->getEquationIndex(vertex_nodes[0]->getId(), getVariableName());
-                dofs[1] = dof_manager_->getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()},
-                                                             getVariableName());
-                dofs[2] = dof_manager_->getEquationIndex(vertex_nodes[1]->getId(), getVariableName());
-            } else if (dynamic_cast<const Core::TriElement *>(elem)) {
-                // Canonical edge order for triangles: (0,1), (1,2), (2,0)
-                const std::vector<std::pair<int, int> > edges = {{0, 1}, {1, 2}, {2, 0}};
-                int edge_dof_idx = 3; // Start after the 3 vertex DOFs
-                for (const auto &edge: edges) {
-                    dofs[edge_dof_idx++] = dof_manager_->getEdgeEquationIndex(
-                        {vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName());
+        // --- 2. Get Higher-Order DOFs (if any) in their correct canonical order ---
+        if (element_order_ > 1) {
+            if (auto* line = dynamic_cast<const Core::LineElement*>(elem)) {
+                // Canonical order for P2 Line: [v0, midpoint, v1]
+                dofs[2] = dofs[1]; // Temporarily move v1's DOF to the end
+                dofs[1] = dof_manager_->getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()}, getVariableName());
+            }
+            else if (auto* tri = dynamic_cast<const Core::TriElement*>(elem)) {
+                // Canonical edge order for Tri6: v0,v1,v2, edge(0,1), edge(1,2), edge(2,0)
+                const std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {2, 0}};
+                int edge_dof_idx = 3;
+                for (const auto& edge : edges) {
+                    dofs[edge_dof_idx++] = dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName());
                 }
-            } else if (dynamic_cast<const Core::TetElement *>(elem)) {
-                // Canonical edge order for tetrahedra: (0,1), (0,2), (0,3), (1,2), (1,3), (2,3)
-                const std::vector<std::pair<int, int> > edges = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
-                int edge_dof_idx = 4; // Start after the 4 vertex DOFs
-                for (const auto &edge: edges) {
-                    dofs[edge_dof_idx++] = dof_manager_->getEdgeEquationIndex(
-                        {vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName());
+            } else if (auto* tet = dynamic_cast<const Core::TetElement*>(elem)) {
+                // Canonical edge order for Tet10: v0,v1,v2,v3, edge(0,1), edge(0,2), edge(0,3), edge(1,2), edge(1,3), edge(2,3)
+                const std::vector<std::pair<int, int>> edges = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+                int edge_dof_idx = 4;
+                for (const auto& edge : edges) {
+                    dofs[edge_dof_idx++] = dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName());
                 }
             } else {
                 throw std::runtime_error("get_element_dofs: Unsupported element type for higher orders.");
             }
         }
-
         return dofs;
     }
-
+    // --- END OF FIX ---
     Eigen::SparseMatrix<double> &PhysicsField::getStiffnessMatrix() { return K_; }
     Eigen::SparseMatrix<double> &PhysicsField::getMassMatrix() { return M_; }
     Eigen::MatrixXd &PhysicsField::getRHS() { return F_; }

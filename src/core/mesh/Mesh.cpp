@@ -57,6 +57,7 @@ Mesh* Mesh::create_uniform_1d_mesh(double length, int num_elements) {
         Element* elem = new LineElement(i);
         elem->addNode(mesh->getNode(i));
         elem->addNode(mesh->getNode(i + 1));
+        elem->update_geometry();
         mesh->addElement(elem);
     }
     logger.info("Created ", mesh->getNodes().size(), " nodes and ", mesh->getElements().size(), " elements.");
@@ -86,11 +87,13 @@ Mesh* Mesh::create_uniform_2d_mesh(double width, double height, int nx, int ny) 
             elem1->addNode(mesh->getNode(n0));
             elem1->addNode(mesh->getNode(n1));
             elem1->addNode(mesh->getNode(n2));
+            elem1->update_geometry();
             mesh->addElement(elem1);
             TriElement* elem2 = new TriElement(elem_id++);
             elem2->addNode(mesh->getNode(n1));
             elem2->addNode(mesh->getNode(n3));
             elem2->addNode(mesh->getNode(n2));
+            elem2->update_geometry();
             mesh->addElement(elem2);
         }
     }
@@ -116,11 +119,13 @@ Mesh* Mesh::create_uniform_3d_mesh(double width, double height, double depth, in
         }
     }
 
-    // Create tetrahedral elements by splitting each hexahedral cell
+    // Create tetrahedral elements by splitting each hexahedral cell into 6 tetrahedrons.
+    // The node ordering is crucial here to ensure positive Jacobian determinants.
     int elem_id = 0;
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             for (int i = 0; i < nx; ++i) {
+                // Local node indices for the current hexahedral cell
                 int n[8];
                 n[0] = k * (nx + 1) * (ny + 1) + j * (nx + 1) + i;
                 n[1] = n[0] + 1;
@@ -131,21 +136,23 @@ Mesh* Mesh::create_uniform_3d_mesh(double width, double height, double depth, in
                 n[6] = n[2] + (nx + 1) * (ny + 1);
                 n[7] = n[3] + (nx + 1) * (ny + 1);
 
-                // Split hex into 6 tetrahedra to avoid badly shaped elements
+                // Define the 6 tetrahedra with corrected node ordering for positive Jacobian
                 auto add_tet = [&](int i0, int i1, int i2, int i3) {
                     auto* tet = new TetElement(elem_id++);
                     tet->addNode(mesh->getNode(n[i0]));
                     tet->addNode(mesh->getNode(n[i1]));
                     tet->addNode(mesh->getNode(n[i2]));
                     tet->addNode(mesh->getNode(n[i3]));
+                    tet->update_geometry();
                     mesh->addElement(tet);
                 };
-                add_tet(0, 1, 3, 7);
-                add_tet(0, 1, 5, 7);
-                add_tet(0, 2, 3, 7);
-                add_tet(0, 2, 6, 7);
-                add_tet(0, 4, 5, 7);
-                add_tet(0, 4, 6, 7);
+
+                add_tet(0, 1, 3, 7); // Tet 1: Correct
+                add_tet(0, 1, 7, 5); // Tet 2: Corrected (swapped 5 and 7 from original)
+                add_tet(0, 2, 7, 3); // Tet 3: Corrected (swapped 3 and 7 from original)
+                add_tet(0, 2, 6, 7); // Tet 4: Correct
+                add_tet(0, 4, 5, 7); // Tet 5: Correct
+                add_tet(0, 4, 7, 6); // Tet 6: Corrected (swapped 6 and 7 from original)
             }
         }
     }

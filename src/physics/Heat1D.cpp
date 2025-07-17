@@ -1,10 +1,8 @@
 #include "physics/Heat1D.hpp"
 #include "utils/SimpleLogger.hpp"
 #include <core/mesh/LineElement.hpp>
-#include <core/mesh/Node.hpp>
-#include "utils/Quadrature.hpp"
+#include "core/FEValues.hpp" // Use the FEValues calculator
 #include "core/sources/SourceTerm.hpp"
-#include "utils/ShapeFunctions.hpp"
 
 namespace Physics {
 
@@ -37,55 +35,32 @@ void Heat1D::assemble() {
 
     K_.setZero();
     M_.setZero();
-    F_.setZero();
-    for (const auto& source : source_terms_) {
-        source->apply(F_, *dof_manager_, *mesh_, getVariableName());
-    }
+    applySources();
 
     const double k = material_.getProperty("thermal_conductivity");
-    const double rho = material_.getProperty("density");
-    const double cp = material_.getProperty("specific_heat");
+    const double rho_cp = material_.getProperty("density") * material_.getProperty("specific_heat");
 
-    auto quadrature_points = Utils::Quadrature::getLineQuadrature(element_order_);
     std::vector<Eigen::Triplet<double>> k_triplets, m_triplets;
 
     for (const auto& elem_ptr : mesh_->getElements()) {
-        auto* line_elem = dynamic_cast<Core::LineElement*>(elem_ptr);
-        if (line_elem) {
-            const auto& vertex_nodes = line_elem->getNodes();
-            if (vertex_nodes.size() != 2) continue;
+        if (auto* line_elem = dynamic_cast<Core::LineElement*>(elem_ptr)) {
+            line_elem->setOrder(element_order_);
 
-            int order = element_order_;
-            size_t num_elem_nodes = order + 1;
-
-            // --- THE FIX IS HERE: Correct DOF Ordering ---
-            std::vector<int> dofs(num_elem_nodes);
-            if (order == 1) {
-                dofs[0] = dof_manager_->getEquationIndex(vertex_nodes[0]->getId(), getVariableName());
-                dofs[1] = dof_manager_->getEquationIndex(vertex_nodes[1]->getId(), getVariableName());
-            } else if (order == 2) {
-                // Order must match shape functions: [Vertex 1, Midpoint, Vertex 2]
-                dofs[0] = dof_manager_->getEquationIndex(vertex_nodes[0]->getId(), getVariableName());
-                dofs[1] = dof_manager_->getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()}, getVariableName());
-                dofs[2] = dof_manager_->getEquationIndex(vertex_nodes[1]->getId(), getVariableName());
-            } else {
-                throw std::runtime_error("Unsupported element order.");
-            }
+            auto fe_values = line_elem->create_fe_values(element_order_);
+            const auto dofs = get_element_dofs(line_elem);
+            const size_t num_elem_nodes = line_elem->getNumNodes();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
             Eigen::MatrixXd me_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-            const double h = line_elem->getLength();
-            const double detJ = h / 2.0;
+            for(size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+                fe_values->reinit(q_p);
+                const auto& N = fe_values->get_shape_values();
+                const auto& B = fe_values->get_shape_gradients();
+                const double detJ_x_w = fe_values->get_detJ_times_weight();
 
-            for(const auto& qp : quadrature_points) {
-                Eigen::VectorXd N = Utils::ShapeFunctions::getLineShapeFunctions(order, qp.point(0));
-                Eigen::VectorXd dN_dxi = Utils::ShapeFunctions::getLineShapeFunctionDerivatives(order, qp.point(0));
-
-                Eigen::MatrixXd B = (1.0 / detJ) * dN_dxi.transpose();
-
-                ke_local += B.transpose() * k * B * qp.weight * detJ;
-                me_local += N * (rho * cp) * N.transpose() * qp.weight * detJ;
+                ke_local += B.transpose() * k * B * detJ_x_w;
+                me_local += N * rho_cp * N.transpose() * detJ_x_w;
             }
 
             for(size_t r = 0; r < num_elem_nodes; ++r) {

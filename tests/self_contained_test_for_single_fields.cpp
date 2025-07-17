@@ -189,12 +189,9 @@ TEST(HigherOrderSingleFieldTest, Magnetic2D_Order2) {
 // ** NEW ** Common setup and validation for a 3D problem where U(x,y,z) = x
 // Common setup and validation for a 3D problem where U(x,y,z) = x
 void setup_and_validate_3D_problem(const std::string& field_name, Physics::PhysicsField* field) {
-    auto problem = std::make_unique<Core::Problem>(std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(1.0, 1.0, 1.0, 2, 2, 2)));
+    auto problem = std::make_unique<Core::Problem>(std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(1.0, 1.0, 1.0, 5, 5, 5)));
 
-    // Using an iterative solver is still good practice for 3D problems.
-    // problem->setLinearSolverType(Solver::SolverType::BiCGSTAB);
-
-    field->setElementOrder(2);
+    field->setElementOrder(2); // Assuming Order 2 for this test
     problem->addField(std::unique_ptr<Physics::PhysicsField>(field));
     problem->setup();
 
@@ -202,48 +199,53 @@ void setup_and_validate_3D_problem(const std::string& field_name, Physics::Physi
     const auto& mesh_ref = problem->getMesh();
     constexpr double eps = 1e-9;
 
-    // --- THIS IS THE FIX ---
-    // Apply boundary conditions to ALL exterior faces of the cube to create a well-posed problem.
+    // Apply boundary conditions to all NODES on the exterior faces. This part was correct.
     for (const auto& node : mesh_ref.getNodes()) {
         const auto& coords = node->getCoords();
-        // Check if the node is on any of the 6 boundary faces
         if (std::abs(coords[0] - 0.0) < eps || std::abs(coords[0] - 1.0) < eps ||
             std::abs(coords[1] - 0.0) < eps || std::abs(coords[1] - 1.0) < eps ||
             std::abs(coords[2] - 0.0) < eps || std::abs(coords[2] - 1.0) < eps) {
-
-            // Apply the analytical solution U(x) = x as a Dirichlet BC
             field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), field_name, Eigen::Vector<double, 1>(coords[0])));
         }
     }
 
-    // Since all nodes on the boundary are now constrained, we must also constrain
-    // all higher-order DOFs on the edges that lie on the boundary.
-    for(const auto& elem : mesh_ref.getElements()){
+    // Apply boundary conditions to all higher-order EDGE DOFs on the exterior faces.
+    for (const auto& elem : mesh_ref.getElements()) {
         auto element_nodes = elem->getNodes();
-        for(size_t i = 0; i < element_nodes.size(); ++i){
-            for(size_t j = i + 1; j < element_nodes.size(); ++j){
+        for (size_t i = 0; i < element_nodes.size(); ++i) {
+            for (size_t j = i + 1; j < element_nodes.size(); ++j) {
                  auto* node1 = element_nodes[i];
                  auto* node2 = element_nodes[j];
                  const auto& coords1 = node1->getCoords();
                  const auto& coords2 = node2->getCoords();
 
-                 // Check if both nodes of the edge lie on the boundary
                  bool node1_on_boundary = (std::abs(coords1[0] - 0.0) < eps || std::abs(coords1[0] - 1.0) < eps || std::abs(coords1[1] - 0.0) < eps || std::abs(coords1[1] - 1.0) < eps || std::abs(coords1[2] - 0.0) < eps || std::abs(coords1[2] - 1.0) < eps);
                  bool node2_on_boundary = (std::abs(coords2[0] - 0.0) < eps || std::abs(coords2[0] - 1.0) < eps || std::abs(coords2[1] - 0.0) < eps || std::abs(coords2[1] - 1.0) < eps || std::abs(coords2[2] - 0.0) < eps || std::abs(coords2[2] - 1.0) < eps);
 
-                 if(node1_on_boundary && node2_on_boundary){
-                     std::vector<int> edge_dof_key = {node1->getId(), node2->getId()};
-                     std::sort(edge_dof_key.begin(), edge_dof_key.end());
-                     int edge_dof_idx = dof_manager.getEdgeEquationIndex(edge_dof_key, field_name);
-                     if(edge_dof_idx != -1){
-                         double x_mid = (coords1[0] + coords2[0]) / 2.0;
-                         field->addBC(std::make_unique<Core::DirichletBC>(edge_dof_idx, Eigen::Vector<double, 1>(x_mid)));
-                     }
+                 if (node1_on_boundary && node2_on_boundary) {
+                    // --- FIX START ---
+                    // This new check ensures the edge itself lies flat on a boundary face, not just its endpoints.
+                    // It does this by checking if the nodes share a common x, y, or z boundary coordinate.
+                    bool edge_is_truly_on_boundary =
+                        (std::abs(coords1[0] - coords2[0]) < eps && (std::abs(coords1[0] - 0.0) < eps || std::abs(coords1[0] - 1.0) < eps)) ||
+                        (std::abs(coords1[1] - coords2[1]) < eps && (std::abs(coords1[1] - 0.0) < eps || std::abs(coords1[1] - 1.0) < eps)) ||
+                        (std::abs(coords1[2] - coords2[2]) < eps && (std::abs(coords1[2] - 0.0) < eps || std::abs(coords1[2] - 1.0) < eps));
+
+                    if (edge_is_truly_on_boundary) {
+                        std::vector<int> edge_dof_key = {node1->getId(), node2->getId()};
+                        std::sort(edge_dof_key.begin(), edge_dof_key.end());
+                        int edge_dof_idx = dof_manager.getEdgeEquationIndex(edge_dof_key, field_name);
+
+                        if (edge_dof_idx != -1) {
+                            double x_mid = (coords1[0] + coords2[0]) / 2.0;
+                            field->addBC(std::make_unique<Core::DirichletBC>(edge_dof_idx, Eigen::Vector<double, 1>(x_mid)));
+                        }
+                    }
+                    // --- FIX END ---
                  }
             }
         }
     }
-    // --- END OF FIX ---
 
     ASSERT_NO_THROW(problem->solveSteadyState());
 

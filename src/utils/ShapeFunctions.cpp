@@ -121,12 +121,13 @@ Eigen::VectorXd ShapeFunctions::getTriShapeFunctions(int order, double xi, doubl
         // The shape function N5 is 4*L2*L3.
         // Its derivative with respect to eta is 4 * ( (dL2/deta * L3) + (L2 * dL3/deta) )
         // Since dL2/deta = 0 and dL3/deta = 1, the result is 4 * L2.
-        // The old code incorrectly had 4 * (L2 - L3).
+        // The old code incorrectly had a different formula.
         dN(4, 1) = 4 * L2;
 
         dN(5, 1) = 4 * (L1 - L3);
         return dN;
     }
+    throw std::invalid_argument("Triangle shape function derivative order > 2 not yet implemented.");
 }
 
 // --- 3D Tetrahedron Shape Functions ---

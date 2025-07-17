@@ -11,6 +11,7 @@ namespace Core{
     class LineElement : public Element {
     public:
         LineElement(int id);
+        int getDimension() const override { return 1;}
 
         size_t getNumNodes() const override;
         const char* getTypeName() const override;
