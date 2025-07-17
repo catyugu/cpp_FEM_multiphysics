@@ -1,16 +1,15 @@
 #include "physics/Current3D.hpp"
 #include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"
-#include "utils/Quadrature.hpp"
+#include "core/FEValues.hpp" // Use the FEValues calculator
 #include "utils/Exceptions.hpp"
-#include "utils/ShapeFunctions.hpp"
 #include <cmath> // Required for std::abs
 
 namespace Physics {
 
 Current3D::Current3D(const Core::Material& material) : material_(material) {}
 
-const char* Current3D::getName() const { return "Electromagnetics 3D"; }
+const char* Current3D::getName() const { return "Current 3D"; }
 const char* Current3D::getVariableName() const { return "Voltage"; }
 
 void Current3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {

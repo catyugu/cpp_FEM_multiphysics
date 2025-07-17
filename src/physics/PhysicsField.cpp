@@ -113,40 +113,36 @@ namespace Physics {
         }
     }
 
-    // --- THIS IS THE DEFINITIVE FIX ---
-    // This function now correctly gathers DOFs for all element types and orders.
-    std::vector<int> PhysicsField::get_element_dofs(const Core::Element* elem) const {
+  std::vector<int> PhysicsField::get_element_dofs(Core::Element* elem) const {
         const auto& vertex_nodes = elem->getNodes();
+        const size_t num_vertices = vertex_nodes.size();
+        elem->setOrder(element_order_);
         const size_t num_elem_nodes = elem->getNumNodes();
         std::vector<int> dofs(num_elem_nodes);
 
-        // --- 1. Get Vertex DOFs ---
-        const size_t num_vertices = vertex_nodes.size();
+        // --- 1. Get Vertex DOFs (always first) ---
         for (size_t i = 0; i < num_vertices; ++i) {
             dofs[i] = dof_manager_->getEquationIndex(vertex_nodes[i]->getId(), getVariableName());
         }
 
-        // --- 2. Get Higher-Order DOFs in their canonical order ---
+        // --- 2. Get Higher-Order DOFs (if any) in their correct canonical order ---
         if (element_order_ > 1) {
             if (auto* line = dynamic_cast<const Core::LineElement*>(elem)) {
-                // Shape function order: [v0, v1, mid_01]. Our DOF order needs to match.
-                // The vertex DOFs are already at dofs[0] and dofs[1]. We just need the edge DOF.
-                // The canonical order for shape functions is [v0, mid, v1].
-                dofs[0] = dof_manager_->getEquationIndex(vertex_nodes[0]->getId(), getVariableName());
+                // Canonical order for P2 Line: [v0, midpoint, v1]
+                dofs[2] = dofs[1]; // Temporarily move v1's DOF to the end
                 dofs[1] = dof_manager_->getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()}, getVariableName());
-                dofs[2] = dof_manager_->getEquationIndex(vertex_nodes[1]->getId(), getVariableName());
             }
             else if (auto* tri = dynamic_cast<const Core::TriElement*>(elem)) {
-                // Canonical edge order: (0,1), (1,2), (2,0)
+                // Canonical edge order for Tri6: v0,v1,v2, edge(0,1), edge(1,2), edge(2,0)
                 const std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {2, 0}};
-                int edge_dof_idx = 3; // Start after the 3 vertex DOFs
+                int edge_dof_idx = 3;
                 for (const auto& edge : edges) {
                     dofs[edge_dof_idx++] = dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName());
                 }
             } else if (auto* tet = dynamic_cast<const Core::TetElement*>(elem)) {
-                // Canonical edge order for tetrahedra: (0,1), (0,2), (0,3), (1,2), (1,3), (2,3)
+                // Canonical edge order for Tet10: v0,v1,v2,v3, edge(0,1), edge(0,2), edge(0,3), edge(1,2), edge(1,3), edge(2,3)
                 const std::vector<std::pair<int, int>> edges = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
-                int edge_dof_idx = 4; // Start after the 4 vertex DOFs
+                int edge_dof_idx = 4;
                 for (const auto& edge : edges) {
                     dofs[edge_dof_idx++] = dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName());
                 }
@@ -157,7 +153,6 @@ namespace Physics {
         return dofs;
     }
     // --- END OF FIX ---
-
     Eigen::SparseMatrix<double> &PhysicsField::getStiffnessMatrix() { return K_; }
     Eigen::SparseMatrix<double> &PhysicsField::getMassMatrix() { return M_; }
     Eigen::MatrixXd &PhysicsField::getRHS() { return F_; }

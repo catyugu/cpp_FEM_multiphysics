@@ -39,7 +39,7 @@ protected:
         problem->setTimeSteppingParameters(0.1, 1.0); // 0.1s time step, 1.0s total time
         problem->setIterativeSolverParameters(20, 1e-4); // Max 20 inner iterations, 1e-4 tolerance
         // problem->getField("Voltage")->setElementOrder(2);
-        problem->getField("Temperature")->setElementOrder(2);
+        // problem->getField("Temperature")->setElementOrder(2);
 
         problem->setup();
     }

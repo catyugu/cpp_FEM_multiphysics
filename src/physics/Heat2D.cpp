@@ -1,11 +1,8 @@
 #include "physics/Heat2D.hpp"
 #include <core/mesh/TriElement.hpp>
-#include <core/mesh/Node.hpp>
 #include "utils/SimpleLogger.hpp"
-#include "utils/Quadrature.hpp"
+#include "core/FEValues.hpp" // Use the FEValues calculator
 #include "core/sources/SourceTerm.hpp"
-#include "utils/ShapeFunctions.hpp"
-#include <cmath> // For std::abs
 
 namespace Physics {
 
@@ -17,7 +14,6 @@ const char* Heat2D::getVariableName() const { return "Temperature"; }
 void Heat2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     mesh_ = &mesh;
     dof_manager_ = &dof_manager;
-
     auto& logger = Utils::Logger::instance();
     logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
 
@@ -28,71 +24,52 @@ void Heat2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     U_.resize(num_eq,1); U_.setZero();
     U_prev_.resize(num_eq,1); U_prev_.setZero();
 }
+
 void Heat2D::assemble() {
     auto& logger = Utils::Logger::instance();
     logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
     K_.setZero();
     M_.setZero();
-    F_.setZero();
-    for (const auto& source : source_terms_) {
-        source->apply(F_, *dof_manager_, *mesh_, getVariableName());
-    }
+    applySources(); // Apply source terms to F_
 
     const double k_therm = material_.getProperty("thermal_conductivity");
-    const double rho = material_.getProperty("density");
-    const double cp = material_.getProperty("specific_heat");
-    Eigen::Matrix2d D = Eigen::Matrix2d::Identity() * k_therm;
+    const double rho_cp = material_.getProperty("density") * material_.getProperty("specific_heat");
+    const Eigen::Matrix2d D = Eigen::Matrix2d::Identity() * k_therm;
 
     std::vector<Eigen::Triplet<double>> k_triplets;
     std::vector<Eigen::Triplet<double>> m_triplets;
-    auto quadrature_points = Utils::Quadrature::getTriangleQuadrature(element_order_);
 
     for (const auto& elem_ptr : mesh_->getElements()) {
-        auto* tri_elem = dynamic_cast<Core::TriElement*>(elem_ptr);
-        if (tri_elem) {
-            const auto& vertex_nodes = tri_elem->getNodes();
-            if (vertex_nodes.size() != 3) continue;
+        if (auto* tri_elem = dynamic_cast<Core::TriElement*>(elem_ptr)) {
+            // Set the element's mathematical order before creating FEValues
+            tri_elem->setOrder(element_order_);
 
-            int order = element_order_;
-            size_t num_elem_nodes = (order + 1) * (order + 2) / 2;
+            // 1. Create the FEValues calculator for this element.
+            auto fe_values = tri_elem->create_fe_values(element_order_);
 
-            Eigen::Matrix<double, 2, Eigen::Dynamic> all_node_coords(2, num_elem_nodes);
-            std::vector<int> dofs(num_elem_nodes);
-
-            for(size_t i = 0; i < 3; ++i) {
-                const auto& coords = vertex_nodes[i]->getCoords();
-                all_node_coords(0, i) = coords[0];
-                all_node_coords(1, i) = coords[1];
-                dofs[i] = dof_manager_->getEquationIndex(vertex_nodes[i]->getId(), getVariableName());
-            }
-
-            if (order > 1) {
-                int edge_node_idx = 3;
-                const std::vector<std::pair<int, int>> edges = {{0,1}, {1,2}, {2,0}};
-                for (const auto& edge : edges) {
-                    all_node_coords.col(edge_node_idx) = (all_node_coords.col(edge.first) + all_node_coords.col(edge.second)) * 0.5;
-                    dofs[edge_node_idx] = dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName());
-                    edge_node_idx++;
-                }
-            }
+            // 2. Get the correct DOF indices from the centralized function.
+            const auto dofs = get_element_dofs(tri_elem);
+            const size_t num_elem_nodes = tri_elem->getNumNodes();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
             Eigen::MatrixXd me_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-            for (const auto& qp : quadrature_points) {
-                Eigen::VectorXd N = Utils::ShapeFunctions::getTriShapeFunctions(order, qp.point(0), qp.point(1));
-                Eigen::MatrixXd dN_dnat = Utils::ShapeFunctions::getTriShapeFunctionDerivatives(order, qp.point(0), qp.point(1));
+            // 3. Loop over quadrature points.
+            for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+                fe_values->reinit(q_p);
 
-                Eigen::Matrix2d J = all_node_coords * dN_dnat;
-                double detJ = std::abs(J.determinant());
+                // 4. Get pre-calculated values.
+                const auto& N = fe_values->get_shape_values();
+                const auto& B = fe_values->get_shape_gradients();
+                const double detJ_x_w = fe_values->get_detJ_times_weight();
 
-                Eigen::MatrixXd B = (dN_dnat * J.inverse()).transpose();
-
-                ke_local += B.transpose() * D * B * qp.weight * detJ;
-                me_local += N * (rho * cp) * N.transpose() * qp.weight * detJ;
+                // 5. Compute local matrices.
+                ke_local += B.transpose() * D * B * detJ_x_w;
+                me_local += N * (rho_cp * N.transpose()) * detJ_x_w;
             }
 
+            // 6. Add to global triplets.
             for (size_t r = 0; r < num_elem_nodes; ++r) {
                 for (size_t c = 0; c < num_elem_nodes; ++c) {
                     if (dofs[r] != -1 && dofs[c] != -1) {

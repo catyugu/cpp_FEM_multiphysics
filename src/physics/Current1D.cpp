@@ -1,15 +1,13 @@
 #include "physics/Current1D.hpp"
 #include "utils/SimpleLogger.hpp"
 #include <core/mesh/LineElement.hpp>
-#include <core/mesh/Node.hpp>
-#include "utils/Quadrature.hpp"
-#include "utils/ShapeFunctions.hpp"
+#include "core/FEValues.hpp" // Use the FEValues calculator
 
 namespace Physics {
     Current1D::Current1D(const Core::Material& material)
         : material_(material) {}
 
-    const char* Current1D::getName() const { return "Electromagnetics 1D"; }
+    const char* Current1D::getName() const { return "Current 1D"; }
     const char* Current1D::getVariableName() const { return "Voltage"; }
 
     void Current1D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
@@ -22,10 +20,8 @@ namespace Physics {
         M_.resize(num_eq, num_eq);
         F_.resize(num_eq, 1);
         U_.resize(num_eq, 1);
-        U_prev_.resize(num_eq, 1);
         F_.setZero();
         U_.setZero();
-        U_prev_.setZero();
     }
   void Current1D::assemble() {
         auto& logger = Utils::Logger::instance();
@@ -34,43 +30,25 @@ namespace Physics {
         K_.setZero();
         F_.setZero();
 
+        const double local_sigma = material_.getProperty("electrical_conductivity");
         std::vector<Eigen::Triplet<double>> k_triplets;
-        auto quadrature_points = Utils::Quadrature::getLineQuadrature(element_order_);
 
         for (const auto& elem_ptr : mesh_->getElements()) {
-            auto* line_elem = dynamic_cast<Core::LineElement*>(elem_ptr);
-            if (line_elem) {
-                const auto& vertex_nodes = line_elem->getNodes();
-                if (vertex_nodes.size() != 2) continue;
+            if (auto* line_elem = dynamic_cast<Core::LineElement*>(elem_ptr)) {
+                line_elem->setOrder(element_order_);
 
-                int order = element_order_;
-                size_t num_elem_nodes = order + 1;
-
-                // --- THE FIX IS HERE: Correct DOF Ordering ---
-                std::vector<int> dofs(num_elem_nodes);
-                if (order == 1) {
-                    dofs[0] = dof_manager_->getEquationIndex(vertex_nodes[0]->getId(), getVariableName());
-                    dofs[1] = dof_manager_->getEquationIndex(vertex_nodes[1]->getId(), getVariableName());
-                } else if (order == 2) {
-                    // Order must match shape functions: [Vertex 1, Midpoint, Vertex 2]
-                    dofs[0] = dof_manager_->getEquationIndex(vertex_nodes[0]->getId(), getVariableName());
-                    dofs[1] = dof_manager_->getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()}, getVariableName());
-                    dofs[2] = dof_manager_->getEquationIndex(vertex_nodes[1]->getId(), getVariableName());
-                } else {
-                    throw std::runtime_error("Unsupported element order.");
-                }
-                // --- End of Fix ---
-
-                double local_sigma = material_.getProperty("electrical_conductivity");
-                const double h = line_elem->getLength();
-                const double detJ = h / 2.0;
+                auto fe_values = line_elem->create_fe_values(element_order_);
+                const auto dofs = get_element_dofs(line_elem);
+                const size_t num_elem_nodes = line_elem->getNumNodes();
 
                 Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-                for(const auto& qp : quadrature_points) {
-                    Eigen::VectorXd dN_dxi = Utils::ShapeFunctions::getLineShapeFunctionDerivatives(order, qp.point(0));
-                    Eigen::MatrixXd B = (1.0 / detJ) * dN_dxi.transpose();
-                    ke_local += B.transpose() * local_sigma * B * qp.weight * detJ;
+                for(size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+                    fe_values->reinit(q_p);
+                    const auto& B = fe_values->get_shape_gradients();
+                    const double detJ_x_w = fe_values->get_detJ_times_weight();
+
+                    ke_local += B.transpose() * local_sigma * B * detJ_x_w;
                 }
 
                 for(size_t i = 0; i < num_elem_nodes; ++i) {

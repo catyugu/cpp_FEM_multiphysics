@@ -57,6 +57,7 @@ Mesh* Mesh::create_uniform_1d_mesh(double length, int num_elements) {
         Element* elem = new LineElement(i);
         elem->addNode(mesh->getNode(i));
         elem->addNode(mesh->getNode(i + 1));
+        elem->update_geometry(); // <-- FIX: Added this line
         mesh->addElement(elem);
     }
     logger.info("Created ", mesh->getNodes().size(), " nodes and ", mesh->getElements().size(), " elements.");
@@ -86,11 +87,13 @@ Mesh* Mesh::create_uniform_2d_mesh(double width, double height, int nx, int ny) 
             elem1->addNode(mesh->getNode(n0));
             elem1->addNode(mesh->getNode(n1));
             elem1->addNode(mesh->getNode(n2));
+            elem1->update_geometry(); // <-- FIX: Added this line
             mesh->addElement(elem1);
             TriElement* elem2 = new TriElement(elem_id++);
             elem2->addNode(mesh->getNode(n1));
             elem2->addNode(mesh->getNode(n3));
             elem2->addNode(mesh->getNode(n2));
+            elem2->update_geometry(); // <-- FIX: Added this line
             mesh->addElement(elem2);
         }
     }
@@ -138,6 +141,7 @@ Mesh* Mesh::create_uniform_3d_mesh(double width, double height, double depth, in
                     tet->addNode(mesh->getNode(n[i1]));
                     tet->addNode(mesh->getNode(n[i2]));
                     tet->addNode(mesh->getNode(n[i3]));
+                    tet->update_geometry(); // <-- FIX: Added this line
                     mesh->addElement(tet);
                 };
                 add_tet(0, 1, 3, 7);
