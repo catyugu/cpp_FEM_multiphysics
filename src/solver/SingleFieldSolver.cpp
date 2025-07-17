@@ -15,10 +15,18 @@ namespace Solver {
             logger.info("Solving for field: ", field->getName());
             field->assemble();
             field->applyBCs();
-            LinearSolver::solve(field->getStiffnessMatrix(), field->getRHS(), field->getSolution());
+
+            // --- THIS IS THE FIX ---
+            // The solver type and parameters from the Problem object are now correctly passed to the LinearSolver.
+            LinearSolver::solve(field->getStiffnessMatrix(), field->getRHS(), field->getSolution(),
+                                problem.getLinearSolverType(),
+                                problem.getMaxIterations(),
+                                problem.getConvergenceTolerance());
+            // --- END OF FIX ---
         }
     }
 
+    // The solveTransient method also needs to be updated for consistency
     void SingleFieldSolver::solveTransient(Core::Problem &problem) {
         auto &logger = Utils::Logger::instance();
         logger.info("\n--- Solving Single-Field Transient Problem ---");
@@ -40,7 +48,12 @@ namespace Solver {
                 bc->apply(A_bc, b_bc);
             }
 
-            LinearSolver::solve(A_bc, b_bc, field->getSolution());
+            // Also apply the fix here
+            LinearSolver::solve(A_bc, b_bc, field->getSolution(),
+                                problem.getLinearSolverType(),
+                                problem.getMaxIterations(),
+                                problem.getConvergenceTolerance());
+
             field->updatePreviousSolution();
         }
     }
