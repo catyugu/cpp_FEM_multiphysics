@@ -21,6 +21,7 @@ namespace Physics {
         virtual const char* getName() const = 0;
         virtual const char* getVariableName() const = 0;
         virtual const Core::Material& getMaterial() const = 0;
+
         virtual int getDimension() const = 0; // New virtual function for dimension
 
         virtual void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) = 0;
@@ -66,6 +67,7 @@ namespace Physics {
         void disable(){ enabled = false;}
         bool isEnabled() const { return enabled; }
     protected:
+        std::vector<int> get_element_dofs(const Core::Element* elem) const; // New function for getting DOFs
         Core::Mesh* mesh_ = nullptr;
         Core::DOFManager* dof_manager_ = nullptr;
         bool enabled = true;
