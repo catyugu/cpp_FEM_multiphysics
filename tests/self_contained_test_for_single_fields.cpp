@@ -185,58 +185,112 @@ TEST(HigherOrderSingleFieldTest, Magnetic2D_Order2) {
 // =================================================================
 // ==================== 3D HIGHER-ORDER TESTS ======================
 // =================================================================
-// NOTE: Re-using the test case from the previous issue, which is now correct.
-TEST(HigherOrderSingleFieldTest, Magnetic3D_Order2) {
-    Core::Material material("TestMaterial");
-    material.setProperty("magnetic_permeability", 1.0);
+
+// ** NEW ** Common setup and validation for a 3D problem where U(x,y,z) = x
+// Common setup and validation for a 3D problem where U(x,y,z) = x
+void setup_and_validate_3D_problem(const std::string& field_name, Physics::PhysicsField* field) {
     auto problem = std::make_unique<Core::Problem>(std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(1.0, 1.0, 1.0, 2, 2, 2)));
-    auto* magnetic_field = new Physics::Magnetic3D(material);
-    magnetic_field->setElementOrder(2);
-    problem->addField(std::unique_ptr<Physics::PhysicsField>(magnetic_field));
+
+    // Using an iterative solver is still good practice for 3D problems.
+    // problem->setLinearSolverType(Solver::SolverType::BiCGSTAB);
+
+    field->setElementOrder(2);
+    problem->addField(std::unique_ptr<Physics::PhysicsField>(field));
     problem->setup();
+
     auto& dof_manager = problem->getDofManager();
     const auto& mesh_ref = problem->getMesh();
+    constexpr double eps = 1e-9;
 
-    std::set<int> constrained_vertex_nodes;
-    std::set<std::pair<int, int>> constrained_edges;
+    // --- THIS IS THE FIX ---
+    // Apply boundary conditions to ALL exterior faces of the cube to create a well-posed problem.
+    for (const auto& node : mesh_ref.getNodes()) {
+        const auto& coords = node->getCoords();
+        // Check if the node is on any of the 6 boundary faces
+        if (std::abs(coords[0] - 0.0) < eps || std::abs(coords[0] - 1.0) < eps ||
+            std::abs(coords[1] - 0.0) < eps || std::abs(coords[1] - 1.0) < eps ||
+            std::abs(coords[2] - 0.0) < eps || std::abs(coords[2] - 1.0) < eps) {
 
-    for(const auto& elem : mesh_ref.getElements()) {
-        const auto& nodes = elem->getNodes();
-        const std::vector<std::vector<int>> faces = {{0,1,2}, {0,1,3}, {0,2,3}, {1,2,3}};
-        for(const auto& face : faces) {
-            Core::Node* n1 = nodes[face[0]], *n2 = nodes[face[1]], *n3 = nodes[face[2]];
-            double x1 = n1->getCoords()[0], x2 = n2->getCoords()[0], x3 = n3->getCoords()[0];
+            // Apply the analytical solution U(x) = x as a Dirichlet BC
+            field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), field_name, Eigen::Vector<double, 1>(coords[0])));
+        }
+    }
 
-            if((std::abs(x1-0.0)<1e-9 && std::abs(x2-0.0)<1e-9 && std::abs(x3-0.0)<1e-9) ||
-               (std::abs(x1-1.0)<1e-9 && std::abs(x2-1.0)<1e-9 && std::abs(x3-1.0)<1e-9)) {
+    // Since all nodes on the boundary are now constrained, we must also constrain
+    // all higher-order DOFs on the edges that lie on the boundary.
+    for(const auto& elem : mesh_ref.getElements()){
+        auto element_nodes = elem->getNodes();
+        for(size_t i = 0; i < element_nodes.size(); ++i){
+            for(size_t j = i + 1; j < element_nodes.size(); ++j){
+                 auto* node1 = element_nodes[i];
+                 auto* node2 = element_nodes[j];
+                 const auto& coords1 = node1->getCoords();
+                 const auto& coords2 = node2->getCoords();
 
-                const std::vector<std::pair<int,int>> face_edges = {{0,1}, {1,2}, {2,0}};
-                for(const auto& edge_indices : face_edges) {
-                    Core::Node* node_a = nodes[face[edge_indices.first]];
-                    Core::Node* node_b = nodes[face[edge_indices.second]];
+                 // Check if both nodes of the edge lie on the boundary
+                 bool node1_on_boundary = (std::abs(coords1[0] - 0.0) < eps || std::abs(coords1[0] - 1.0) < eps || std::abs(coords1[1] - 0.0) < eps || std::abs(coords1[1] - 1.0) < eps || std::abs(coords1[2] - 0.0) < eps || std::abs(coords1[2] - 1.0) < eps);
+                 bool node2_on_boundary = (std::abs(coords2[0] - 0.0) < eps || std::abs(coords2[0] - 1.0) < eps || std::abs(coords2[1] - 0.0) < eps || std::abs(coords2[1] - 1.0) < eps || std::abs(coords2[2] - 0.0) < eps || std::abs(coords2[2] - 1.0) < eps);
 
-                    if (constrained_vertex_nodes.find(node_a->getId()) == constrained_vertex_nodes.end()) {
-                        magnetic_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node_a->getId(), "MagneticPotential", Eigen::Vector<double, 1>(node_a->getCoords()[0])));
-                        constrained_vertex_nodes.insert(node_a->getId());
-                    }
-                    if (constrained_vertex_nodes.find(node_b->getId()) == constrained_vertex_nodes.end()) {
-                        magnetic_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node_b->getId(), "MagneticPotential", Eigen::Vector<double, 1>(node_b->getCoords()[0])));
-                        constrained_vertex_nodes.insert(node_b->getId());
-                    }
-
-                    std::vector<int> edge_dof_key = {node_a->getId(), node_b->getId()};
-                    std::sort(edge_dof_key.begin(), edge_dof_key.end());
-                    std::pair<int, int> edge_key_pair = {edge_dof_key[0], edge_dof_key[1]};
-                    if (constrained_edges.find(edge_key_pair) == constrained_edges.end()) {
-                        int edge_dof_idx = dof_manager.getEdgeEquationIndex(edge_dof_key, "MagneticPotential");
-                        if (edge_dof_idx != -1) {
-                            magnetic_field->addBC(std::make_unique<Core::DirichletBC>(edge_dof_idx, Eigen::Vector<double, 1>((node_a->getCoords()[0] + node_b->getCoords()[0]) / 2.0)));
-                        }
-                        constrained_edges.insert(edge_key_pair);
-                    }
-                }
+                 if(node1_on_boundary && node2_on_boundary){
+                     std::vector<int> edge_dof_key = {node1->getId(), node2->getId()};
+                     std::sort(edge_dof_key.begin(), edge_dof_key.end());
+                     int edge_dof_idx = dof_manager.getEdgeEquationIndex(edge_dof_key, field_name);
+                     if(edge_dof_idx != -1){
+                         double x_mid = (coords1[0] + coords2[0]) / 2.0;
+                         field->addBC(std::make_unique<Core::DirichletBC>(edge_dof_idx, Eigen::Vector<double, 1>(x_mid)));
+                     }
+                 }
             }
         }
     }
+    // --- END OF FIX ---
+
     ASSERT_NO_THROW(problem->solveSteadyState());
+
+    // Validate the solution U(x,y,z) = x
+    const auto& solution = field->getSolution();
+    for (const auto& node : mesh_ref.getNodes()) {
+        int dof_idx = dof_manager.getEquationIndex(node->getId(), field_name);
+        if (dof_idx != -1) {
+            ASSERT_NEAR(solution(dof_idx), node->getCoords()[0], 1e-9);
+        }
+    }
+     for(const auto& elem : mesh_ref.getElements()){
+        auto element_nodes = elem->getNodes();
+        for(size_t i = 0; i < element_nodes.size(); ++i){
+            for(size_t j = i + 1; j < element_nodes.size(); ++j){
+                 std::vector<int> edge_dof_key = {element_nodes[i]->getId(), element_nodes[j]->getId()};
+                 std::sort(edge_dof_key.begin(), edge_dof_key.end());
+                 int edge_dof_idx = dof_manager.getEdgeEquationIndex(edge_dof_key, field_name);
+                 if(edge_dof_idx != -1){
+                     double x_mid = (element_nodes[i]->getCoords()[0] + element_nodes[j]->getCoords()[0]) / 2.0;
+                     ASSERT_NEAR(solution(edge_dof_idx), x_mid, 1e-9);
+                 }
+            }
+        }
+     }
+}
+
+// ** NEW ** Test for 3D Heat Conduction
+TEST(HigherOrderSingleFieldTest, Heat3D_Order2) {
+    Core::Material material("TestMaterial");
+    material.setProperty("thermal_conductivity", 1.0);
+    material.setProperty("density", 1.0);
+    material.setProperty("specific_heat", 1.0);
+    setup_and_validate_3D_problem("Temperature", new Physics::Heat3D(material));
+}
+
+// ** NEW ** Test for 3D Current Conduction
+TEST(HigherOrderSingleFieldTest, Current3D_Order2) {
+    Core::Material material("TestMaterial");
+    material.setProperty("electrical_conductivity", 1.0);
+    setup_and_validate_3D_problem("Voltage", new Physics::Current3D(material));
+}
+
+
+// Test for 3D Magnetics
+TEST(HigherOrderSingleFieldTest, Magnetic3D_Order2) {
+    Core::Material material("TestMaterial");
+    material.setProperty("magnetic_permeability", 1.0);
+    setup_and_validate_3D_problem("MagneticPotential", new Physics::Magnetic3D(material));
 }
