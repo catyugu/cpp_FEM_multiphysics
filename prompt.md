@@ -110,16 +110,43 @@ With a robust p-refinement system in place, we can now focus on expanding the fr
   * Extend the `DOFManager` to handle DOFs on element **faces** (for 3rd-order 3D elements) and **internal/volume** DOFs (for 4th-order+ elements). This will likely require adding a `getFaceEquationIndex` method.
   * Update the `get_element_dofs` lambda function inside the `assemble` methods to correctly gather these new face and volume DOFs.
 
-### **2. Add Support for Non-Linear Materials**
-* **Goal**: Simulate materials whose properties change with the field itself (e.g., magnetic permeability changing with B-field strength).
-* **Requirements**:
-  * Update the `Material::getProperty` method to accept the current element's field values as an optional argument.
-  * Implement a non-linear solver loop (e.g., Newton-Raphson) within the `SingleFieldSolver` and `CoupledElectroThermalSolver`. This involves calculating a tangent stiffness matrix at each iteration.
-  * Create a new test case for a simple non-linear problem to validate the implementation.
+### **2. Implement Electromagnetic Field (Maxwell's Equations)**
+* **Goal**: Add a full electromagnetic field simulation. The key challenge is upgrading the core components to handle vector-valued variables. A 3D Magnetostatics formulation is a great first step.
+* **Guiding Equation**: $\nabla \times \left( \frac{1}{\mu} \nabla \times \mathbf{A} \right) = \mathbf{J}$
+  * **A** is the magnetic vector potential (a vector with components Ax, Ay, Az).
+  * **μ** is the magnetic permeability.
+  * **J** is the current density source.
 
-### **3. Performance Optimization with Parallelism**
-* **Goal**: Significantly speed up the assembly process, which is the next major bottleneck after the linear solve.
+* **Step-by-Step Implementation Guide**:
+  1.  **Upgrade Core to Support Vector Fields**:
+    * **`DOFManager`**:
+      * Modify `registerVariable` to accept a component count: `void registerVariable(const std::string& var_name, int num_components = 1);`
+      * Update the `build()` method to increment the equation counter by the number of components for each variable.
+      * Ensure `getEquationIndex` returns the *starting* index for a variable's components (e.g., the index of `Ax`).
+    * **`PhysicsField`**:
+      * Add a new virtual method to the base class: `virtual int getNumComponents() const { return 1; }`. This defaults to 1 for all existing scalar fields.
+
+  2.  **Implement the New `Magnetostatics3D` Physics Field**:
+    * Create the new class inheriting from `Physics::PhysicsField`.
+    * Override `getVariableName()` to return `"MagneticVectorPotential"`.
+    * **Crucially, override `getNumComponents()` to return `3`**.
+    * In the `assemble()` method, the local stiffness matrix `ke_local` for a 10-node quadratic tetrahedron will now be `30x30`. The "B-Matrix" must be reformulated to represent the **curl operator (`∇×`)** applied to vector-valued shape functions.
+
+  3.  **Define a Current Source (`J`)**:
+    * Create a new `PrescribedCurrentDensity` class that derives from `SourceTerm`.
+    * Its constructor should accept a 3-component `Eigen::Vector3d` representing the current density.
+    * Its `apply()` method must add the source contributions to the correct components of the global force vector `F`.
+
+  4.  **Create a Validation Test**:
+    * A great test case is a **long solenoid**.
+    * Apply a circular `PrescribedCurrentDensity` in a cylindrical mesh to simulate the coil.
+    * Set **A**=0 on the outer simulation boundary.
+    * Validate that the computed magnetic field (**B** = ∇×**A**) is uniform inside the solenoid and matches the analytical solution.
+
+### **3. Add Support For Variable Material Properties**
+* **Goal**: Simulate materials with variable properties (e.g., thermal conductivity changing with temperature).
 * **Requirements**:
-  * The `assemble` loop over elements is a prime candidate for parallelization. Use **OpenMP** (which is already included in the project) to parallelize this loop.
-  * Ensure that the accumulation of triplets into the `k_triplets` and `m_triplets` vectors is done in a thread-safe manner. A standard approach is to have each thread work on its own private list of triplets and merge them all at the end.
-  * Benchmark the performance improvement on a large test case.
+  * Add a `Material::getProperty` method that accepts a `time` argument.
+  * Update the `PhysicsField::assemble` method to use the `time` argument to retrieve the current field values.
+  * Create a new test case for a simple variable-property problem to validate the implementation.
+  * If you have better constructions for this, please share!
