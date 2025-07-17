@@ -57,8 +57,6 @@ Mesh* Mesh::create_uniform_1d_mesh(double length, int num_elements) {
         Element* elem = new LineElement(i);
         elem->addNode(mesh->getNode(i));
         elem->addNode(mesh->getNode(i + 1));
-        // The geometry is created *after* all nodes are added.
-        elem->getGeometry();
         mesh->addElement(elem);
     }
     logger.info("Created ", mesh->getNodes().size(), " nodes and ", mesh->getElements().size(), " elements.");
@@ -84,19 +82,15 @@ Mesh* Mesh::create_uniform_2d_mesh(double width, double height, int nx, int ny) 
             int n1 = n0 + 1;
             int n2 = (j + 1) * (nx + 1) + i;
             int n3 = n2 + 1;
-
-            auto* elem1 = new TriElement(elem_id++);
+            TriElement* elem1 = new TriElement(elem_id++);
             elem1->addNode(mesh->getNode(n0));
             elem1->addNode(mesh->getNode(n1));
             elem1->addNode(mesh->getNode(n2));
-            elem1->getGeometry(); // Create geometry
             mesh->addElement(elem1);
-
-            auto* elem2 = new TriElement(elem_id++);
+            TriElement* elem2 = new TriElement(elem_id++);
             elem2->addNode(mesh->getNode(n1));
             elem2->addNode(mesh->getNode(n3));
             elem2->addNode(mesh->getNode(n2));
-            elem2->getGeometry(); // Create geometry
             mesh->addElement(elem2);
         }
     }
@@ -137,22 +131,15 @@ Mesh* Mesh::create_uniform_3d_mesh(double width, double height, double depth, in
                 n[6] = n[2] + (nx + 1) * (ny + 1);
                 n[7] = n[3] + (nx + 1) * (ny + 1);
 
-                // Lambda to simplify adding tetrahedra and creating their geometry
+                // Split hex into 6 tetrahedra to avoid badly shaped elements
                 auto add_tet = [&](int i0, int i1, int i2, int i3) {
                     auto* tet = new TetElement(elem_id++);
                     tet->addNode(mesh->getNode(n[i0]));
                     tet->addNode(mesh->getNode(n[i1]));
                     tet->addNode(mesh->getNode(n[i2]));
                     tet->addNode(mesh->getNode(n[i3]));
-
-                    // **THE FIX**: Create the geometry after all nodes are added
-                    // This call is now necessary to initialize the internal geometry object.
-                    tet->getGeometry();
-
                     mesh->addElement(tet);
                 };
-
-                // Split the hex cell into 6 tetrahedra to maintain good element quality
                 add_tet(0, 1, 3, 7);
                 add_tet(0, 1, 5, 7);
                 add_tet(0, 2, 3, 7);
@@ -166,5 +153,6 @@ Mesh* Mesh::create_uniform_3d_mesh(double width, double height, double depth, in
     logger.info("Created ", mesh->getNodes().size(), " nodes and ", mesh->getElements().size(), " elements.");
     return mesh;
 }
+
 
 } // namespace Core

@@ -2,7 +2,6 @@
 #define ELEMENT_HPP
 
 #include "Node.hpp"
-#include "ElementGeometry.hpp"
 #include <vector>
 #include <memory>
 
@@ -26,15 +25,10 @@ namespace Core {
 
         std::unique_ptr<FEValues> create_fe_values(int order, int quad_order);
 
-        // FIX: Provide two overloads for getGeometry
-        const ElementGeometry& getGeometry() const; // For read-only access
-        ElementGeometry& getGeometry();             // For initialization
-
     protected:
         int id_;
         std::vector<Node*> nodes_;
         int order_ = 1;
-        std::unique_ptr<ElementGeometry> geometry_;
     };
 
 } // namespace Core
