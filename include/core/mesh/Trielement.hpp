@@ -16,6 +16,7 @@ namespace Core {
 
         size_t getNumNodes() const override;
         const char* getTypeName() const override;
+        int getDimension() const override { return 2;}
 
         // Calculates the area of the triangular element using the shoelace formula.
         double getArea() const;
