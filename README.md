@@ -135,24 +135,19 @@ For a deeper dive into the architecture and API, please refer to the detailed do
 
 We are continually expanding the capabilities of this framework. Here are the key areas for future development:
 
-### 1\. Implement Higher-Order (p \> 2) Formulations
-
-* **Goal**: Extend the framework to support cubic, quartic, and higher-order elements for all element types.
-* **Focus**: This involves implementing the mathematical formulas for higher-order shape functions in `utils/ShapeFunctions.cpp` and enhancing the `DOFManager` to handle degrees of freedom on element faces and internal/volume nodes.
-
-### 2\. Implement Electromagnetic Field (Maxwell's Equations)
+### 1\. Implement Electromagnetic Field (Maxwell's Equations)
 
 * **Goal**: Develop a full electromagnetic field simulation capability.
 * **Focus**: The initial step is implementing a 3D Magnetostatics formulation (`Magnetostatics3D`) which will require upgrading the core components, especially the `DOFManager` and `PhysicsField` base class, to handle **vector-valued variables** (e.g., the magnetic vector potential with 3 components).
 
-### 3\. Support for Advanced Research Problem Types (Solvers)
+### 2\. Support for Advanced Research Problem Types (Solvers)
 
 * **Goal**: Broaden the range of problems the solver can tackle for research applications.
 * **Focus**: This includes implementing solvers for:
     * **Frequency Domain Steady-State**: For time-harmonic (AC) problems, requiring complex-number linear algebra.
     * Further enhancing the robustness and efficiency of existing **Coupled Transient Solvers**.
 
-### 4\. Generalize Variable Material Properties for Coupled Fields
+### 3\. Generalize Variable Material Properties for Coupled Fields
 
 * **Goal**: Make material properties dynamically dependent on any relevant coupled field solution.
 * **Current Status**: Temperature-dependent properties (e.g., electrical conductivity depending on temperature) are already implemented and used in electro-thermal coupling.
