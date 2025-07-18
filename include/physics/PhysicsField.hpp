@@ -48,6 +48,7 @@ namespace Physics {
         virtual void assemble() = 0;
 
         void addBC(std::unique_ptr<Core::BoundaryCondition> bc);
+        void addBCs(std::vector<std::unique_ptr<Core::BoundaryCondition>> bcs);
         void applyBCs();
 
 
