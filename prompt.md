@@ -174,8 +174,16 @@ With a robust p-refinement system in place, we can now focus on expanding the fr
   * Implement a non-linear solver loop (e.g., Newton-Raphson) within the `SingleFieldSolver` and `CoupledElectroThermalSolver`. This involves calculating a tangent stiffness matrix at each iteration.
   * Create a new test case for a simple non-linear problem to validate the implementation.
 
+### **2. Generalize Variable Material Properties for Coupled Fields**
+* **Goal**: Extend the material property system to allow properties to depend on *any* relevant coupled field (not just temperature).
+* **Current Status**: The `Material` class already supports temperature-dependent properties (e.g., electrical conductivity depending on temperature) via its `getProperty(const std::string& prop_name, double temperature) const` overload. This is already utilized in the `ElectroThermalCoupling`.
+* **Requirements**:
+    * **Flexible Property Evaluation**: Investigate a more generic mechanism within `Material::getProperty` to evaluate properties based on an arbitrary set of input field values (e.g., a map `std::map<std::string, double> field_values`). This would allow properties to depend on pressure, concentration, or other coupled variables.
+    * **Physics Field Integration**: Update relevant `PhysicsField::assemble` methods to retrieve the necessary field values from the current solution of *other* fields (if coupled) and pass them to the material's property evaluation function.
+    * **Testing**: Create new test cases that demonstrate material properties depending on various coupled fields.
 
-### **2. Implement Electromagnetic Field (Maxwell's Equations)**
+
+### **3. Implement Electromagnetic Field (Maxwell's Equations)**
 * **Goal**: Add a full electromagnetic field simulation, initially focusing on a 3D Magnetostatics formulation as a key first step. The main challenge is upgrading the core components to handle **vector-valued variables**.
 * **Guiding Equation (Magnetostatics)**: $\nabla \times \left( \frac{1}{\mu} \nabla \times \mathbf{A} \right) = \mathbf{J}$
     * **A** is the magnetic vector potential (a vector with components Ax, Ay, Az).
@@ -208,7 +216,7 @@ With a robust p-refinement system in place, we can now focus on expanding the fr
         * Set **A**=0 on the outer simulation boundary.
         * Validate that the computed magnetic field (**B** = ∇×**A**) is uniform inside the solenoid and matches the analytical solution.
 
-### **3. Support for Advanced Research Problem Types (Solvers)**
+### **4. Support for Advanced Research Problem Types (Solvers)**
 * **Goal**: Expand the solver capabilities to handle more diverse research problems.
 * **Requirements**:
     * **Time Domain Steady-State**: Implement a solver (or extend existing ones) to handle time-domain (transient) problems.
@@ -216,10 +224,3 @@ With a robust p-refinement system in place, we can now focus on expanding the fr
     * **Frequency Domain Steady-State**: Implement a solver (or extend existing ones) to handle time-harmonic (AC) problems, where the solution is a complex number representing amplitude and phase. This will involve working with complex Eigen matrices.
     * **Coupled Transient Solvers**: Further enhance the robustness and efficiency of existing transient solvers, especially for highly non-linear and strongly coupled multiphysics problems.
 
-### **4. Generalize Variable Material Properties for Coupled Fields**
-* **Goal**: Extend the material property system to allow properties to depend on *any* relevant coupled field (not just temperature).
-* **Current Status**: The `Material` class already supports temperature-dependent properties (e.g., electrical conductivity depending on temperature) via its `getProperty(const std::string& prop_name, double temperature) const` overload. This is already utilized in the `ElectroThermalCoupling`.
-* **Requirements**:
-    * **Flexible Property Evaluation**: Investigate a more generic mechanism within `Material::getProperty` to evaluate properties based on an arbitrary set of input field values (e.g., a map `std::map<std::string, double> field_values`). This would allow properties to depend on pressure, concentration, or other coupled variables.
-    * **Physics Field Integration**: Update relevant `PhysicsField::assemble` methods to retrieve the necessary field values from the current solution of *other* fields (if coupled) and pass them to the material's property evaluation function.
-    * **Testing**: Create new test cases that demonstrate material properties depending on various coupled fields.

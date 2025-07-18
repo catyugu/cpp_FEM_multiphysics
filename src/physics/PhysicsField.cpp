@@ -12,6 +12,10 @@ namespace Physics {
         bcs_.push_back(std::move(bc));
     }
 
+    void PhysicsField::addBCs(std::vector<std::unique_ptr<Core::BoundaryCondition>> bcs) {
+        bcs_.insert(bcs_.end(), std::make_move_iterator(bcs.begin()), std::make_move_iterator(bcs.end()));
+    }
+
     void PhysicsField::applyBCs() {
         auto &logger = Utils::Logger::instance();
         logger.info("Applying ", bcs_.size(), " defined BCs for ", getName());

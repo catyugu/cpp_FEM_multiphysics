@@ -1,5 +1,5 @@
 #include "core/Problem.hpp"
-#include <solver/LinearSolver.hpp> // Make sure this is included for SolverType
+#include <solver/LinearSolver.hpp>
 #include <core/mesh/Mesh.hpp>
 #include "core/DOFManager.hpp"
 #include "physics/PhysicsField.hpp"
@@ -24,19 +24,19 @@ namespace Core {
         fields_.push_back(std::move(field));
     }
 
-    // ... inside Problem::setup() ...
+    void Problem::addPostProcessor(std::unique_ptr<Post::PostProcessor> post_processor) {
+        post_processors_.push_back(std::move(post_processor));
+    }
+
     void Problem::setup() {
         auto &logger = Utils::Logger::instance();
         logger.info("--- Problem Setup ---");
 
-        // --- FIX IS HERE ---
-        // Collect the element order for each field before building the DOF Manager
         std::map<std::string, int> field_orders;
         for (const auto &field: fields_) {
             field_orders[field->getVariableName()] = field->getElementOrder();
         }
         dof_manager_->build(field_orders);
-        // --- End of Fix ---
 
         for (const auto &field: fields_) {
             field->setup(*mesh_, *dof_manager_);
@@ -47,19 +47,31 @@ namespace Core {
     }
 
     void Problem::solveSteadyState() {
-        if (solver_) {
-            solver_->solveSteadyState(*this);
-        } else {
+        if (!solver_) {
             throw Exception::ConfigurationException("Solver not initialized. Did you forget to call setup()?");
         }
+        solver_->solveSteadyState(*this);
+        runPostProcessors();
     }
 
     void Problem::solveTransient() {
-        if (solver_) {
-            solver_->solveTransient(*this);
-        } else {
+        if (!solver_) {
             throw Exception::ConfigurationException("Solver not initialized. Did you forget to call setup()?");
         }
+        solver_->solveTransient(*this);
+        runPostProcessors();
+    }
+
+    void Problem::runPostProcessors() {
+        if (post_processors_.empty()) return;
+
+        auto& logger = Utils::Logger::instance();
+        logger.info("--- Running Post-Processors ---");
+        post_processing_results_.clear();
+        for (const auto& pp : post_processors_) {
+            post_processing_results_[pp->getName()] = pp->compute_derived_quantities(*this);
+        }
+        logger.info("--- Post-Processing Complete ---");
     }
 
     void Problem::exportResults(const std::string &filename) const {
@@ -87,6 +99,10 @@ namespace Core {
         return fields_;
     }
 
+    const std::map<std::string, Post::PostProcessingResult>& Problem::getPostProcessingResults() const {
+        return post_processing_results_;
+    }
+
     void Problem::setIterativeSolverParameters(int max_iter, double tol) {
         if (max_iter <= 0) throw std::invalid_argument("Maximum number of iterations must be positive.");
         if (tol <= 0) throw std::invalid_argument("Convergence tolerance must be positive.");
@@ -101,7 +117,6 @@ namespace Core {
         total_time_ = total_time;
     }
 
-    // New method implementation
     void Problem::setLinearSolverType(Solver::SolverType type) {
         linear_solver_type_ = type;
         Utils::Logger::instance().info("Problem: Set linear solver type to ",

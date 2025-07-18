@@ -12,6 +12,10 @@
 #include <core/sources/SourceTerm.hpp>
 #include <functional> // For std::function
 
+namespace Post {
+    class HeatFluxCalculator;
+}
+
 namespace IO {
     class Exporter;
 }
@@ -30,6 +34,7 @@ namespace Physics {
         friend class Core::ElectroThermalCoupling;
         friend class Solver::CoupledElectroThermalSolver;
         friend class IO::Exporter;
+        friend class Post::HeatFluxCalculator;
     public:
         virtual ~PhysicsField() = default;
 
@@ -43,6 +48,7 @@ namespace Physics {
         virtual void assemble() = 0;
 
         void addBC(std::unique_ptr<Core::BoundaryCondition> bc);
+        void addBCs(std::vector<std::unique_ptr<Core::BoundaryCondition>> bcs);
         void applyBCs();
 
 

@@ -3,65 +3,39 @@
 
 namespace Core {
 
-Material::Material(const std::string& name) : name_(name) {}
+    Material::Material(const std::string& name) : name_(name) {}
 
-void Material::setProperty(const std::string& prop_name, double value) {
-    properties_[prop_name] = value;
-}
-
-void Material::setTempDependentProperty(const std::string& prop_name, const std::map<std::string, double>& params) {
-    properties_[prop_name] = params;
-}
-
-const std::string& Material::getName() const {
-    return name_;
-}
-
-// Overload for constant properties
-double Material::getProperty(const std::string& prop_name) const {
-    auto it = properties_.find(prop_name);
-    if (it == properties_.end()) {
-        throw std::runtime_error("Material property '" + prop_name + "' not found.");
-    }
-    try {
-        return std::any_cast<double>(it->second);
-    } catch (const std::bad_any_cast& e) {
-        throw std::runtime_error("Property '" + prop_name + "' is not a constant value.");
-    }
-}
-
-// Overload for temperature-dependent properties
-double Material::getProperty(const std::string& prop_name, double temperature) const {
-    auto it = properties_.find(prop_name);
-    if (it == properties_.end()) {
-        throw std::runtime_error("Material property '" + prop_name + "' not found.");
+    void Material::setProperty(const std::string& prop_name, double value) {
+        properties_[prop_name] = value;
     }
 
-    // Try to cast to a map for model parameters
-    try {
-        const auto& params = std::any_cast<const std::map<std::string, double>&>(it->second);
+    void Material::setProperty(const std::string& prop_name, PropertyFunction func) {
+        properties_[prop_name] = func;
+    }
 
-        // --- Linear Temperature Model for Electrical Conductivity ---
-        // This is where you would implement different material models.
-        if (prop_name == "electrical_conductivity") {
-            double sigma_ref = params.at("sigma_ref");
-            double alpha = params.at("alpha");
-            double T_ref = params.at("T_ref");
-            return sigma_ref * (1 + alpha * (temperature - T_ref));
+    const std::string& Material::getName() const {
+        return name_;
+    }
+
+    double Material::getProperty(const std::string& prop_name, const std::map<std::string, double>& field_values) const {
+        auto it = properties_.find(prop_name);
+        if (it == properties_.end()) {
+            throw std::runtime_error("Material property '" + prop_name + "' not found.");
         }
 
-        // Add other models here...
+        const std::any& prop = it->second;
 
-        throw std::runtime_error("Unknown temperature-dependent model for property: " + prop_name);
+        // Check if the stored property is a constant double
+        if (prop.type() == typeid(double)) {
+            return std::any_cast<double>(prop);
+        }
+        // Check if it is a user-defined function
+        else if (prop.type() == typeid(PropertyFunction)) {
+            const auto& func = std::any_cast<const PropertyFunction&>(prop);
+            return func(field_values); // Execute the function
+        }
 
-    } catch (const std::bad_any_cast&) {
-        // If it's not a map, it must be a constant property, so we return that.
-        // This allows thermal conductivity (k) to be defined as a constant
-        // while electrical conductivity (sigma) is temperature-dependent.
-        return std::any_cast<double>(it->second);
-    } catch (const std::out_of_range& e) {
-        throw std::runtime_error("Missing parameter in model for property '" + prop_name + "'.");
+        throw std::runtime_error("Unknown type for property '" + prop_name + "'.");
     }
-}
 
 } // namespace Core
