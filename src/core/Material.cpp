@@ -9,10 +9,6 @@ void Material::setProperty(const std::string& prop_name, double value) {
     properties_[prop_name] = value;
 }
 
-void Material::setTempDependentProperty(const std::string& prop_name, const std::map<std::string, double>& params) {
-    properties_[prop_name] = params;
-}
-
 const std::string& Material::getName() const {
     return name_;
 }

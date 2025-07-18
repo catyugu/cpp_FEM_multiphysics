@@ -19,10 +19,6 @@ namespace Core {
         // Set a constant scalar property (e.g., thermal_conductivity)
         void setProperty(const std::string& prop_name, double value);
 
-        // Set parameters for a temperature-dependent property.
-        // We use a map to store named parameters for a given model.
-        void setTempDependentProperty(const std::string& prop_name, const std::map<std::string, double>& params);
-
         // Get a property value. Overloaded for constant and temperature-dependent cases.
         double getProperty(const std::string& prop_name) const;
         double getProperty(const std::string& prop_name, double temperature) const;

@@ -59,7 +59,6 @@ This namespace contains the fundamental, high-level components that orchestrate 
 * **Public Functions**:
   * `Material(const std::string& name)`
   * `setProperty(const std::string& prop_name, double value)`: Sets a constant scalar property.
-  * `setTempDependentProperty(const std::string& prop_name, const std::map<std::string, double>& params)`: Sets parameters for a temperature-dependent property model (e.g., for electrical conductivity).
   * `getProperty(const std::string& prop_name) const`: Returns a constant property value.
   * `getProperty(const std::string& prop_name, double temperature) const`: Returns a property value evaluated at a given `temperature`. This overload enables temperature-dependent material properties.
   * `getName() const`: returns `const std::string&`
