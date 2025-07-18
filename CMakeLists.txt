@@ -15,6 +15,7 @@ file(GLOB_RECURSE SOURCES
         ${PROJECT_SOURCE_DIR}/src/io/*.cpp
         ${PROJECT_SOURCE_DIR}/src/solver/*.cpp
         ${PROJECT_SOURCE_DIR}/src/utils/*.cpp
+        ${PROJECT_SOURCE_DIR}/src/post/*.cpp
         )
 add_library(femlib
         ${SOURCES}

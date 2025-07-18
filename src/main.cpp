@@ -9,6 +9,7 @@
 #include "physics/Heat2D.hpp"
 #include "utils/Exceptions.hpp"
 #include "utils/SimpleLogger.hpp"
+#include "post/HeatFluxCalculator.hpp" // Include the new calculator
 
 #undef max // Avoid conflict with std::numeric_limits<>::max() on Windows
 
@@ -26,6 +27,12 @@ void run_comsol_circle_steadystate() {
 
     auto problem = std::make_unique<Core::Problem>(std::move(mesh));
     problem->addField(std::make_unique<Physics::Heat2D>(copper));
+
+    problem->getField("Temperature")->setElementOrder(2);
+
+    // Add the new post-processor to the problem
+    problem->addPostProcessor(std::make_unique<Post::HeatFluxCalculator>());
+
     problem->setup();
 
     const double T_ambient = 293.15;
