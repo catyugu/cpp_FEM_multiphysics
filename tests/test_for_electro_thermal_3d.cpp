@@ -5,6 +5,7 @@
 #include <cmath>
 #include <map>
 #include <limits>
+#include <set> // Required for std::set
 
 #include "core/Problem.hpp"
 #include "core/Material.hpp"
@@ -17,6 +18,7 @@
 #include "io/Importer.hpp"
 #include "utils/SimpleLogger.hpp"
 #include "core/coupling/ElectroThermalCoupling.hpp"
+#include "core/mesh/TetElement.hpp" // For dynamic_cast to TetElement
 
 #undef max
 
@@ -29,7 +31,7 @@ protected:
     Core::Material copper{"Copper"};
 
     void SetUp() override {
-        // Setup problem with a uniform 3D mesh
+        // Setup problem
         std::unique_ptr<Core::Mesh> mesh = IO::Importer::read_comsol_mphtxt(mesh_filename);
         ASSERT_NE(mesh, nullptr);
 
@@ -42,7 +44,7 @@ protected:
         auto current_field = std::make_unique<Physics::Current3D>(copper);
         auto heat_field = std::make_unique<Physics::Heat3D>(copper);
 
-        // Move these lines BEFORE problem->setup();
+        // Set element order to 2 for both fields
         current_field->setElementOrder(2);
         heat_field->setElementOrder(2);
 
@@ -50,11 +52,9 @@ protected:
         problem->addField(std::move(heat_field));
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
 
-        // Now call setup AFTER element orders are set
         problem->setup();
-
         problem->setLinearSolverType(Solver::SolverType::BiCGSTAB);
-        problem->setIterativeSolverParameters(1000, 1e-9); // Set max_iterations and tolerance for BiCGSTAB
+        problem->setIterativeSolverParameters(1000, 1e-9);
     }
 };
 
@@ -73,22 +73,87 @@ TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
     ASSERT_NE(emag_field, nullptr);
     ASSERT_NE(heat_field, nullptr);
 
-    // Apply boundary conditions
-    for (const auto &node: mesh_ref.getNodes()) {
-        const auto &coords = node->getCoords();
-        // Voltage BCs
-        if (std::abs(coords[0] - 0.0) < eps) {
-            emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "Voltage", Eigen::Vector<double, 1>(V_in)));
-        }
-        if (std::abs(coords[0] - bar_length) < eps) {
-            emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "Voltage", Eigen::Vector<double, 1>(0.0)));
-        }
+    // Sets to track constrained nodes and edges to avoid redundant BC application
+    std::set<int> constrained_volt_vertex_nodes;
+    std::set<std::pair<int, int>> constrained_volt_edges;
+    std::set<int> constrained_temp_vertex_nodes;
+    std::set<std::pair<int, int>> constrained_temp_edges;
 
-        // Heat BCs - Fixed temperature on all outer surfaces
-        if (std::abs(coords[0] - 0.0) < eps || std::abs(coords[0] - bar_length) < eps ||
-            std::abs(coords[1] - 0.0) < eps || std::abs(coords[1] - bar_width) < eps ||
-            std::abs(coords[2] - 0.0) < eps || std::abs(coords[2] - bar_height) < eps) {
-            heat_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node->getId(), "Temperature", Eigen::Vector<double, 1>(T_sink)));
+    // Apply boundary conditions to both vertex and edge nodes
+    for (const auto &elem_ptr : mesh_ref.getElements()) {
+        auto* tet_elem = dynamic_cast<Core::TetElement*>(elem_ptr);
+        if (!tet_elem) continue;
+
+        const auto& nodes = tet_elem->getNodes();
+        // Canonical edge order for Tet10: (0,1), (0,2), (0,3), (1,2), (1,3), (2,3)
+        const std::vector<std::pair<int, int>> edges = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+        for (const auto& edge : edges) {
+            Core::Node* node1 = nodes[edge.first];
+            Core::Node* node2 = nodes[edge.second];
+
+            const auto& coords1 = node1->getCoords();
+            const auto& coords2 = node2->getCoords();
+
+            // Voltage BCs
+            bool edge_on_left = (std::abs(coords1[0] - 0.0) < eps && std::abs(coords2[0] - 0.0) < eps);
+            bool edge_on_right = (std::abs(coords1[0] - bar_length) < eps && std::abs(coords2[0] - bar_length) < eps);
+
+            if (edge_on_left || edge_on_right) {
+                double volt_val = edge_on_left ? V_in : 0.0;
+                // Apply to vertex nodes
+                if (constrained_volt_vertex_nodes.find(node1->getId()) == constrained_volt_vertex_nodes.end()) {
+                    emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node1->getId(), "Voltage", Eigen::Vector<double, 1>(volt_val)));
+                    constrained_volt_vertex_nodes.insert(node1->getId());
+                }
+                if (constrained_volt_vertex_nodes.find(node2->getId()) == constrained_volt_vertex_nodes.end()) {
+                    emag_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node2->getId(), "Voltage", Eigen::Vector<double, 1>(volt_val)));
+                    constrained_volt_vertex_nodes.insert(node2->getId());
+                }
+
+                // Apply to edge midpoint DOF
+                std::vector<int> edge_node_ids = {node1->getId(), node2->getId()};
+                std::sort(edge_node_ids.begin(), edge_node_ids.end());
+                std::pair<int, int> edge_key = {edge_node_ids[0], edge_node_ids[1]};
+                if (constrained_volt_edges.find(edge_key) == constrained_volt_edges.end()) {
+                    int edge_dof_idx = dof_manager.getEdgeEquationIndex(edge_node_ids, "Voltage");
+                    if(edge_dof_idx != -1) {
+                        emag_field->addBC(std::make_unique<Core::DirichletBC>(edge_dof_idx, Eigen::Vector<double, 1>(volt_val)));
+                        constrained_volt_edges.insert(edge_key);
+                    }
+                }
+            }
+
+            // Heat BCs - Fixed temperature on all outer surfaces
+            bool edge_on_boundary = (std::abs(coords1[0] - 0.0) < eps && std::abs(coords2[0] - 0.0) < eps) ||
+                                    (std::abs(coords1[0] - bar_length) < eps && std::abs(coords2[0] - bar_length) < eps) ||
+                                    (std::abs(coords1[1] - 0.0) < eps && std::abs(coords2[1] - 0.0) < eps) ||
+                                    (std::abs(coords1[1] - bar_width) < eps && std::abs(coords2[1] - bar_width) < eps) ||
+                                    (std::abs(coords1[2] - 0.0) < eps && std::abs(coords2[2] - 0.0) < eps) ||
+                                    (std::abs(coords1[2] - bar_height) < eps && std::abs(coords2[2] - bar_height) < eps);
+
+            if (edge_on_boundary) {
+                 // Apply to vertex nodes
+                if (constrained_temp_vertex_nodes.find(node1->getId()) == constrained_temp_vertex_nodes.end()) {
+                    heat_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node1->getId(), "Temperature", Eigen::Vector<double, 1>(T_sink)));
+                    constrained_temp_vertex_nodes.insert(node1->getId());
+                }
+                if (constrained_temp_vertex_nodes.find(node2->getId()) == constrained_temp_vertex_nodes.end()) {
+                    heat_field->addBC(std::make_unique<Core::DirichletBC>(dof_manager, node2->getId(), "Temperature", Eigen::Vector<double, 1>(T_sink)));
+                    constrained_temp_vertex_nodes.insert(node2->getId());
+                }
+
+                // Apply to edge midpoint DOF
+                std::vector<int> edge_node_ids = {node1->getId(), node2->getId()};
+                std::sort(edge_node_ids.begin(), edge_node_ids.end());
+                std::pair<int, int> edge_key = {edge_node_ids[0], edge_node_ids[1]};
+                if (constrained_temp_edges.find(edge_key) == constrained_temp_edges.end()) {
+                    int edge_dof_idx = dof_manager.getEdgeEquationIndex(edge_node_ids, "Temperature");
+                    if(edge_dof_idx != -1) {
+                        heat_field->addBC(std::make_unique<Core::DirichletBC>(edge_dof_idx, Eigen::Vector<double, 1>(T_sink)));
+                        constrained_temp_edges.insert(edge_key);
+                    }
+                }
+            }
         }
     }
 
@@ -108,14 +173,12 @@ TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
         FAIL() << "Reference VTU file not found.";
     }
 
-
-    // --- Robust Comparison via Nearest-Neighbor Search ---
+    // --- Robust Comparison ---
     const auto& fem_temp_solution = heat_field->getSolution();
     const auto& fem_volt_solution = emag_field->getSolution();
 
     ASSERT_TRUE(reference_data.point_data.count("&#x6e29;&#x5ea6;"));
     ASSERT_TRUE(reference_data.point_data.count("&#x7535;&#x52bf;"));
-
 
     const auto& ref_temp_values = reference_data.point_data.at("&#x6e29;&#x5ea6;");
     const auto& ref_volt_values = reference_data.point_data.at("&#x7535;&#x52bf;");
@@ -124,7 +187,6 @@ TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
     double max_volt_diff = 0.0;
     int matched_nodes = 0;
 
-    // For each node in our simulation, find the closest point in the reference data
     for (const auto& sim_node : mesh_ref.getNodes()) {
         const auto& sim_coords = sim_node->getCoords();
         double min_dist_sq = std::numeric_limits<double>::max();
@@ -140,7 +202,6 @@ TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
             }
         }
 
-        // Only compare if the nodes are effectively at the same location
         if (min_dist_sq < 1e-12) {
             matched_nodes++;
             int temp_dof = dof_manager.getEquationIndex(sim_node->getId(), "Temperature");
@@ -156,10 +217,6 @@ TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
     }
 
     logger.info("Successfully matched and compared ", matched_nodes, " nodes based on coordinates.");
-    if(matched_nodes < mesh_ref.getNodes().size()){
-        logger.warn("Could not find a match for ", mesh_ref.getNodes().size() - matched_nodes, " nodes from the simulation mesh in the reference VTU file.");
-    }
-
     logger.info("Maximum temperature difference: ", max_temp_diff, " K");
     logger.info("Maximum voltage difference: ", max_volt_diff, " V");
 
