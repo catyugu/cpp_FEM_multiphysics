@@ -39,12 +39,19 @@ protected:
         copper.setProperty("specific_heat", 385.0);
 
         problem = std::make_unique<Core::Problem>(std::move(mesh));
-        problem->addField(std::make_unique<Physics::Current3D>(copper));
-        problem->addField(std::make_unique<Physics::Heat3D>(copper));
+        auto current_field = std::make_unique<Physics::Current3D>(copper);
+        auto heat_field = std::make_unique<Physics::Heat3D>(copper);
+
+        // Move these lines BEFORE problem->setup();
+        current_field->setElementOrder(2);
+        heat_field->setElementOrder(2);
+
+        problem->addField(std::move(current_field));
+        problem->addField(std::move(heat_field));
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
+
+        // Now call setup AFTER element orders are set
         problem->setup();
-        // problem->getField("Voltage")->setElementOrder(2);
-        // problem->getField("Temperature")->setElementOrder(2);
 
         problem->setLinearSolverType(Solver::SolverType::BiCGSTAB);
         problem->setIterativeSolverParameters(1000, 1e-9); // Set max_iterations and tolerance for BiCGSTAB
