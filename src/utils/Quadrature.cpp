@@ -54,10 +54,10 @@ std::vector<QuadraturePoint> Quadrature::getTriangleQuadrature(int order) {
             points.push_back({(Eigen::Vector2d() << 0.0, 0.5).finished(), 1.0/6.0});
             return points;
         case 3:
-            points.push_back({(Eigen::Vector2d() << 1.0/3.0, 1.0/3.0).finished(), -27.0/96.0 * 0.5});
-            points.push_back({(Eigen::Vector2d() << 0.6, 0.2).finished(),      25.0/96.0 * 0.5});
-            points.push_back({(Eigen::Vector2d() << 0.2, 0.6).finished(),      25.0/96.0 * 0.5});
-            points.push_back({(Eigen::Vector2d() << 0.2, 0.2).finished(),      25.0/96.0 * 0.5});
+            points.push_back({(Eigen::Vector2d() << 1.0/3.0, 1.0/3.0).finished(), -27.0/96.0});
+            points.push_back({(Eigen::Vector2d() << 0.6, 0.2).finished(),      25.0/96.0});
+            points.push_back({(Eigen::Vector2d() << 0.2, 0.6).finished(),      25.0/96.0});
+            points.push_back({(Eigen::Vector2d() << 0.2, 0.2).finished(),      25.0/96.0});
             return points;
         case 4:
         case 5:

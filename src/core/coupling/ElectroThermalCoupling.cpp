@@ -1,3 +1,4 @@
+// src/core/coupling/ElectroThermalCoupling.cpp
 #include "core/coupling/ElectroThermalCoupling.hpp"
 #include "core/mesh/Element.hpp"
 #include "core/mesh/TriElement.hpp"
@@ -57,14 +58,24 @@ namespace Core {
         for (const auto& elem_ptr : mesh->getElements()) {
             double T_avg = 293.15; // Default to room temp
             if (heat_solution.size() > 0) {
+                // FIX: Get all DOFs for the heat field on this element, respecting its order
+                // Ensure element's mathematical order is correctly applied before getting DOFs
+                elem_ptr->setOrder(heat_field_->getElementOrder());
+                const auto heat_element_dofs = heat_field_->get_element_dofs(elem_ptr);
+
                 T_avg = 0.0;
-                for (const auto& node : elem_ptr->getNodes()) {
-                    int dof_idx = dof_manager->getEquationIndex(node->getId(), "Temperature");
-                    if (dof_idx != -1) {
+                size_t valid_dofs_count = 0;
+                for (int dof_idx : heat_element_dofs) {
+                    if (dof_idx != -1) { // Check if DOF exists
                         T_avg += heat_solution(dof_idx);
+                        valid_dofs_count++;
                     }
                 }
-                T_avg /= elem_ptr->getNumNodes();
+                if (valid_dofs_count > 0) {
+                    T_avg /= valid_dofs_count;
+                } else {
+                    T_avg = 293.15; // Fallback if no valid DOFs found (shouldn't happen with correct setup)
+                }
             }
 
             const double local_sigma = material.getProperty("electrical_conductivity", T_avg);
@@ -82,6 +93,7 @@ namespace Core {
                         const auto& B_matrix_from_fe = fe_values->get_shape_gradients();
                         const double detJ_x_w = fe_values->get_detJ_times_weight();
 
+                        // Get element DOFs for the EMag field, respecting its order
                         const auto element_dofs = emag_field_->get_element_dofs(tet_elem);
                         Eigen::VectorXd nodal_voltages(tet_elem->getNumNodes());
                         for (size_t k = 0; k < tet_elem->getNumNodes(); ++k) {
