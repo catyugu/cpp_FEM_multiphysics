@@ -80,35 +80,61 @@ namespace IO {
         }
 
         // --- Pass 3: Read all Tetrahedron Elements (if any) ---
-        file.clear();
-        file.seekg(0, std::ios::beg);
-        logger.info("Pass 3: Reading tetrahedron elements...");
-        while (std::getline(file, line)) {
-            if (line.find("tet # type name") != std::string::npos) {
-                while (std::getline(file, line) && line.find("# number of elements") == std::string::npos);
-                int num_elements = 0;
-                std::stringstream ss(line);
-                ss >> num_elements;
+           while (std::getline(file, line)) {
+        if (line.find("tet # type name") != std::string::npos) {
+            while (std::getline(file, line) && line.find("# number of elements") == std::string::npos);
+            int num_elements = 0;
+            std::stringstream ss(line);
+            ss >> num_elements;
 
-                while (std::getline(file, line) && line.find("# Elements") == std::string::npos);
+            while (std::getline(file, line) && line.find("# Elements") == std::string::npos);
 
-                for (int i = 0; i < num_elements && std::getline(file, line); ++i) {
-                    std::stringstream data_ss(line);
-                    int n1, n2, n3, n4;
-                    if (data_ss >> n1 >> n2 >> n3 >> n4) {
-                        auto *tet_elem = new Core::TetElement(element_id_counter++);
-                        tet_elem->addNode(mesh->getNode(n1));
-                        tet_elem->addNode(mesh->getNode(n2));
-                        tet_elem->addNode(mesh->getNode(n3));
-                        tet_elem->addNode(mesh->getNode(n4));
-                        tet_elem->update_geometry();
-                        mesh->addElement(tet_elem);
+            for (int i = 0; i < num_elements && std::getline(file, line); ++i) {
+                std::stringstream data_ss(line);
+                int n_id1, n_id2, n_id3, n_id4; // Read raw node IDs
+                if (data_ss >> n_id1 >> n_id2 >> n_id3 >> n_id4) {
+                    auto *tet_elem = new Core::TetElement(element_id_counter++);
+
+                    // Get actual Node* pointers based on IDs from file
+                    std::vector<Core::Node*> current_nodes_order = {
+                        mesh->getNode(n_id1),
+                        mesh->getNode(n_id2),
+                        mesh->getNode(n_id3),
+                        mesh->getNode(n_id4)
+                    };
+
+                    // Add nodes initially in the order read from the file
+                    for (Core::Node* node_ptr : current_nodes_order) {
+                        tet_elem->addNode(node_ptr);
                     }
-                }
-                break;
-            }
-        }
+                    tet_elem->update_geometry(); // Calculate initial geometry and signed volume
 
+                    // Check signed volume and reorder if negative (inverted element)
+                    if (tet_elem->getVolume() < 0) {
+                        logger.warn("Tetrahedron element ", tet_elem->getId(), " has negative signed volume (", tet_elem->getVolume(), "). Attempting to reorder nodes.");
+
+                        // A common fix is to swap the last two nodes (indices 2 and 3 in a 0-indexed array)
+                        std::swap(current_nodes_order[2], current_nodes_order[3]);
+
+                        // Use the new protected method to update the element's internal node list
+                        tet_elem->set_nodes_internal(current_nodes_order);
+                        tet_elem->update_geometry(); // Recalculate geometry with the new, corrected order
+
+                        if (tet_elem->getVolume() < 0) {
+                            // If still negative after a common swap, it indicates a more complex inversion
+                            // or a truly degenerate element that cannot be fixed by simple reordering.
+                            logger.error("Tetrahedron element ", tet_elem->getId(), " still has negative signed volume after reordering attempt. Volume: ", tet_elem->getVolume());
+                            throw Exception::SolverException("Degenerate or inverted tetrahedron element encountered in mesh import, unable to fix by reordering.");
+                        } else {
+                            logger.info("Tetrahedron element ", tet_elem->getId(), " reordered successfully. New signed volume: ", tet_elem->getVolume());
+                        }
+                    }
+                    mesh->addElement(tet_elem);
+                }
+            }
+            break;
+        }
+    }
         logger.info("Import finished. Total: ", mesh->getNodes().size(), " nodes, ", mesh->getElements().size(), " elements.");
 
         if (mesh->getNodes().empty() || mesh->getElements().empty()) {

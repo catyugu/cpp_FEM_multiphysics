@@ -16,6 +16,7 @@ namespace Solver {
         auto *heat_field = problem.getField("Temperature");
         auto &coupling_manager = problem.getCouplingManager();
         const auto &dof_manager = problem.getDofManager();
+        // const auto &all_vars = dof_manager.getVariableNames(); // No longer needed for this stabilization approach
 
         // Initialize temperature solution to a reasonable default if it's zero
         if (heat_field->getSolution().isZero(1e-9)) {
@@ -35,17 +36,23 @@ namespace Solver {
             Eigen::SparseMatrix<double> K_emag_solve = emag_field->getStiffnessMatrix();
             Eigen::MatrixXd F_emag_solve = emag_field->getRHS();
 
-            // Constrain Temperature DOFs for this EMag solve step
-            // This ensures the overall system matrix is not singular
-            for (const auto &node: problem.getMesh().getNodes()) {
-                int dof_idx = dof_manager.getEquationIndex(node->getId(), "Temperature");
-                if (dof_idx != -1) {
-                    K_emag_solve.coeffRef(dof_idx, dof_idx) = 1.0;
-                    F_emag_solve(dof_idx, 0) = heat_field->getSolution()(dof_idx, 0);
+            // FIX: Stabilize Temperature DOFs using their current solution values
+            // This ensures the overall system matrix is not singular and respects current state.
+            for (const auto& elem : problem.getMesh().getElements()) {
+                // Get DOFs for the Temperature field on this element, respecting its order
+                elem->setOrder(heat_field->getElementOrder());
+                const auto heat_element_dofs = heat_field->get_element_dofs(elem);
+
+                for (int dof_idx_local : heat_element_dofs) {
+                    if (dof_idx_local != -1) {
+                        K_emag_solve.coeffRef(dof_idx_local, dof_idx_local) = 1.0; // Set diagonal to 1.0
+                        // Set RHS to current temperature solution value
+                        F_emag_solve(dof_idx_local, 0) = heat_field->getSolution()(dof_idx_local, 0);
+                    }
                 }
             }
 
-            // Apply EMag BCs to the temporary system
+            // Apply EMag BCs to the temporary system (after stabilization)
             for (const auto &bc: emag_field->getBCs()) {
                 bc->apply(K_emag_solve, F_emag_solve);
             }
@@ -65,16 +72,22 @@ namespace Solver {
             Eigen::SparseMatrix<double> K_heat_solve = heat_field->getStiffnessMatrix();
             Eigen::MatrixXd F_heat_solve = heat_field->getRHS();
 
-            // Constrain Voltage DOFs for this Heat solve step
-            for (const auto &node: problem.getMesh().getNodes()) {
-                int dof_idx = dof_manager.getEquationIndex(node->getId(), "Voltage");
-                if (dof_idx != -1) {
-                    K_heat_solve.coeffRef(dof_idx, dof_idx) = 1.0;
-                    F_heat_solve(dof_idx, 0) = emag_field->getSolution()(dof_idx, 0);
+            // FIX: Stabilize Voltage DOFs using their current solution values
+            for (const auto& elem : problem.getMesh().getElements()) {
+                // Get DOFs for the Voltage field on this element, respecting its order
+                elem->setOrder(emag_field->getElementOrder());
+                const auto emag_element_dofs = emag_field->get_element_dofs(elem);
+
+                for (int dof_idx_local : emag_element_dofs) {
+                    if (dof_idx_local != -1) {
+                        K_heat_solve.coeffRef(dof_idx_local, dof_idx_local) = 1.0; // Set diagonal to 1.0
+                        // Set RHS to current voltage solution value
+                        F_heat_solve(dof_idx_local, 0) = emag_field->getSolution()(dof_idx_local, 0);
+                    }
                 }
             }
 
-            // Apply Heat BCs to the temporary system
+            // Apply Heat BCs to the temporary system (after stabilization)
             for (const auto &bc: heat_field->getBCs()) {
                 bc->apply(K_heat_solve, F_heat_solve);
             }
@@ -99,7 +112,7 @@ namespace Solver {
                     " iterations. ---");
     }
 
-
+    // The solveTransient method also needs the same stabilization fix for consistency
     void CoupledElectroThermalSolver::solveTransient(Core::Problem &problem) {
         auto &logger = Utils::Logger::instance();
         logger.info("\n--- Starting Coupled Transient Solve (Mixed-Order Robust) ---");
@@ -108,8 +121,8 @@ namespace Solver {
         auto *emag_field = problem.getField("Voltage");
         auto *heat_field = problem.getField("Temperature");
         auto &coupling_manager = problem.getCouplingManager();
-        const auto &dof_manager = problem.getDofManager();
-        const auto &all_vars = dof_manager.getVariableNames();
+        // const auto &dof_manager = problem.getDofManager(); // No longer explicitly needed
+        // const auto &all_vars = dof_manager.getVariableNames(); // No longer needed
 
         if (heat_field->getSolution().isZero(1e-9)) {
             heat_field->setInitialConditions(293.15);
@@ -134,12 +147,15 @@ namespace Solver {
                 Eigen::SparseMatrix<double> K_emag_solve = emag_field->getStiffnessMatrix();
                 Eigen::MatrixXd F_emag_solve = emag_field->getRHS();
 
-                // Stabilize all DOFs that are NOT for "Voltage"
-                for (const auto &var_name: all_vars) {
-                    if (var_name != emag_field->getVariableName()) {
-                        for (int dof_idx = 0; dof_idx < dof_manager.getNumEquations(); ++dof_idx) {
-                            // A simple stabilization for now
-                            K_emag_solve.coeffRef(dof_idx, dof_idx) += 1.0;
+                // FIX: Stabilize Temperature DOFs using their current solution values
+                for (const auto& elem : problem.getMesh().getElements()) {
+                    elem->setOrder(heat_field->getElementOrder());
+                    const auto heat_element_dofs = heat_field->get_element_dofs(elem);
+
+                    for (int dof_idx_local : heat_element_dofs) {
+                        if (dof_idx_local != -1) {
+                            K_emag_solve.coeffRef(dof_idx_local, dof_idx_local) = 1.0;
+                            F_emag_solve(dof_idx_local, 0) = heat_field->getSolution()(dof_idx_local, 0);
                         }
                     }
                 }
@@ -156,14 +172,17 @@ namespace Solver {
 
                 Eigen::SparseMatrix<double> A_eff =
                         (heat_field->getMassMatrix() / dt) + heat_field->getStiffnessMatrix();
-                Eigen::MatrixXd b_eff = heat_field->getRHS() + (heat_field->getMassMatrix() / dt) * heat_field->
-                                        getPreviousSolution();
+                Eigen::MatrixXd b_eff = heat_field->getRHS() + (heat_field->getMassMatrix() / dt) * heat_field->getPreviousSolution();
 
-                // Stabilize all DOFs that are NOT for "Temperature"
-                for (const auto &var_name: all_vars) {
-                    if (var_name != heat_field->getVariableName()) {
-                        for (int dof_idx = 0; dof_idx < dof_manager.getNumEquations(); ++dof_idx) {
-                            A_eff.coeffRef(dof_idx, dof_idx) += 1.0;
+                // FIX: Stabilize Voltage DOFs using their current solution values
+                for (const auto& elem : problem.getMesh().getElements()) {
+                    elem->setOrder(emag_field->getElementOrder());
+                    const auto emag_element_dofs = emag_field->get_element_dofs(elem);
+
+                    for (int dof_idx_local : emag_element_dofs) {
+                        if (dof_idx_local != -1) {
+                            A_eff.coeffRef(dof_idx_local, dof_idx_local) = 1.0;
+                            b_eff(dof_idx_local, 0) = emag_field->getSolution()(dof_idx_local, 0);
                         }
                     }
                 }

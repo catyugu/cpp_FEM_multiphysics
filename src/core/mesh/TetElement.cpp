@@ -8,10 +8,9 @@ TetElement::TetElement(int id) : Element(id) {}
 
 size_t TetElement::getNumNodes() const {
     if (order_ > 0 && order_ <= Utils::MAX_TET_ORDER_SUPPORTED) {
-         // The number of nodes for a tetrahedral element of order p is (p+1)(p+2)(p+3)/6
         return (order_ + 1) * (order_ + 2) * (order_ + 3) / 6;
     }
-     throw std::runtime_error("Unsupported order " + std::to_string(order_) + " for TetElement. Maximum supported order is " + std::to_string(Utils::MAX_TET_ORDER_SUPPORTED) + ".");
+    throw std::runtime_error("Unsupported order " + std::to_string(order_) + " for TetElement. Maximum supported order is " + std::to_string(Utils::MAX_TET_ORDER_SUPPORTED) + ".");
 }
 
 const char* TetElement::getTypeName() const {
@@ -33,8 +32,8 @@ double TetElement::getVolume() const {
              1, p3[0], p3[1], p3[2],
              1, p4[0], p4[1], p4[2];
 
-    // The volume is 1/6th of the determinant of this matrix.
-    return std::abs(V_mat.determinant()) / 6.0;
+    // REMOVED: std::abs() to return the signed volume. This is crucial for detecting inverted elements.
+    return V_mat.determinant() / 6.0;
 }
 
 Eigen::Matrix<double, 3, 4> TetElement::getBMatrix() const {
@@ -56,16 +55,17 @@ Eigen::Matrix<double, 3, 4> TetElement::getBMatrix() const {
          1, x3, y3, z3,
          1, x4, y4, z4;
 
+    // CHECK: Use std::abs() here for the tolerance check, to detect truly degenerate (zero volume) elements.
     if (std::abs(C.determinant()) < 1e-12) {
-        throw std::runtime_error("Element " + std::to_string(id_) + " has zero volume.");
+        throw std::runtime_error("Element " + std::to_string(id_) + " has zero or near-zero volume, cannot calculate B-matrix.");
     }
 
     Eigen::Matrix4d C_inv = C.inverse();
 
     Eigen::Matrix<double, 3, 4> B;
-    B.row(0) = C_inv.row(1); // d/dx coefficients
-    B.row(1) = C_inv.row(2); // d/dy coefficients
-    B.row(2) = C_inv.row(3); // d/dz coefficients
+    B.row(0) = C_inv.row(1);
+    B.row(1) = C_inv.row(2);
+    B.row(2) = C_inv.row(3);
 
     return B;
 }

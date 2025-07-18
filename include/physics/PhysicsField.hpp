@@ -12,9 +12,19 @@
 #include <core/sources/SourceTerm.hpp>
 #include <functional> // For std::function
 
+namespace Solver {
+    class CoupledElectroThermalSolver;
+}
+
+namespace Core {
+    class ElectroThermalCoupling;
+}
+
 namespace Physics {
 
     class PhysicsField {
+        friend class Core::ElectroThermalCoupling;
+        friend class Solver::CoupledElectroThermalSolver;
     public:
         virtual ~PhysicsField() = default;
 
