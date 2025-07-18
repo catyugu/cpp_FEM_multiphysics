@@ -56,29 +56,14 @@ namespace Core {
         bool is_1d = dynamic_cast<Physics::Current1D*>(emag_field_) != nullptr;
 
         for (const auto& elem_ptr : mesh->getElements()) {
-            double T_avg = 293.15; // Default to room temp
             if (heat_solution.size() > 0) {
                 // FIX: Get all DOFs for the heat field on this element, respecting its order
                 // Ensure element's mathematical order is correctly applied before getting DOFs
                 elem_ptr->setOrder(heat_field_->getElementOrder());
                 const auto heat_element_dofs = heat_field_->get_element_dofs(elem_ptr);
-
-                T_avg = 0.0;
-                size_t valid_dofs_count = 0;
-                for (int dof_idx : heat_element_dofs) {
-                    if (dof_idx != -1) { // Check if DOF exists
-                        T_avg += heat_solution(dof_idx);
-                        valid_dofs_count++;
-                    }
-                }
-                if (valid_dofs_count > 0) {
-                    T_avg /= valid_dofs_count;
-                } else {
-                    T_avg = 293.15; // Fallback if no valid DOFs found (shouldn't happen with correct setup)
-                }
             }
 
-            const double local_sigma = material.getProperty("electrical_conductivity", T_avg);
+            const double local_sigma = material.getProperty("electrical_conductivity");
             double total_element_power = 0.0;
 
             // --- Dimension-Specific Calculations ---
