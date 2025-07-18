@@ -1,6 +1,7 @@
 #include <core/mesh/Element.hpp>
-#include <core/FEValues.hpp> // Include the new header
+#include <core/FEValues.hpp>
 #include <stdexcept>
+#include <algorithm> // Required for std::copy, etc.
 
 namespace Core {
 
@@ -18,19 +19,22 @@ namespace Core {
         nodes_.push_back(node);
     }
 
+    // NEW: Implementation of set_nodes_internal
+    void Element::set_nodes_internal(const std::vector<Node*>& new_nodes) {
+        nodes_.clear(); // Clear existing nodes
+        nodes_.insert(nodes_.begin(), new_nodes.begin(), new_nodes.end()); // Copy new nodes
+    }
+
     void Element::update_geometry() {
         if (!nodes_.empty()) {
-            // Pass the element's intrinsic dimension to the geometry constructor.
             geometry_ = std::make_unique<ElementGeometry>(nodes_, this->getDimension());
         }
     }
 
     std::unique_ptr<FEValues> Element::create_fe_values(int quad_order) {
         if (!geometry_) {
-            // Lazy initialization of geometry if not already done.
             update_geometry();
         }
-        // The element order for the FEValues is taken from the element itself.
         return std::make_unique<FEValues>(*geometry_, this->order_, quad_order);
     }
 

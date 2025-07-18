@@ -1,3 +1,4 @@
+// Modify catyugu/cpp_fem_multiphysics/cpp_FEM_multiphysics-dev/src/physics/PhysicsField.cpp
 #include "physics/PhysicsField.hpp"
 
 #include <core/mesh/LineElement.hpp>
@@ -34,8 +35,8 @@ namespace Physics {
     void PhysicsField::applySources() {
         // Clear the force vector before applying sources to avoid accumulation across steps/iterations
         F_.setZero();
+        // Changed call to pass element_order_
         for (const auto &source: source_terms_) {
-            // MODIFICATION: Pass element_order_
             source->apply(F_, *dof_manager_, *mesh_, getVariableName(), element_order_);
         }
     }

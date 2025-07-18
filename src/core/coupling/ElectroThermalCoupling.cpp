@@ -10,6 +10,7 @@
 #include "utils/SimpleLogger.hpp"
 #include <string>
 #include <core/mesh/LineElement.hpp>
+#include <core/FEValues.hpp> // Include FEValues
 
 namespace Core {
 
@@ -72,38 +73,80 @@ namespace Core {
             // --- Dimension-Specific Calculations ---
             if (is_3d) {
                 if (auto* tet_elem = dynamic_cast<TetElement*>(elem_ptr)) {
-                    auto B = tet_elem->getBMatrix();
-                    Eigen::Vector4d nodal_voltages;
-                    for (int j = 0; j < 4; ++j) {
-                        nodal_voltages(j) = emag_solution(dof_manager->getEquationIndex(tet_elem->getNodes()[j]->getId(), "Voltage"));
+                    tet_elem->setOrder(emag_field_->getElementOrder()); // Ensure element has correct order
+                    auto fe_values = tet_elem->create_fe_values(emag_field_->getElementOrder()); // Use emag_field's order for quadrature as well for consistency
+
+                    double integrated_joule_heat_density = 0.0;
+                    for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+                        fe_values->reinit(q_p);
+                        const auto& B_matrix_from_fe = fe_values->get_shape_gradients();
+                        const double detJ_x_w = fe_values->get_detJ_times_weight();
+
+                        const auto element_dofs = emag_field_->get_element_dofs(tet_elem);
+                        Eigen::VectorXd nodal_voltages(tet_elem->getNumNodes());
+                        for (size_t k = 0; k < tet_elem->getNumNodes(); ++k) {
+                            if (element_dofs[k] != -1) {
+                                nodal_voltages(k) = emag_solution(element_dofs[k]);
+                            } else {
+                                nodal_voltages(k) = 0.0;
+                            }
+                        }
+
+                        Eigen::Vector3d grad_V = B_matrix_from_fe * nodal_voltages;
+                        integrated_joule_heat_density += local_sigma * grad_V.squaredNorm() * detJ_x_w;
                     }
-                    Eigen::Vector3d grad_V = B * nodal_voltages;
-                    double joule_heat_density = local_sigma * grad_V.squaredNorm();
-                    double element_volume = tet_elem->getVolume();
-                    total_element_power = joule_heat_density * element_volume;
+                    total_element_power = integrated_joule_heat_density;
                 }
             } else if (is_2d) {
                 if (auto* tri_elem = dynamic_cast<TriElement*>(elem_ptr)) {
-                    auto B = tri_elem->getBMatrix();
-                    Eigen::Vector3d nodal_voltages;
-                    for (int j = 0; j < 3; ++j) {
-                        nodal_voltages(j) = emag_solution(dof_manager->getEquationIndex(tri_elem->getNodes()[j]->getId(), "Voltage"));
+                    tri_elem->setOrder(emag_field_->getElementOrder());
+                    auto fe_values = tri_elem->create_fe_values(emag_field_->getElementOrder());
+
+                    double integrated_joule_heat_density = 0.0;
+                    for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+                        fe_values->reinit(q_p);
+                        const auto& B_matrix_from_fe = fe_values->get_shape_gradients();
+                        const double detJ_x_w = fe_values->get_detJ_times_weight();
+
+                        const auto element_dofs = emag_field_->get_element_dofs(tri_elem);
+                        Eigen::VectorXd nodal_voltages(tri_elem->getNumNodes());
+                        for (size_t k = 0; k < tri_elem->getNumNodes(); ++k) {
+                            if (element_dofs[k] != -1) {
+                                nodal_voltages(k) = emag_solution(element_dofs[k]);
+                            } else {
+                                nodal_voltages(k) = 0.0;
+                            }
+                        }
+
+                        Eigen::Vector2d grad_V = B_matrix_from_fe * nodal_voltages;
+                        integrated_joule_heat_density += local_sigma * grad_V.squaredNorm() * detJ_x_w;
                     }
-                    Eigen::Vector2d grad_V = B * nodal_voltages;
-                    double joule_heat_density = local_sigma * grad_V.squaredNorm();
-                    double element_volume = tri_elem->getArea() * 1.0; // Assume 1.0m thickness
-                    total_element_power = joule_heat_density * element_volume;
+                    total_element_power = integrated_joule_heat_density;
                 }
             } else if (is_1d) {
                 if (auto* line_elem = dynamic_cast<LineElement*>(elem_ptr)) {
-                    auto nodes = line_elem->getNodes();
-                    double h = line_elem->getLength();
-                    double V_i = emag_solution(dof_manager->getEquationIndex(nodes[0]->getId(), "Voltage"));
-                    double V_j = emag_solution(dof_manager->getEquationIndex(nodes[1]->getId(), "Voltage"));
-                    double E = std::abs(V_i - V_j) / h;
-                    double joule_heat_density = local_sigma * E * E;
-                    double element_volume = h * 1.0; // Assume 1.0 m^2 cross-section
-                    total_element_power = joule_heat_density * element_volume;
+                    line_elem->setOrder(emag_field_->getElementOrder());
+                    auto fe_values = line_elem->create_fe_values(emag_field_->getElementOrder());
+
+                    double integrated_joule_heat_density = 0.0;
+                    for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+                        fe_values->reinit(q_p);
+                        const auto& B_matrix_from_fe = fe_values->get_shape_gradients();
+                        const double detJ_x_w = fe_values->get_detJ_times_weight();
+
+                        const auto element_dofs = emag_field_->get_element_dofs(line_elem);
+                        Eigen::VectorXd nodal_voltages(line_elem->getNumNodes());
+                        for (size_t k = 0; k < line_elem->getNumNodes(); ++k) {
+                            if (element_dofs[k] != -1) {
+                                nodal_voltages(k) = emag_solution(element_dofs[k]);
+                            } else {
+                                nodal_voltages(k) = 0.0;
+                            }
+                        }
+                        Eigen::Vector<double, 1> grad_V = B_matrix_from_fe * nodal_voltages;
+                        integrated_joule_heat_density += local_sigma * grad_V.squaredNorm() * detJ_x_w;
+                    }
+                    total_element_power = integrated_joule_heat_density;
                 }
             }
 
