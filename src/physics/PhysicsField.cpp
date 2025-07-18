@@ -35,7 +35,8 @@ namespace Physics {
         // Clear the force vector before applying sources to avoid accumulation across steps/iterations
         F_.setZero();
         for (const auto &source: source_terms_) {
-            source->apply(F_, *dof_manager_, *mesh_, getVariableName());
+            // MODIFICATION: Pass element_order_
+            source->apply(F_, *dof_manager_, *mesh_, getVariableName(), element_order_);
         }
     }
 
