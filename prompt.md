@@ -164,7 +164,7 @@ Mature software needs a flexible way to analyze results beyond just looking at t
 
 ## **IV. Future Development Requirements**
 
-With a robust p-refinement system in place, we can now focus on expanding the framework's capabilities. Please address the following tasks.
+We can now focus on expanding the framework's capabilities. Please address the following tasks.
 
 ### **1. Add Support for Non-Linear Materials**
 * **Goal**: Simulate materials whose properties change with the field itself (e.g., magnetic permeability changing with B-field strength).
