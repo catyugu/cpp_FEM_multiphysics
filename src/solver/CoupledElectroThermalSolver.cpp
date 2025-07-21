@@ -34,7 +34,7 @@ namespace Solver {
 
             // Create temporary copies to build a well-posed system for this step
             Eigen::SparseMatrix<double> K_emag_solve = emag_field->getStiffnessMatrix();
-            Eigen::MatrixXd F_emag_solve = emag_field->getRHS();
+            Eigen::VectorXd F_emag_solve = emag_field->getRHS();
 
             // FIX: Stabilize Temperature DOFs using their current solution values
             // This ensures the overall system matrix is not singular and respects current state.
@@ -70,7 +70,7 @@ namespace Solver {
 
             // Create temporary copies for the heat solve
             Eigen::SparseMatrix<double> K_heat_solve = heat_field->getStiffnessMatrix();
-            Eigen::MatrixXd F_heat_solve = heat_field->getRHS();
+            Eigen::VectorXd F_heat_solve = heat_field->getRHS();
 
             // FIX: Stabilize Voltage DOFs using their current solution values
             for (const auto& elem : problem.getMesh().getElements()) {
@@ -143,7 +143,7 @@ namespace Solver {
                 emag_field->assemble();
                 emag_field->applySources();
                 Eigen::SparseMatrix<double> K_emag_solve = emag_field->getStiffnessMatrix();
-                Eigen::MatrixXd F_emag_solve = emag_field->getRHS();
+                Eigen::VectorXd F_emag_solve = emag_field->getRHS();
 
                 for (const auto& elem : problem.getMesh().getElements()) {
                     elem->setOrder(heat_field->getElementOrder());
@@ -170,7 +170,7 @@ namespace Solver {
                 heat_field->assemble();
                 heat_field->applySources();
                 Eigen::SparseMatrix<double> A_eff = (heat_field->getMassMatrix() / dt) + heat_field->getStiffnessMatrix();
-                Eigen::MatrixXd b_eff = heat_field->getRHS() + (heat_field->getMassMatrix() / dt) * heat_field->getPreviousSolution();
+                Eigen::VectorXd b_eff = heat_field->getRHS() + (heat_field->getMassMatrix() / dt) * heat_field->getPreviousSolution();
 
                 for (const auto& elem : problem.getMesh().getElements()) {
                     elem->setOrder(emag_field->getElementOrder());

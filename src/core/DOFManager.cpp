@@ -6,10 +6,10 @@ namespace Core {
 
 DOFManager::DOFManager(Mesh& mesh) : mesh_(mesh), num_equations_(0) {}
 
-void DOFManager::registerVariable(const std::string& var_name) {
+void DOFManager::registerVariable(const std::string& var_name, int num_components) {
     variable_names_.push_back(var_name);
+    variable_components_[var_name] = num_components;
 }
-
 void DOFManager::build(const std::map<std::string, int>& field_orders) {
     auto& logger = Utils::Logger::instance();
     logger.info("DOFManager: Building advanced DOF map...");
@@ -20,8 +20,12 @@ void DOFManager::build(const std::map<std::string, int>& field_orders) {
 
     // --- Pass 1: Assign DOFs to all vertex nodes ---
     for (const auto& node : mesh_.getNodes()) {
-        for (size_t i = 0; i < variable_names_.size(); ++i) {
-            vertex_dof_map_[{node->getId(), static_cast<int>(i)}] = equation_counter++;
+        for (size_t i = 0; i < variable_names_.size(); ++i){
+            int num_components = variable_components_.at(variable_names_[i]);
+            for (int c = 0; c < num_components; ++c) {
+                vertex_dof_map_[{node->getId(), i}] = equation_counter;
+                equation_counter++;
+            }
         }
     }
 

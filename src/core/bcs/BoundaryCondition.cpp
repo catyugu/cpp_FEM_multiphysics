@@ -20,7 +20,7 @@ DirichletBC::DirichletBC(int equation_index, Eigen::VectorXd value, const std::s
     : BoundaryCondition(tag), equation_index_(equation_index), value_(std::move(value)) {
 // This constructor directly accepts the equation index, no lookup needed.
 }
-void DirichletBC::apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const {
+void DirichletBC::apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const {
     if (equation_index_ < 0 || equation_index_ >= K.rows()) {
         Utils::Logger::instance().error("DirichletBC: Invalid equation index ", equation_index_);
         return;
@@ -51,7 +51,7 @@ NeumannBC::NeumannBC(const DOFManager& dof_manager, int node_id, const std::stri
     equation_index_ = dof_manager.getEquationIndex(node_id, var_name);
 }
 
-void NeumannBC::apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const {
+void NeumannBC::apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const {
     if (equation_index_ < 0 || equation_index_ >= F.rows()) {
         Utils::Logger::instance().error("NeumannBC: Invalid equation index ", equation_index_);
         return;
@@ -71,7 +71,7 @@ CauchyBC::CauchyBC(const DOFManager& dof_manager, int node_id, const std::string
     equation_index_ = dof_manager.getEquationIndex(node_id, var_name);
 }
 
-void CauchyBC::apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const {
+void CauchyBC::apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const {
     if (equation_index_ < 0 || equation_index_ >= K.rows()) {
         Utils::Logger::instance().error("CauchyBC: Invalid equation index ", equation_index_);
         return;
