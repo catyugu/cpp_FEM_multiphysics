@@ -11,7 +11,7 @@ This namespace is responsible for orchestrating the solution process of the simu
 ### **LinearSolver**
 * **Description**: A static utility class that solves a linear system of equations using the Eigen library. It provides access to both direct (`SparseLU`) and iterative (`BiCGSTAB`) solvers.
 * **Key Function**:
-  * `static void solve(const Eigen::SparseMatrix<double>& A, const Eigen::MatrixXd& b, Eigen::MatrixXd& x, SolverType solver_type = SolverType::LU, int max_iterations = 1000, double tolerance = 1e-9)`: Solves the linear system Ax = b. It now explicitly accepts `solver_type`, `max_iterations`, and `tolerance` parameters, which are passed from the `Problem` object.
+  * `static void solve(const Eigen::SparseMatrix<double>& A, const Eigen::VectorXd& b, Eigen::VectorXd& x, SolverType solver_type = SolverType::LU, int max_iterations = 1000, double tolerance = 1e-9)`: Solves the linear system Ax = b. It now explicitly accepts `solver_type`, `max_iterations`, and `tolerance` parameters, which are passed from the `Problem` object.
 * **Enum**:
   * `SolverType { LU, BiCGSTAB }`: Defines the available linear solver types.
 

@@ -71,7 +71,7 @@ This namespace contains the fundamental, high-level components that orchestrate 
 * **Description**: An abstract base class for applying conditions on the boundary of the domain. It modifies the system of equations.
 * **Public Functions**:
   * `BoundaryCondition(std::string tag = "")`
-  * `apply(Eigen::SparseMatrix<double>& K, Eigen::MatrixXd& F) const`: Pure virtual function to apply the BC.
+  * `apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const`: Pure virtual function to apply the BC.
   * `getEquationIndex() const`: **New pure virtual function** to retrieve the global equation index this BC applies to.
   * `getTag() const`: Returns the BC's tag.
 * **Derived Classes**:
@@ -83,6 +83,6 @@ This namespace contains the fundamental, high-level components that orchestrate 
 * **Description**: An abstract base class for applying sources within the domain (e.g., a heat source). It modifies the force vector `F`.
 * **Public Functions**:
   * `SourceTerm(std::string tag)`
-  * `apply(Eigen::MatrixXd& F, const DOFManager& dof_manager, const Mesh& mesh, const std::string& var_name) const`: Pure virtual function to apply the source.
+  * `apply(Eigen::VectorXd& F, const DOFManager& dof_manager, const Mesh& mesh, const std::string& var_name) const`: Pure virtual function to apply the source.
   * `getTag() const`: Returns the source's tag.
 * **Derived Classes**: `VolumetricSource`.
