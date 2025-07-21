@@ -13,7 +13,7 @@ namespace Core {
     VolumetricSource::VolumetricSource(int element_id, double total_power, const std::string& tag)
         : SourceTerm(tag), element_id_(element_id), total_power_(total_power) {}
 
-    void VolumetricSource::apply(Eigen::MatrixXd& F, const DOFManager& dof_manager, const Mesh& mesh, const std::string& var_name, int element_order) const {
+    void VolumetricSource::apply(Eigen::VectorXd& F, const DOFManager& dof_manager, const Mesh& mesh, const std::string& var_name, int element_order) const {
         Element* elem = mesh.getElement(element_id_);
         if (!elem) return;
 

@@ -90,7 +90,7 @@ namespace Physics {
     }
 
 
-    const Eigen::MatrixXd &PhysicsField::getPreviousSolution() const {
+    const Eigen::VectorXd &PhysicsField::getPreviousSolution() const {
         return U_prev_;
     }
 
@@ -161,11 +161,11 @@ namespace Physics {
     // --- END OF FIX ---
     Eigen::SparseMatrix<double> &PhysicsField::getStiffnessMatrix() { return K_; }
     Eigen::SparseMatrix<double> &PhysicsField::getMassMatrix() { return M_; }
-    Eigen::MatrixXd &PhysicsField::getRHS() { return F_; }
-    Eigen::MatrixXd &PhysicsField::getSolution() { return U_; }
+    Eigen::VectorXd &PhysicsField::getRHS() { return F_; }
+    Eigen::VectorXd &PhysicsField::getSolution() { return U_; }
 
     const Eigen::SparseMatrix<double> &PhysicsField::getStiffnessMatrix() const { return K_; }
     const Eigen::SparseMatrix<double> &PhysicsField::getMassMatrix() const { return M_; }
-    const Eigen::MatrixXd &PhysicsField::getRHS() const { return F_; }
-    const Eigen::MatrixXd &PhysicsField::getSolution() const { return U_; }
+    const Eigen::VectorXd &PhysicsField::getRHS() const { return F_; }
+    const Eigen::VectorXd &PhysicsField::getSolution() const { return U_; }
 } // namespace Physics

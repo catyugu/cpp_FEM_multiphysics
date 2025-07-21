@@ -34,7 +34,7 @@ namespace Solver {
         field->assemble();
 
         Eigen::SparseMatrix<double> A_eff;
-        Eigen::MatrixXd b_eff;
+        Eigen::VectorXd b_eff;
 
         int num_steps = static_cast<int>(problem.getTotalTime() / problem.getTimeStep());
         for (int i = 0; i < num_steps; ++i) {

@@ -20,7 +20,7 @@ namespace Core {
     public:
         DOFManager(Mesh& mesh);
 
-        void registerVariable(const std::string& var_name);
+        void registerVariable(const std::string& var_name, int num_components = 1);
 
         // The build method now needs to know the field's requested order
         void build(const std::map<std::string, int>& field_orders);
@@ -45,6 +45,9 @@ namespace Core {
         std::map<EdgeDofKey, int> edge_dof_map_;
 
         size_t num_equations_;
+
+        std::map<std::string, int> variable_components_;
+
     };
 
 } // namespace Core

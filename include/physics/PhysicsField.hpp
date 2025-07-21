@@ -55,7 +55,7 @@ namespace Physics {
         const std::vector<std::unique_ptr<Core::BoundaryCondition>>& getBCs() const;
         void updatePreviousSolution();
 
-        const Eigen::MatrixXd& getPreviousSolution() const;
+        const Eigen::VectorXd& getPreviousSolution() const;
 
         void setInitialConditions(double initial_value);
         template<typename F>
@@ -65,14 +65,14 @@ namespace Physics {
 
         Eigen::SparseMatrix<double>& getStiffnessMatrix();
         Eigen::SparseMatrix<double>& getMassMatrix();
-        Eigen::MatrixXd& getRHS();
-        Eigen::MatrixXd& getSolution();
+        Eigen::VectorXd& getRHS();
+        Eigen::VectorXd& getSolution();
 
 
         const Eigen::SparseMatrix<double>& getStiffnessMatrix() const;
         const Eigen::SparseMatrix<double>& getMassMatrix() const;
-        const Eigen::MatrixXd& getRHS() const;
-        const Eigen::MatrixXd& getSolution() const;
+        const Eigen::VectorXd& getRHS() const;
+        const Eigen::VectorXd& getSolution() const;
         const Core::Mesh* getMesh() const { return mesh_;}
         // get DOFManager
 
@@ -96,9 +96,9 @@ namespace Physics {
 
         Eigen::SparseMatrix<double> K_;
         Eigen::SparseMatrix<double> M_;
-        Eigen::MatrixXd F_;
-        Eigen::MatrixXd U_;
-        Eigen::MatrixXd U_prev_;
+        Eigen::VectorXd F_;
+        Eigen::VectorXd U_;
+        Eigen::VectorXd U_prev_;
 
         std::vector<std::unique_ptr<Core::BoundaryCondition>> bcs_;
         std::vector<std::unique_ptr<Core::SourceTerm>> source_terms_;

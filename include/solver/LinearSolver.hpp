@@ -25,7 +25,7 @@ namespace Solver {
          * @param max_iterations Maximum number of iterations for iterative solvers.
          * @param tolerance Convergence tolerance for iterative solvers.
          */
-        static void solve(const Eigen::SparseMatrix<double>& A, const Eigen::MatrixXd& b, Eigen::MatrixXd& x,
+        static void solve(const Eigen::SparseMatrix<double>& A, const Eigen::VectorXd& b, Eigen::VectorXd& x,
                           SolverType solver_type = SolverType::LU,
                           int max_iterations = 1000, double tolerance = 1e-9) {
             auto& logger = Utils::Logger::instance();
