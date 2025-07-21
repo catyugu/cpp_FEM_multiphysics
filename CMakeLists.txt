@@ -2,11 +2,10 @@ cmake_minimum_required(VERSION 3.17)
 project(cpp_FEM_multiphysics)
 include_directories(include)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os" )
 
 find_package(OpenMP REQUIRED) # Find OpenMP
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Ot")
 set(EIGEN3_INCLUDE_DIR "E:/env/cpp/eigen-3.4.0")
 
 file(GLOB_RECURSE SOURCES
@@ -69,3 +68,12 @@ target_link_libraries(run_tests femlib gtest_main)
 
 # Automatically discover and add tests to the CTest runner
 gtest_discover_tests(run_tests)
+
+if(MSVC)
+        # Disables warning C4819: The file contains a character that cannot be
+        # represented in the current code page. Save the file in Unicode format to prevent data loss.
+        target_compile_options(femlib PRIVATE /wd4819)
+        target_compile_options(cpp_FEM_multiphysics PRIVATE /wd4819)
+        target_compile_options(google_test PRIVATE /wd4819)
+        target_compile_options(run_tests PRIVATE /wd4819)
+endif()
