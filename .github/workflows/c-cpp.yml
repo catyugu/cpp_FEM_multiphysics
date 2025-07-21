@@ -1,0 +1,46 @@
+name: C++ CI
+
+on:
+  # Trigger the workflow on pushes to the dev branch
+  push:
+    branches: [ "dev" ]
+  # Trigger the workflow on pull requests targeting the master branch
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    # Use the latest Ubuntu runner provided by GitHub
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Download and set up Eigen dependency
+      - name: Setup Eigen
+        run: |
+          wget -q https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+          tar -xzf eigen-3.4.0.tar.gz
+          echo "EIGEN_PATH=${{ github.workspace }}/eigen-3.4.0" >> $GITHUB_ENV
+        shell: bash
+
+      # 3. Configure the project with CMake
+      #    We override the hardcoded EIGEN3_INCLUDE_DIR with the path from the step above
+      - name: CMake Configure
+        run: >
+          cmake -B build -S . 
+          -DCMAKE_BUILD_TYPE=Debug 
+          -DEIGEN3_INCLUDE_DIR=${{ env.EIGEN_PATH }}
+
+      # 4. Build the project
+      - name: CMake Build
+        run: cmake --build build --config Debug
+
+      # 5. Run the Google Tests
+      - name: Run Tests
+        working-directory: ./build
+        # The test executable is named 'run_tests' in your CMakeLists.txt
+        run: ./run_tests
