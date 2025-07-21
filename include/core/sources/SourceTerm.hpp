@@ -16,7 +16,7 @@ namespace Core {
 
         // 这个函数签名现在对于编译器是完全清晰的
         // MODIFICATION: Added 'int element_order'
-        virtual void apply(Eigen::MatrixXd& F, const DOFManager& dof_manager, const Mesh& mesh, const std::string& var_name, int element_order) const = 0;
+        virtual void apply(Eigen::VectorXd& F, const DOFManager& dof_manager, const Mesh& mesh, const std::string& var_name, int element_order) const = 0;
 
         const std::string& getTag() const { return tag_; }
 
