@@ -119,41 +119,49 @@ namespace Physics {
         }
     }
 
-  std::vector<int> PhysicsField::get_element_dofs(Core::Element* elem) const {
+    std::vector<int> PhysicsField::get_element_dofs(Core::Element* elem) const {
         const auto& vertex_nodes = elem->getNodes();
         const size_t num_vertices = vertex_nodes.size();
         elem->setOrder(element_order_);
         const size_t num_elem_nodes = elem->getNumNodes();
-        std::vector<int> dofs(num_elem_nodes);
+        std::vector<int> base_dofs;
+        base_dofs.reserve(num_elem_nodes);
 
-        // --- 1. Get Vertex DOFs (always first) ---
+        // 1. Get Vertex DOFs
         for (size_t i = 0; i < num_vertices; ++i) {
-            dofs[i] = dof_manager_->getEquationIndex(vertex_nodes[i]->getId(), getVariableName());
+            base_dofs.push_back(dof_manager_->getEquationIndex(vertex_nodes[i]->getId(), getVariableName()));
         }
 
-        // --- 2. Get Higher-Order DOFs (if any) in their correct canonical order ---
+        // 2. Get Higher-Order DOFs
         if (element_order_ > 1) {
-            if (auto* line = dynamic_cast<const Core::LineElement*>(elem)) {
-                // Canonical order for P2 Line: [v0, midpoint, v1]
-                dofs[2] = dofs[1]; // Temporarily move v1's DOF to the end
-                dofs[1] = dof_manager_->getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()}, getVariableName());
-            }
-            else if (auto* tri = dynamic_cast<const Core::TriElement*>(elem)) {
-                // Canonical edge order for Tri6: v0,v1,v2, edge(0,1), edge(1,2), edge(2,0)
+            if (dynamic_cast<const Core::LineElement*>(elem)) {
+                base_dofs.insert(base_dofs.begin() + 1, dof_manager_->getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()}, getVariableName()));
+            } else if (dynamic_cast<const Core::TriElement*>(elem)) {
                 const std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {2, 0}};
-                int edge_dof_idx = 3;
                 for (const auto& edge : edges) {
-                    dofs[edge_dof_idx++] = dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName());
+                    base_dofs.push_back(dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName()));
                 }
-            } else if (auto* tet = dynamic_cast<const Core::TetElement*>(elem)) {
-                // Canonical edge order for Tet10: v0,v1,v2,v3, edge(0,1), edge(0,2), edge(0,3), edge(1,2), edge(1,3), edge(2,3)
+            } else if (dynamic_cast<const Core::TetElement*>(elem)) {
                 const std::vector<std::pair<int, int>> edges = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
-                int edge_dof_idx = 4;
                 for (const auto& edge : edges) {
-                    dofs[edge_dof_idx++] = dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName());
+                    base_dofs.push_back(dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName()));
+                }
+            }
+        }
+
+        // 3. Expand base DOFs to include all components
+        std::vector<int> dofs;
+        int num_components = getNumComponents();
+        dofs.reserve(num_elem_nodes * num_components);
+        for (int base_dof : base_dofs) {
+            if (base_dof != -1) {
+                for (int c = 0; c < num_components; ++c) {
+                    dofs.push_back(base_dof + c);
                 }
             } else {
-                throw std::runtime_error("get_element_dofs: Unsupported element type for higher orders.");
+                for (int c = 0; c < num_components; ++c) {
+                    dofs.push_back(-1);
+                }
             }
         }
         return dofs;

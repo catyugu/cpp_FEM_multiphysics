@@ -20,9 +20,10 @@ namespace Core {
 
     void Problem::addField(std::unique_ptr<Physics::PhysicsField> field) {
         coupling_manager_.registerField(*field);
-        dof_manager_->registerVariable(field->getVariableName());
+        dof_manager_->registerVariable(field->getVariableName(), field->getNumComponents());
         fields_.push_back(std::move(field));
     }
+
 
     void Problem::addPostProcessor(std::unique_ptr<Post::PostProcessor> post_processor) {
         post_processors_.push_back(std::move(post_processor));

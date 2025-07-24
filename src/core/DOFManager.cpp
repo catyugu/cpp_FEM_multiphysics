@@ -20,12 +20,10 @@ void DOFManager::build(const std::map<std::string, int>& field_orders) {
 
     // --- Pass 1: Assign DOFs to all vertex nodes ---
     for (const auto& node : mesh_.getNodes()) {
-        for (size_t i = 0; i < variable_names_.size(); ++i){
+        for (size_t i = 0; i < variable_names_.size(); ++i) {
+            vertex_dof_map_[{node->getId(), i}] = equation_counter;
             int num_components = variable_components_.at(variable_names_[i]);
-            for (int c = 0; c < num_components; ++c) {
-                vertex_dof_map_[{node->getId(), i}] = equation_counter;
-                equation_counter++;
-            }
+            equation_counter += num_components;
         }
     }
 
@@ -45,7 +43,9 @@ void DOFManager::build(const std::map<std::string, int>& field_orders) {
 
                         EdgeDofKey key = {edge_nodes, static_cast<int>(var_idx)};
                         if (edge_dof_map_.find(key) == edge_dof_map_.end()) {
-                            edge_dof_map_[key] = equation_counter++;
+                            edge_dof_map_[key] = equation_counter;
+                            int num_components = variable_components_.at(variable_names_[var_idx]);
+                            equation_counter += num_components;
                         }
                     }
                 }
