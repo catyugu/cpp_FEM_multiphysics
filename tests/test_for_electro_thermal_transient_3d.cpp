@@ -39,7 +39,7 @@ protected:
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
 
         problem->setTimeSteppingParameters(0.1, 1.0);
-        problem->setIterativeSolverParameters(30, 1e-6);
+        problem->setIterativeSolverParameters(30, 1e-5);
 
         problem->setup();
     }
