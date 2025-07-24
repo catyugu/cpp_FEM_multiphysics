@@ -71,20 +71,35 @@ bool Exporter::write_vtk(const std::string& filename, const Core::Problem& probl
     vtk_file << "POINT_DATA " << nodes.size() << "\n";
     if (fields.empty()) return true; // No data to write
 
-    // Use the solution from any field, as the solver now makes them consistent.
     const auto& final_solution = fields[0]->getSolution();
 
     for (const auto& field : fields) {
-        vtk_file << "SCALARS " << field->getVariableName() << " double 1\n";
-        vtk_file << "LOOKUP_TABLE default\n";
         std::string var_name = field->getVariableName();
+        int num_components = field->getNumComponents();
 
-        for (const auto& node : nodes) {
-            int dof_idx = dof_manager.getEquationIndex(node->getId(), var_name);
-            if (dof_idx != -1 && dof_idx < final_solution.size()) {
-                vtk_file << std::fixed << std::setprecision(6) << final_solution(dof_idx) << "\n";
-            } else {
-                vtk_file << 0.0 << "\n"; // Default value for nodes without this variable
+        if (num_components == 1) {
+            vtk_file << "SCALARS " << var_name << " double 1\n";
+            vtk_file << "LOOKUP_TABLE default\n";
+            for (const auto& node : nodes) {
+                int dof_idx = dof_manager.getEquationIndex(node->getId(), var_name);
+                if (dof_idx != -1 && dof_idx < final_solution.size()) {
+                    vtk_file << std::fixed << std::setprecision(6) << final_solution(dof_idx) << "\n";
+                } else {
+                    vtk_file << 0.0 << "\n";
+                }
+            }
+        } else if (num_components == 3) {
+            vtk_file << "VECTORS " << var_name << " double\n";
+            for (const auto& node : nodes) {
+                int dof_idx = dof_manager.getEquationIndex(node->getId(), var_name);
+                if (dof_idx != -1 && (dof_idx + 2) < final_solution.size()) {
+                    vtk_file << std::fixed << std::setprecision(6)
+                             << final_solution(dof_idx) << " "
+                             << final_solution(dof_idx + 1) << " "
+                             << final_solution(dof_idx + 2) << "\n";
+                } else {
+                    vtk_file << "0.0 0.0 0.0\n";
+                }
             }
         }
     }

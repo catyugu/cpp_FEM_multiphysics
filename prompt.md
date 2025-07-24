@@ -110,80 +110,11 @@ To this:
 
 -----
 
-### The Reconstruction Guide: A 3-Phase Evolution
-
-Here is a step-by-step guide to refactor your project into a more mature, extensible, and professional-grade architecture.
-
-#### Phase 1: The "Smart Element" Refactoring (finished)
-
-The goal is to make the `Element` class the primary source of all finite element calculation data. This removes the complex assembly logic from the individual physics fields.
-
-**1. Create the `ElementGeometry` Class**
-This class holds the pure geometric information of an element.
-
-* **File**: `include/core/mesh/ElementGeometry.hpp`
-* **Content**: It would store the raw vertex node coordinates and methods to compute things like edge lengths, face areas, and element volume. It knows nothing about shape functions or orders.
-
-**2. Introduce `FEValues` (Finite Element Values)**
-This is the most important new concept. The `FEValues` object is a "calculator" that, for a given quadrature point on an element, provides everything needed for assembly.
-
-When an `FEValues` object is created, it pre-calculates and caches all shape function information for all quadrature points, making the assembly loop incredibly fast.
-
-**3. Redesign the `Element` Class**
-The `Element` class now becomes a container that holds its geometry and can create `FEValues` objects on demand.
-
-* It would hold a `std::unique_ptr<ElementGeometry>`.
-* Its primary new method would be: `std::unique_ptr<FEValues> create_fe_values(int order, int quad_order);`
-
-#### Phase 2: Simplify the `assemble` Methods (finished)
-
-With the new `FEValues` object, the `assemble` method in every single physics field becomes dramatically simpler, cleaner, and nearly identical.
-
-Notice how the `PhysicsField` no longer knows anything about Jacobians or shape function derivatives. It just asks for the values it needs. **This is the hallmark of a mature FEM core.**
-
-#### Phase 3: A Dedicated Post-Processing System (to do)
-
-Mature software needs a flexible way to analyze results beyond just looking at the raw nodal values.
-
-**1. Create a `PostProcessor` Base Class**
-
-* **File**: `include/post/PostProcessor.hpp`
-* **Key Method**: `virtual void compute_derived_quantities(const Problem& problem, const Eigen::MatrixXd& solution) = 0;`
-
-**2. Implement Concrete Post-Processors**
-
-* `HeatFluxCalculator`: Would take the temperature solution, compute the heat flux vector (**q** = -k∇T) at the quadrature points of each element, and add it as a new vector field to the results.
-* `StrainCalculator`: For a solid mechanics problem, would compute the strain tensor from the displacement solution.
-
-**3. Integrate with the `Problem` Class**
-
-* Add a method `problem->addPostProcessor(...)`.
-* After the solver finishes, the `Problem` class would loop through all registered post-processors and execute them, enriching the dataset before exporting the final `.vtk` file.
-
----
-
 ## **IV. Future Development Requirements**
 
 We can now focus on expanding the framework's capabilities. Please address the following tasks.
 
-### **1. Add Support for Non-Linear Materials**
-* **Goal**: Simulate materials whose properties change with the field itself (e.g., magnetic permeability changing with B-field strength).
-* **Requirements**:
-  * Document all public and private methods, classes, and functions in corresponding files in `docs/`.
-  * Update the `Material::getProperty` method to accept the current element's field values as an optional argument.
-  * Implement a non-linear solver loop (e.g., Newton-Raphson) within the `SingleFieldSolver` and `CoupledElectroThermalSolver`. This involves calculating a tangent stiffness matrix at each iteration.
-  * Create a new test case for a simple non-linear problem to validate the implementation.
-
-### **2. Generalize Variable Material Properties for Coupled Fields**
-* **Goal**: Extend the material property system to allow properties to depend on *any* relevant coupled field (not just temperature).
-* **Current Status**: The `Material` class already supports temperature-dependent properties (e.g., electrical conductivity depending on temperature) via its `getProperty(const std::string& prop_name, double temperature) const` overload. This is already utilized in the `ElectroThermalCoupling`.
-* **Requirements**:
-    * **Flexible Property Evaluation**: Investigate a more generic mechanism within `Material::getProperty` to evaluate properties based on an arbitrary set of input field values (e.g., a map `std::map<std::string, double> field_values`). This would allow properties to depend on pressure, concentration, or other coupled variables.
-    * **Physics Field Integration**: Update relevant `PhysicsField::assemble` methods to retrieve the necessary field values from the current solution of *other* fields (if coupled) and pass them to the material's property evaluation function.
-    * **Testing**: Create new test cases that demonstrate material properties depending on various coupled fields.
-
-
-### **3. Implement Electromagnetic Field (Maxwell's Equations)**
+### **1. Implement Electromagnetic Field (Maxwell's Equations)**
 * **Goal**: Add a full electromagnetic field simulation, initially focusing on a 3D Magnetostatics formulation as a key first step. The main challenge is upgrading the core components to handle **vector-valued variables**.
 * **Guiding Equation (Magnetostatics)**: $\nabla \times \left( \frac{1}{\mu} \nabla \times \mathbf{A} \right) = \mathbf{J}$
     * **A** is the magnetic vector potential (a vector with components Ax, Ay, Az).
@@ -216,7 +147,7 @@ We can now focus on expanding the framework's capabilities. Please address the f
         * Set **A**=0 on the outer simulation boundary.
         * Validate that the computed magnetic field (**B** = ∇×**A**) is uniform inside the solenoid and matches the analytical solution.
 
-### **4. Support for Advanced Research Problem Types (Solvers)**
+### **2. Support for Advanced Research Problem Types (Solvers)**
 * **Goal**: Expand the solver capabilities to handle more diverse research problems.
 * **Requirements**:
     * **Time Domain Steady-State**: Implement a solver (or extend existing ones) to handle time-domain (transient) problems.

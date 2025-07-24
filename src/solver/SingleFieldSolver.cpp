@@ -14,15 +14,13 @@ namespace Solver {
             }
             logger.info("Solving for field: ", field->getName());
             field->assemble();
+            field->applySources(); // Apply sources AFTER assembly
             field->applyBCs();
 
-            // --- THIS IS THE FIX ---
-            // The solver type and parameters from the Problem object are now correctly passed to the LinearSolver.
             LinearSolver::solve(field->getStiffnessMatrix(), field->getRHS(), field->getSolution(),
                                 problem.getLinearSolverType(),
                                 problem.getMaxIterations(),
                                 problem.getConvergenceTolerance());
-            // --- END OF FIX ---
         }
     }
 

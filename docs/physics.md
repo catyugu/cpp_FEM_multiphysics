@@ -45,10 +45,12 @@ The most powerful feature of this namespace is its implementation of a **P-Refin
   * `bcs_`, `source_terms_`: Vectors holding the boundary conditions and source terms.
   * `get_element_dofs(Core::Element* elem) const`: A helper function to collect the global DOF indices for an element, considering both vertex and higher-order (edge/face/volume) nodes based on the `element_order_`. This function now handles the canonical ordering of higher-order nodes (midpoints for order 2) for Line, Tri, and Tet elements.
 
----
-### **Derived Physics Classes**
-* **`Current1D/2D/3D`**
-* **`Heat1D/2D/3D`**
-* **`Magnetic1D/2D/3D`**
+---### **Derived Physics Classes**
+* **`Current1D/2D/3D`**, **`Heat1D/2D/3D`**, **`Magnetic1D/2D`**
+  * These are concrete implementations for scalar fields. They override `getNumComponents()` to return `1`.
 
-* **Description**: These are the concrete implementations of `PhysicsField` for different physical phenomena. They each implement the `assemble` method with the specific material properties (e.g., electrical conductivity, thermal conductivity, magnetic permeability) and the correct PDE formulation for their respective physics. All of these classes now correctly implement the advanced assembly logic required to support higher-order element approximations by leveraging the `FEValues` object.
+* **`Magnetic3D`** (Magnetostatics)
+  * **Description**: A concrete implementation for solving 3D magnetostatic problems based on the magnetic vector potential **A**.
+  * **Variable**: `MagneticVectorPotential`
+  * **Components**: Overrides `getNumComponents()` to return **3**.
+  * **`assemble()` Method**: This method is the core of the magnetostatics solver. It builds the local stiffness matrix for each element by implementing the weak form of the magnetostatic equation, which involves the **curl of the shape function gradients (∇×N)**. It correctly assembles these local vector contributions into the global stiffness matrix.
