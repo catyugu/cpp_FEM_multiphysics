@@ -151,13 +151,13 @@ TEST_F(Coupled2DValidationTest, CompareAgainstVtuResult) {
         }
     }
 
-    logger.info("Successfully matched and compared {} nodes based on coordinates.", matched_nodes);
+    logger.info("Successfully matched and compared ", matched_nodes," nodes based on coordinates.");
     if(matched_nodes < problem->getMesh().getNodes().size()){
         logger.warn("Could not find a match for {} nodes from the simulation mesh in the reference VTU file.", problem->getMesh().getNodes().size() - matched_nodes);
     }
 
-    logger.info("Maximum temperature difference: {} K", max_temp_diff);
-    logger.info("Maximum voltage difference: {} V", max_volt_diff);
+    logger.info("Maximum temperature difference: ", max_temp_diff, " K");
+    logger.info("Maximum voltage difference: ",max_volt_diff," V");
 
     // Assert that the maximum differences are within an acceptable tolerance
     ASSERT_LT(max_temp_diff, 1e-5);

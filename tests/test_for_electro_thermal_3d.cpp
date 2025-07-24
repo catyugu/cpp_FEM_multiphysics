@@ -154,9 +154,9 @@ TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
         }
     }
 
-    logger.info("Successfully matched and compared {} nodes based on coordinates.", matched_nodes);
-    logger.info("Maximum temperature difference: {} K", max_temp_diff);
-    logger.info("Maximum voltage difference: {} V", max_volt_diff);
+    logger.info("Successfully matched and compared ", matched_nodes," nodes based on coordinates.");
+    logger.info("Maximum temperature difference: ", max_temp_diff, " K");
+    logger.info("Maximum voltage difference: ",max_volt_diff," V");
 
     // Assert that the maximum differences are within an acceptable tolerance
     ASSERT_LT(max_temp_diff, 1);
