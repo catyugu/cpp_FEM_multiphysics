@@ -7,7 +7,25 @@
 
 namespace Physics {
 
-    // ... (addBC, addBCs, etc. 保持不变)
+    void PhysicsField::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
+        mesh_ = &mesh;
+        dof_manager_ = &dof_manager;
+
+        size_t num_eq = dof_manager.getNumEquations();
+        K_.resize(num_eq, num_eq);
+        M_.resize(num_eq, num_eq);
+        F_.resize(num_eq);
+        F_coupling_.resize(num_eq); // 初始化耦合向量
+        U_.resize(num_eq);
+        U_prev_.resize(num_eq);
+
+        F_.setZero();
+        F_coupling_.setZero();
+        U_.setZero();
+        U_prev_.setZero();
+    }
+
+    // ... (其他函数保持不变，特别是 applyBCs) ...
     void PhysicsField::addBC(std::unique_ptr<Core::BoundaryCondition> bc) {
         bcs_.push_back(std::move(bc));
     }
@@ -19,10 +37,8 @@ namespace Physics {
     void PhysicsField::applyBCs() {
         auto &logger = Utils::Logger::instance();
         logger.info("Applying ", bcs_.size(), " defined BCs for ", getName());
-
         std::map<int, double> dirichlet_dofs;
         std::vector<const Core::BoundaryCondition*> other_bcs;
-
         for (const auto& bc : bcs_) {
             if (auto* dirichlet = dynamic_cast<const Core::DirichletBC*>(bc.get())) {
                 if (dirichlet->getEquationIndex() != -1) {
@@ -32,44 +48,25 @@ namespace Physics {
                 other_bcs.push_back(bc.get());
             }
         }
-
         logger.info("Applying ", dirichlet_dofs.size(), " unique, consolidated Dirichlet BCs.");
+        if (!dirichlet_dofs.empty()) {
+            Eigen::VectorXd U_bc = Eigen::VectorXd::Zero(K_.rows());
+            for (const auto& pair : dirichlet_dofs) U_bc(pair.first) = pair.second;
+            F_ -= K_ * U_bc;
 
-        if (dirichlet_dofs.empty()) {
-             for (const auto& bc : other_bcs) {
-                bc->apply(K_, F_);
-            }
-            return;
-        }
+            std::set<int> dirichlet_indices;
+            for(const auto& pair : dirichlet_dofs) dirichlet_indices.insert(pair.first);
 
-        Eigen::VectorXd U_bc = Eigen::VectorXd::Zero(K_.rows());
-        for (const auto& pair : dirichlet_dofs) {
-            U_bc(pair.first) = pair.second;
-        }
-        F_ -= K_ * U_bc;
-
-        std::set<int> dirichlet_indices;
-        for(const auto& pair : dirichlet_dofs) {
-            dirichlet_indices.insert(pair.first);
-        }
-
-        for (int k=0; k < K_.outerSize(); ++k) {
-            for (Eigen::SparseMatrix<double>::InnerIterator it(K_, k); it; ++it) {
-                if (dirichlet_indices.count(it.row()) || dirichlet_indices.count(it.col())) {
-                    if (it.row() == it.col()) {
-                        it.valueRef() = 1.0;
-                    } else {
-                        it.valueRef() = 0.0;
+            for (int k=0; k < K_.outerSize(); ++k) {
+                for (Eigen::SparseMatrix<double>::InnerIterator it(K_, k); it; ++it) {
+                    if (dirichlet_indices.count(it.row()) || dirichlet_indices.count(it.col())) {
+                        it.valueRef() = (it.row() == it.col()) ? 1.0 : 0.0;
                     }
                 }
             }
+            K_.prune(0.0);
+            for (const auto& pair : dirichlet_dofs) F_(pair.first) = pair.second;
         }
-        K_.prune(0.0);
-
-        for (const auto& pair : dirichlet_dofs) {
-            F_(pair.first) = pair.second;
-        }
-
         for (const auto& bc : other_bcs) {
             bc->apply(K_, F_);
         }
@@ -82,7 +79,7 @@ namespace Physics {
         }
     }
 
-    // ... (其他函数保持不变) ...
+    // ... (所有其他函数保持不变)
     void PhysicsField::removeBCsByTag(const std::string &tag) {
         if (tag.empty()) return;
         auto it = std::remove_if(bcs_.begin(), bcs_.end(),
@@ -137,31 +134,36 @@ namespace Physics {
         }
     }
 
-    template<typename F>
-    void PhysicsField::setInitialConditions(std::function<F> func) {
+    template<typename Func>
+    void PhysicsField::setInitialConditions(Func func) {
         if (U_.size() > 0) {
-            for (int i = 0; i < U_.size(); ++i) {
-                U_(i) = func(mesh_->getNode(i));
+            int num_components = getNumComponents();
+            for (const auto& node : mesh_->getNodes()) {
+                int base_dof_idx = dof_manager_->getEquationIndex(node->getId(), getVariableName());
+                if (base_dof_idx != -1) {
+                    const auto& coords = node->getCoords();
+                    auto values = func(coords);
+                    if constexpr (std::is_convertible_v<decltype(values), double>) {
+                        if (num_components == 1) U_(base_dof_idx) = values;
+                        else U_(base_dof_idx) = values;
+                    } else {
+                        if (values.size() == num_components) {
+                            for (int c = 0; c < num_components; ++c) U_(base_dof_idx + c) = values(c);
+                        }
+                    }
+                }
             }
             U_prev_ = U_;
-            Utils::Logger::instance().info("Set initial condition for '", getVariableName(), "' to ", func);
-        } else {
-            Utils::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(),
-                                            "'.");
-            Utils::Logger::instance().error("Cannot set initial conditions before field setup.");
         }
     }
 
-
     std::vector<int> PhysicsField::getElementDofs(Core::Element* elem) const {
-        // ... (此函数保持不变) ...
         const auto& vertex_nodes = elem->getNodes();
         const size_t num_vertices = vertex_nodes.size();
         elem->setOrder(element_order_);
         const size_t num_elem_nodes = elem->getNumNodes();
         std::vector<int> base_dofs;
         base_dofs.reserve(num_elem_nodes);
-
         for (size_t i = 0; i < num_vertices; ++i) {
             base_dofs.push_back(dof_manager_->getEquationIndex(vertex_nodes[i]->getId(), getVariableName()));
         }
@@ -187,13 +189,9 @@ namespace Physics {
         dofs.reserve(num_elem_nodes * num_components);
         for (int base_dof : base_dofs) {
             if (base_dof != -1) {
-                for (int c = 0; c < num_components; ++c) {
-                    dofs.push_back(base_dof + c);
-                }
+                for (int c = 0; c < num_components; ++c) dofs.push_back(base_dof + c);
             } else {
-                for (int c = 0; c < num_components; ++c) {
-                    dofs.push_back(-1);
-                }
+                for (int c = 0; c < num_components; ++c) dofs.push_back(-1);
             }
         }
         return dofs;
@@ -202,9 +200,8 @@ namespace Physics {
     Eigen::SparseMatrix<double> &PhysicsField::getStiffnessMatrix() { return K_; }
     Eigen::SparseMatrix<double> &PhysicsField::getMassMatrix() { return M_; }
     Eigen::VectorXd &PhysicsField::getRHS() { return F_; }
-    Eigen::VectorXd &PhysicsField::getCouplingRHS() { return F_coupling_; } // 新增
+    Eigen::VectorXd &PhysicsField::getCouplingRHS() { return F_coupling_; }
     Eigen::VectorXd &PhysicsField::getSolution() { return U_; }
-
     const Eigen::SparseMatrix<double> &PhysicsField::getStiffnessMatrix() const { return K_; }
     const Eigen::SparseMatrix<double> &PhysicsField::getMassMatrix() const { return M_; }
     const Eigen::VectorXd &PhysicsField::getRHS() const { return F_; }

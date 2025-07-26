@@ -1,13 +1,12 @@
 #include "solver/CoupledElectroThermalSolver.hpp"
 #include "core/Problem.hpp"
-// ... other includes
 #include <solver/LinearSolver.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "utils/Exceptions.hpp"
 
 namespace Solver {
 
-    // ... (solveSteadyState remains the same as the last working version)
+    // ... (solveSteadyState logic remains the same as the last working version)
     void CoupledElectroThermalSolver::solveSteadyState(Core::Problem &problem) {
         auto &logger = Utils::Logger::instance();
         logger.info("\n--- Solving Coupled Electro-Thermal Problem with Damped Newton-like Iterations ---");
@@ -91,7 +90,6 @@ namespace Solver {
         logger.warn("--- Coupled steady-state solver did not converge after ", problem.getMaxIterations(), " iterations. ---");
     }
 
-
     void CoupledElectroThermalSolver::solveTransient(Core::Problem &problem) {
         auto &logger = Utils::Logger::instance();
         logger.info("\n--- Starting Coupled Transient Solve ---");
@@ -137,7 +135,6 @@ namespace Solver {
                 heat_field->applySources();
 
                 Eigen::SparseMatrix<double> A_eff = (heat_field->getMassMatrix() / dt) + heat_field->getStiffnessMatrix();
-                // **核心修复：将耦合源和其它源相加**
                 Eigen::VectorXd b_eff = heat_field->getRHS() + heat_field->getCouplingRHS() + (heat_field->getMassMatrix() / dt) * heat_field->getPreviousSolution();
 
                 for (const auto& elem : mesh.getElements()) {

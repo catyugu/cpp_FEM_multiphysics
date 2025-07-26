@@ -28,7 +28,7 @@ namespace Core {
     }
 
 
-    void ElectroThermalCoupling::execute() {
+        void ElectroThermalCoupling::execute() {
         if (!emag_field_ || !heat_field_) return;
 
         const auto* mesh = emag_field_->getMesh();

@@ -33,7 +33,7 @@ namespace Physics {
         virtual int getDimension() const = 0;
         virtual int getNumComponents() const { return 1; }
 
-        virtual void setup(Core::Mesh &mesh, Core::DOFManager &dof_manager) = 0;
+        virtual void setup(Core::Mesh &mesh, Core::DOFManager &dof_manager);
         virtual void assemble(const PhysicsField *coupled_field = nullptr) = 0;
 
         void addBC(std::unique_ptr<Core::BoundaryCondition> bc);
@@ -47,8 +47,8 @@ namespace Physics {
         void updatePreviousSolution();
         const Eigen::VectorXd &getPreviousSolution() const;
         void setInitialConditions(double initial_value);
-        template<typename F>
-        void setInitialConditions(std::function<F> func);
+        template<typename Func>
+        void setInitialConditions(Func func);
 
         void setElementOrder(int order);
         int getElementOrder() const { return element_order_; }
@@ -56,7 +56,7 @@ namespace Physics {
         Eigen::SparseMatrix<double> &getStiffnessMatrix();
         Eigen::SparseMatrix<double> &getMassMatrix();
         Eigen::VectorXd &getRHS();
-        Eigen::VectorXd &getCouplingRHS(); // 新增: 获取耦合源向量
+        Eigen::VectorXd &getCouplingRHS(); // 获取耦合源向量
         Eigen::VectorXd &getSolution();
 
         const Eigen::SparseMatrix<double> &getStiffnessMatrix() const;
@@ -84,13 +84,14 @@ namespace Physics {
         Eigen::SparseMatrix<double> K_;
         Eigen::SparseMatrix<double> M_;
         Eigen::VectorXd F_;
-        Eigen::VectorXd F_coupling_; // 新增: 专门用于耦合的源向量
+        Eigen::VectorXd F_coupling_; // 专门用于耦合的源向量
         Eigen::VectorXd U_;
         Eigen::VectorXd U_prev_;
 
         std::vector<std::unique_ptr<Core::BoundaryCondition> > bcs_;
         std::vector<std::unique_ptr<Core::SourceTerm> > source_terms_;
     };
+
 }
 
 #endif // PHYSICSFIELD_HPP
