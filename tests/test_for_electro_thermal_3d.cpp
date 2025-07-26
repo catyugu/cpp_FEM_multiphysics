@@ -47,22 +47,17 @@ protected:
         auto current_field = std::make_unique<Physics::Current3D>(copper);
         auto heat_field = std::make_unique<Physics::Heat3D>(copper);
 
-        // Set element order to 2 for both fields
-        // current_field->setElementOrder(2);
-        // heat_field->setElementOrder(2);
-
         problem->addField(std::move(current_field));
         problem->addField(std::move(heat_field));
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
 
         problem->setup();
-        // problem->setLinearSolverType(Solver::SolverType::BiCGSTAB);
         problem->setIterativeSolverParameters(1000, 1e-3);
     }
 };
 
 TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
-    constexpr double V_in = 1;
+    constexpr double V_in = 0.1; // Changed from 1.0 to 0.1
     constexpr double T_sink = 293.15;
     constexpr double bar_length = 1.0;
     constexpr double bar_width = 0.1;
@@ -83,9 +78,7 @@ TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
         return (std::abs(coords[0] - 0.0) < eps) ? V_in : 0.0;
     };
     auto heat_bc_predicate = [&](const std::vector<double>& coords) {
-        return (std::abs(coords[0] - 0.0) < eps || std::abs(coords[0] - bar_length) < eps ||
-                std::abs(coords[1] - 0.0) < eps || std::abs(coords[1] - bar_width) < eps ||
-                std::abs(coords[2] - 0.0) < eps || std::abs(coords[2] - bar_height) < eps);
+        return (std::abs(coords[0] - 0.0) < eps || std::abs(coords[0] - bar_length) < eps);
     };
     auto heat_bc_value = [&](const std::vector<double>& /*coords*/) {
         return T_sink;
@@ -104,7 +97,6 @@ TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
 
     // --- Load Reference Data (Coordinates and Values) ---
     auto& logger = Utils::Logger::instance();
-    // *** THIS IS THE FIX: Using the correct encoded names from the COMSOL VTU file ***
     std::vector<std::string> data_names = {"&#x6e29;&#x5ea6;", "&#x7535;&#x52bf;"}; // Names in COMSOL VTU
     IO::VtuData reference_data;
     try {

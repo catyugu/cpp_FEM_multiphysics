@@ -54,15 +54,18 @@ namespace Core {
         for (const auto& elem_ptr : mesh->getElements()) {
             double total_element_power = 0.0;
 
+            // **FIX START**: Use a higher quadrature order for more accurate source term integration
+            int quad_order = 2;
+
             // --- 分维度进行精确计算 ---
             if (is_3d) {
                 if (auto* tet_elem = dynamic_cast<TetElement*>(elem_ptr)) {
                     // 为电场和热场分别创建FEValues对象，以处理它们可能不同的单元阶次
                     tet_elem->setOrder(emag_field_->getElementOrder());
-                    auto emag_fe_values = tet_elem->create_fe_values(emag_field_->getElementOrder());
+                    auto emag_fe_values = tet_elem->create_fe_values(quad_order);
 
                     tet_elem->setOrder(heat_field_->getElementOrder());
-                    auto heat_fe_values = tet_elem->create_fe_values(heat_field_->getElementOrder());
+                    auto heat_fe_values = tet_elem->create_fe_values(quad_order);
 
                     const auto emag_dofs = emag_field_->getElementDofs(tet_elem);
                     const auto heat_dofs = heat_field_->getElementDofs(tet_elem);
@@ -106,10 +109,10 @@ namespace Core {
             else if (is_2d) {
                 if (auto* tri_elem = dynamic_cast<TriElement*>(elem_ptr)) {
                     tri_elem->setOrder(emag_field_->getElementOrder());
-                    auto emag_fe_values = tri_elem->create_fe_values(emag_field_->getElementOrder());
+                    auto emag_fe_values = tri_elem->create_fe_values(quad_order);
 
                     tri_elem->setOrder(heat_field_->getElementOrder());
-                    auto heat_fe_values = tri_elem->create_fe_values(heat_field_->getElementOrder());
+                    auto heat_fe_values = tri_elem->create_fe_values(quad_order);
 
                     const auto emag_dofs = emag_field_->getElementDofs(tri_elem);
                     const auto heat_dofs = heat_field_->getElementDofs(tri_elem);
@@ -143,10 +146,10 @@ namespace Core {
             } else if (is_1d) {
                  if (auto* line_elem = dynamic_cast<LineElement*>(elem_ptr)) {
                     line_elem->setOrder(emag_field_->getElementOrder());
-                    auto emag_fe_values = line_elem->create_fe_values(emag_field_->getElementOrder());
+                    auto emag_fe_values = line_elem->create_fe_values(quad_order);
 
                     line_elem->setOrder(heat_field_->getElementOrder());
-                    auto heat_fe_values = line_elem->create_fe_values(heat_field_->getElementOrder());
+                    auto heat_fe_values = line_elem->create_fe_values(quad_order);
 
                     const auto emag_dofs = emag_field_->getElementDofs(line_elem);
                     const auto heat_dofs = heat_field_->getElementDofs(line_elem);
