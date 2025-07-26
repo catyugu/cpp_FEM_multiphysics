@@ -41,6 +41,7 @@ namespace Core {
 
         void apply(Eigen::SparseMatrix<double>& K, Eigen::VectorXd& F) const override;
         int getEquationIndex() const override { return equation_index_; }
+        const Eigen::VectorXd& getValue() const { return value_; }
 
     private:
         int equation_index_;

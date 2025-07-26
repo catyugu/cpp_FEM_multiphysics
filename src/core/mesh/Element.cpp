@@ -1,7 +1,7 @@
 #include <core/mesh/Element.hpp>
 #include <core/FEValues.hpp>
 #include <stdexcept>
-#include <algorithm> // Required for std::copy, etc.
+#include <algorithm>
 
 namespace Core {
 
@@ -19,10 +19,9 @@ namespace Core {
         nodes_.push_back(node);
     }
 
-    // NEW: Implementation of set_nodes_internal
     void Element::set_nodes_internal(const std::vector<Node*>& new_nodes) {
-        nodes_.clear(); // Clear existing nodes
-        nodes_.insert(nodes_.begin(), new_nodes.begin(), new_nodes.end()); // Copy new nodes
+        nodes_.clear();
+        nodes_.insert(nodes_.begin(), new_nodes.begin(), new_nodes.end());
     }
 
     void Element::update_geometry() {
@@ -31,11 +30,12 @@ namespace Core {
         }
     }
 
-    std::unique_ptr<FEValues> Element::create_fe_values(int quad_order) {
+    // 新增 getGeometry 的实现
+    const ElementGeometry& Element::getGeometry() {
         if (!geometry_) {
             update_geometry();
         }
-        return std::make_unique<FEValues>(*geometry_, this->order_, quad_order);
+        return *geometry_;
     }
 
 } // namespace Core

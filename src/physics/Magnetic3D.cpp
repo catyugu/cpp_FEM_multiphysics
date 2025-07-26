@@ -2,6 +2,7 @@
 #include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "core/FEValues.hpp"
+#include "core/ReferenceElement.hpp"
 #include "utils/Exceptions.hpp"
 #include <cmath>
 
@@ -33,8 +34,7 @@ void Magnetic3D::assemble(const PhysicsField *coupled_field) {
     logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
     K_.setZero();
-    F_.setZero(); // F is cleared here, but sources are applied later in the solver
-
+    F_.setZero();
 
     const double inv_mu = 1.0 / material_.getProperty("magnetic_permeability");
 
@@ -44,17 +44,20 @@ void Magnetic3D::assemble(const PhysicsField *coupled_field) {
         auto* tet_elem = dynamic_cast<Core::TetElement*>(elem_ptr);
         if (tet_elem) {
             tet_elem->setOrder(element_order_);
-            auto fe_values = tet_elem->create_fe_values(element_order_);
+
+            const auto& ref_data = Core::ReferenceElementCache::get(tet_elem->getTypeName(), tet_elem->getNodes().size(), element_order_, element_order_);
+            Core::FEValues fe_values(tet_elem->getGeometry(), element_order_, ref_data);
+
             const auto dofs = getElementDofs(tet_elem);
             const size_t num_elem_nodes = tet_elem->getNumNodes();
             const int num_components = getNumComponents();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes * num_components, num_elem_nodes * num_components);
 
-            for(size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-                fe_values->reinit(q_p);
-                const auto& grad_N = fe_values->get_shape_gradients();
-                const double detJ_x_w = fe_values->get_detJ_times_weight();
+            for(size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
+                fe_values.reinit(q_p);
+                const auto& grad_N = fe_values.get_shape_gradients();
+                const double detJ_x_w = fe_values.get_detJ_times_weight();
 
                 Eigen::MatrixXd B_curl(3, num_elem_nodes * 3);
                 B_curl.setZero();
@@ -70,7 +73,6 @@ void Magnetic3D::assemble(const PhysicsField *coupled_field) {
                 ke_local += B_curl.transpose() * inv_mu * B_curl * detJ_x_w;
             }
 
-            // Corrected assembly loop
             for (size_t i = 0; i < dofs.size(); ++i) {
                 for (size_t j = 0; j < dofs.size(); ++j) {
                     if (dofs[i] != -1 && dofs[j] != -1) {
