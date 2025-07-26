@@ -3,9 +3,11 @@
 #include <core/mesh/TetElement.hpp>
 #include <core/mesh/TriElement.hpp>
 #include "utils/SimpleLogger.hpp"
-#include <set> // 确保包含 set
+#include <set>
 
 namespace Physics {
+
+    // ... (addBC, addBCs, etc. 保持不变)
     void PhysicsField::addBC(std::unique_ptr<Core::BoundaryCondition> bc) {
         bcs_.push_back(std::move(bc));
     }
@@ -18,15 +20,12 @@ namespace Physics {
         auto &logger = Utils::Logger::instance();
         logger.info("Applying ", bcs_.size(), " defined BCs for ", getName());
 
-        // --- 高效的批量边界条件处理 ---
         std::map<int, double> dirichlet_dofs;
         std::vector<const Core::BoundaryCondition*> other_bcs;
 
-        // 1. 分离狄利克雷和其他边界条件
         for (const auto& bc : bcs_) {
             if (auto* dirichlet = dynamic_cast<const Core::DirichletBC*>(bc.get())) {
                 if (dirichlet->getEquationIndex() != -1) {
-                    // 使用 .at(0) 因为我们的BC值都是1维向量
                     dirichlet_dofs[dirichlet->getEquationIndex()] = dirichlet->getValue()(0);
                 }
             } else {
@@ -36,14 +35,19 @@ namespace Physics {
 
         logger.info("Applying ", dirichlet_dofs.size(), " unique, consolidated Dirichlet BCs.");
 
-        // 2. 批量修改 F 向量
+        if (dirichlet_dofs.empty()) {
+             for (const auto& bc : other_bcs) {
+                bc->apply(K_, F_);
+            }
+            return;
+        }
+
         Eigen::VectorXd U_bc = Eigen::VectorXd::Zero(K_.rows());
         for (const auto& pair : dirichlet_dofs) {
             U_bc(pair.first) = pair.second;
         }
         F_ -= K_ * U_bc;
 
-        // 3. 批量修改 K 矩阵
         std::set<int> dirichlet_indices;
         for(const auto& pair : dirichlet_dofs) {
             dirichlet_indices.insert(pair.first);
@@ -53,21 +57,19 @@ namespace Physics {
             for (Eigen::SparseMatrix<double>::InnerIterator it(K_, k); it; ++it) {
                 if (dirichlet_indices.count(it.row()) || dirichlet_indices.count(it.col())) {
                     if (it.row() == it.col()) {
-                        it.valueRef() = 1.0; // 对角线元素设为1
+                        it.valueRef() = 1.0;
                     } else {
-                        it.valueRef() = 0.0; // 非对角线元素设为0
+                        it.valueRef() = 0.0;
                     }
                 }
             }
         }
-        K_.prune(0.0); // 移除被置为0的元素
+        K_.prune(0.0);
 
-        // 4. 最终设置 F 向量
         for (const auto& pair : dirichlet_dofs) {
             F_(pair.first) = pair.second;
         }
 
-        // 5. 应用其他类型的边界条件 (Neumann, Cauchy)
         for (const auto& bc : other_bcs) {
             bc->apply(K_, F_);
         }
@@ -80,6 +82,7 @@ namespace Physics {
         }
     }
 
+    // ... (其他函数保持不变) ...
     void PhysicsField::removeBCsByTag(const std::string &tag) {
         if (tag.empty()) return;
         auto it = std::remove_if(bcs_.begin(), bcs_.end(),
@@ -130,7 +133,7 @@ namespace Physics {
             U_.setConstant(initial_value);
             U_prev_ = U_;
         } else {
-            Utils::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(), "'.");
+            Utils::Logger::instance().error("Cannot set initial conditions before field setup.");
         }
     }
 
@@ -141,12 +144,17 @@ namespace Physics {
                 U_(i) = func(mesh_->getNode(i));
             }
             U_prev_ = U_;
+            Utils::Logger::instance().info("Set initial condition for '", getVariableName(), "' to ", func);
         } else {
-            Utils::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(), "'.");
+            Utils::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(),
+                                            "'.");
+            Utils::Logger::instance().error("Cannot set initial conditions before field setup.");
         }
     }
 
+
     std::vector<int> PhysicsField::getElementDofs(Core::Element* elem) const {
+        // ... (此函数保持不变) ...
         const auto& vertex_nodes = elem->getNodes();
         const size_t num_vertices = vertex_nodes.size();
         elem->setOrder(element_order_);
@@ -194,6 +202,7 @@ namespace Physics {
     Eigen::SparseMatrix<double> &PhysicsField::getStiffnessMatrix() { return K_; }
     Eigen::SparseMatrix<double> &PhysicsField::getMassMatrix() { return M_; }
     Eigen::VectorXd &PhysicsField::getRHS() { return F_; }
+    Eigen::VectorXd &PhysicsField::getCouplingRHS() { return F_coupling_; } // 新增
     Eigen::VectorXd &PhysicsField::getSolution() { return U_; }
 
     const Eigen::SparseMatrix<double> &PhysicsField::getStiffnessMatrix() const { return K_; }

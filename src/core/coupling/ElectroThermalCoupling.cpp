@@ -1,20 +1,13 @@
 #include "core/coupling/ElectroThermalCoupling.hpp"
 #include "core/mesh/Element.hpp"
-#include "core/mesh/TriElement.hpp"
-#include "core/mesh/TetElement.hpp"
-#include "core/sources/VolumetricSource.hpp"
 #include "physics/PhysicsField.hpp"
-#include "physics/Current1D.hpp"
-#include "physics/Current2D.hpp"
-#include "physics/Current3D.hpp"
 #include "utils/SimpleLogger.hpp"
 #include <string>
-#include <core/mesh/LineElement.hpp>
 #include <core/FEValues.hpp>
 #include "core/ReferenceElement.hpp"
 
 namespace Core {
-
+    // ... (setup function remains the same) ...
     void ElectroThermalCoupling::setup(std::vector<Physics::PhysicsField*>& fields) {
         auto& logger = Utils::Logger::instance();
         logger.info("Setting up Electro-Thermal coupling...");
@@ -34,30 +27,28 @@ namespace Core {
         }
     }
 
+
     void ElectroThermalCoupling::execute() {
         if (!emag_field_ || !heat_field_) return;
-
-        const std::string joule_heat_tag = "joule_heating_source";
-        // 1. 清除上一迭代步的焦耳热源
-        heat_field_->removeSourcesByTag(joule_heat_tag);
-
-        auto& logger = Utils::Logger::instance();
-        logger.info("    Applying Joule Heat as a tagged volumetric source...");
 
         const auto* mesh = emag_field_->getMesh();
         const auto& material = emag_field_->getMaterial();
         const auto& emag_solution = emag_field_->getSolution();
         const auto& heat_solution = heat_field_->getSolution();
 
+        Eigen::VectorXd& F_coupling = heat_field_->getCouplingRHS();
+        if (F_coupling.size() != heat_field_->getRHS().size()) {
+            F_coupling.resize(heat_field_->getRHS().size());
+        }
+        F_coupling.setZero();
+
         for (const auto& elem_ptr : mesh->getElements()) {
             double total_element_power = 0.0;
             int quad_order = 2;
 
-            elem_ptr->setOrder(emag_field_->getElementOrder());
             const auto& emag_ref_data = Core::ReferenceElementCache::get(elem_ptr->getTypeName(), elem_ptr->getNodes().size(), emag_field_->getElementOrder(), quad_order);
             Core::FEValues emag_fe_values(elem_ptr->getGeometry(), emag_field_->getElementOrder(), emag_ref_data);
 
-            elem_ptr->setOrder(heat_field_->getElementOrder());
             const auto& heat_ref_data = Core::ReferenceElementCache::get(elem_ptr->getTypeName(), elem_ptr->getNodes().size(), heat_field_->getElementOrder(), quad_order);
             Core::FEValues heat_fe_values(elem_ptr->getGeometry(), heat_field_->getElementOrder(), heat_ref_data);
 
@@ -65,14 +56,10 @@ namespace Core {
             const auto heat_dofs = heat_field_->getElementDofs(elem_ptr);
 
             Eigen::VectorXd nodal_voltages(emag_dofs.size());
-            for (size_t k = 0; k < emag_dofs.size(); ++k) {
-                nodal_voltages(k) = (emag_dofs[k] != -1) ? emag_solution(emag_dofs[k]) : 0.0;
-            }
+            for (size_t k = 0; k < emag_dofs.size(); ++k) nodal_voltages(k) = (emag_dofs[k] != -1) ? emag_solution(emag_dofs[k]) : 0.0;
 
             Eigen::VectorXd nodal_temperatures(heat_dofs.size());
-             for (size_t k = 0; k < heat_dofs.size(); ++k) {
-                nodal_temperatures(k) = (heat_dofs[k] != -1) ? heat_solution(heat_dofs[k]) : 0.0;
-            }
+            for (size_t k = 0; k < heat_dofs.size(); ++k) nodal_temperatures(k) = (heat_dofs[k] != -1) ? heat_solution(heat_dofs[k]) : 0.0;
 
             double integrated_joule_heat = 0.0;
             for (size_t q_p = 0; q_p < emag_fe_values.num_quadrature_points(); ++q_p) {
@@ -86,25 +73,29 @@ namespace Core {
                 double temp_at_qp = heat_N.transpose() * nodal_temperatures;
                 const double sigma_at_qp = material.getProperty("electrical_conductivity", {{"Temperature", temp_at_qp}});
 
-                if (emag_field_->getDimension() == 1) {
-                    Eigen::Vector<double, 1> grad_V = emag_B * nodal_voltages;
-                    integrated_joule_heat += sigma_at_qp * grad_V.squaredNorm() * detJ_x_w;
-                } else if (emag_field_->getDimension() == 2) {
-                    Eigen::Vector2d grad_V = emag_B * nodal_voltages;
-                    integrated_joule_heat += sigma_at_qp * grad_V.squaredNorm() * detJ_x_w;
-                } else {
-                    Eigen::Vector3d grad_V = emag_B * nodal_voltages;
-                    integrated_joule_heat += sigma_at_qp * grad_V.squaredNorm() * detJ_x_w;
-                }
+                Eigen::VectorXd grad_V = emag_B * nodal_voltages;
+                integrated_joule_heat += sigma_at_qp * grad_V.squaredNorm() * detJ_x_w;
             }
             total_element_power = integrated_joule_heat;
 
-            // 2. 将新计算的焦耳热作为一个VolumetricSource对象添加到热场中
             if (total_element_power > 0) {
-                auto source = std::make_unique<VolumetricSource>(
-                    elem_ptr->getId(), total_element_power, joule_heat_tag
-                );
-                heat_field_->addSource(std::move(source));
+                std::vector<double> integral_Ni_dV(heat_dofs.size(), 0.0);
+                double total_element_volume = 0.0;
+                for (size_t q_p = 0; q_p < heat_fe_values.num_quadrature_points(); ++q_p) {
+                    heat_fe_values.reinit(q_p);
+                    const auto& N = heat_fe_values.get_shape_values();
+                    const double detJ_x_w = heat_fe_values.get_detJ_times_weight();
+                    for (size_t i = 0; i < N.size(); ++i) integral_Ni_dV[i] += N(i) * detJ_x_w;
+                    total_element_volume += detJ_x_w;
+                }
+
+                if (std::abs(total_element_volume) > 1e-12) {
+                    for (size_t i = 0; i < heat_dofs.size(); ++i) {
+                        if (heat_dofs[i] != -1) {
+                            F_coupling(heat_dofs[i]) += total_element_power * (integral_Ni_dV[i] / total_element_volume);
+                        }
+                    }
+                }
             }
         }
     }

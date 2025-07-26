@@ -1,15 +1,14 @@
 #include "solver/CoupledElectroThermalSolver.hpp"
 #include "core/Problem.hpp"
-#include "physics/Current3D.hpp"
-#include "physics/Heat3D.hpp"
+// ... other includes
 #include <solver/LinearSolver.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "utils/Exceptions.hpp"
 
 namespace Solver {
 
+    // ... (solveSteadyState remains the same as the last working version)
     void CoupledElectroThermalSolver::solveSteadyState(Core::Problem &problem) {
-        // ... (前半部分与之前相同) ...
         auto &logger = Utils::Logger::instance();
         logger.info("\n--- Solving Coupled Electro-Thermal Problem with Damped Newton-like Iterations ---");
 
@@ -44,19 +43,14 @@ namespace Solver {
             }
             LinearSolver::solve(K_emag_solve, F_emag_solve, emag_field->getSolution());
 
-            // --- 关键的逻辑顺序修复 ---
-            // 1. 执行耦合，这会把焦耳热作为SourceTerm对象添加到heat_field
             coupling_manager.executeCouplings();
 
-            // 2. 求解热场
             logger.info("    Solving Heat Field (Newton-like step)...");
             heat_field->assemble();
-            // 3. **必须**调用applySources()，将刚才添加的焦耳热源施加到F向量上
             heat_field->applySources();
 
-            // ... (后续求解逻辑不变) ...
             Eigen::SparseMatrix<double> K_heat_tangent = heat_field->getStiffnessMatrix();
-            Eigen::VectorXd F_heat_total = heat_field->getRHS();
+            Eigen::VectorXd F_heat_total = heat_field->getRHS() + heat_field->getCouplingRHS();
             Eigen::VectorXd R = K_heat_tangent * heat_field->getSolution() - F_heat_total;
 
             Eigen::VectorXd dummy_rhs = Eigen::VectorXd::Zero(R.size());
@@ -97,7 +91,7 @@ namespace Solver {
         logger.warn("--- Coupled steady-state solver did not converge after ", problem.getMaxIterations(), " iterations. ---");
     }
 
-    // 瞬态求解器也应用相同的修复逻辑
+
     void CoupledElectroThermalSolver::solveTransient(Core::Problem &problem) {
         auto &logger = Utils::Logger::instance();
         logger.info("\n--- Starting Coupled Transient Solve ---");
@@ -137,16 +131,14 @@ namespace Solver {
                 }
                 LinearSolver::solve(K_emag_solve, F_emag_solve, emag_field->getSolution());
 
-                // 1. 执行耦合
                 coupling_manager.executeCouplings();
 
-                // 2. 求解热场
                 heat_field->assemble();
-                // 3. **必须**调用 applySources()
                 heat_field->applySources();
 
                 Eigen::SparseMatrix<double> A_eff = (heat_field->getMassMatrix() / dt) + heat_field->getStiffnessMatrix();
-                Eigen::VectorXd b_eff = heat_field->getRHS() + (heat_field->getMassMatrix() / dt) * heat_field->getPreviousSolution();
+                // **核心修复：将耦合源和其它源相加**
+                Eigen::VectorXd b_eff = heat_field->getRHS() + heat_field->getCouplingRHS() + (heat_field->getMassMatrix() / dt) * heat_field->getPreviousSolution();
 
                 for (const auto& elem : mesh.getElements()) {
                     for (int dof_idx : emag_field->getElementDofs(elem)) {
