@@ -11,7 +11,7 @@ namespace Solver {
     }
 
 
-    void CoupledElectroThermalSolver::solveSteadyState(Core::Problem &problem) {
+ void CoupledElectroThermalSolver::solveSteadyState(Core::Problem &problem) {
         auto &logger = Utils::Logger::instance();
         logger.info("\n--- Solving Coupled Electro-Thermal Problem with Damped Newton-like Iterations ---");
 
@@ -19,7 +19,7 @@ namespace Solver {
         auto *heat_field = problem.getField("Temperature");
         auto &coupling_manager = problem.getCouplingManager();
         const auto& dof_manager = problem.getDofManager();
-        const auto& nodes = problem.getMesh().getNodes();
+        const auto& mesh = problem.getMesh();
 
         const double damping_factor = 0.8;
 
@@ -40,13 +40,17 @@ namespace Solver {
             Eigen::SparseMatrix<double> K_emag_solve = emag_field->getStiffnessMatrix();
             Eigen::VectorXd F_emag_solve = emag_field->getRHS();
 
-            for (const auto& node : nodes) {
-                int temp_dof = dof_manager.getEquationIndex(node->getId(), "Temperature");
-                if (temp_dof != -1) {
-                    K_emag_solve.coeffRef(temp_dof, temp_dof) = 1.0;
-                    F_emag_solve(temp_dof) = heat_field->getSolution()(temp_dof);
+            // **FIX START**: Comprehensive stabilization for ALL inactive DOFs (vertices and edges)
+            for (const auto& elem : mesh.getElements()) {
+                const auto heat_element_dofs = heat_field->getElementDofs(elem);
+                for (int dof_idx : heat_element_dofs) {
+                    if (dof_idx != -1) {
+                        K_emag_solve.coeffRef(dof_idx, dof_idx) = 1.0;
+                        F_emag_solve(dof_idx) = heat_field->getSolution()(dof_idx);
+                    }
                 }
             }
+            // **FIX END**
 
             for (const auto &bc: emag_field->getBCs()) {
                 bc->apply(K_emag_solve, F_emag_solve);
@@ -56,7 +60,7 @@ namespace Solver {
             // --- Step 2: Execute Coupling ---
             coupling_manager.executeCouplings();
 
-            // --- Step 3: Solve Heat Field with a Corrected Newton Step ---
+            // --- Step 3: Solve Heat Field ---
             logger.info("    Solving Heat Field (Newton-like step)...");
             heat_field->assemble();
             heat_field->applySources();
@@ -64,18 +68,12 @@ namespace Solver {
             Eigen::SparseMatrix<double> K_heat_tangent = heat_field->getStiffnessMatrix();
             Eigen::VectorXd F_heat_total = heat_field->getRHS();
 
-            // **FIX START**: Correct handling of residual and boundary conditions
-            // 1. Calculate the residual R = K(T_k) * U_k - F_total
             Eigen::VectorXd R = K_heat_tangent * heat_field->getSolution() - F_heat_total;
 
-            // 2. Apply BCs to the tangent matrix (this modifies K_heat_tangent in place)
-            //    We pass a dummy vector for the RHS because we'll handle the residual separately.
             Eigen::VectorXd dummy_rhs = Eigen::VectorXd::Zero(R.size());
             for (const auto &bc: heat_field->getBCs()) {
                 bc->apply(K_heat_tangent, dummy_rhs);
             }
-
-            // 3. Manually zero out the residual at the Dirichlet nodes. This is the correct approach.
             for (const auto &bc: heat_field->getBCs()) {
                 if (auto* dirichlet = dynamic_cast<const Core::DirichletBC*>(bc.get())) {
                     int eq_index = dirichlet->getEquationIndex();
@@ -83,19 +81,20 @@ namespace Solver {
                 }
             }
 
-            // 4. Stabilize the matrix and residual for inactive DOFs
-            for (const auto& node : nodes) {
-                int volt_dof = dof_manager.getEquationIndex(node->getId(), "Voltage");
-                if (volt_dof != -1) {
-                    K_heat_tangent.coeffRef(volt_dof, volt_dof) = 1.0;
-                    R(volt_dof) = 0.0;
-                }
+            // **FIX START**: Comprehensive stabilization for ALL inactive DOFs (vertices and edges)
+            for (const auto& elem : mesh.getElements()) {
+                 const auto emag_element_dofs = emag_field->getElementDofs(elem);
+                 for (int dof_idx : emag_element_dofs) {
+                    if (dof_idx != -1) {
+                        K_heat_tangent.coeffRef(dof_idx, dof_idx) = 1.0;
+                        R(dof_idx) = 0.0;
+                    }
+                 }
             }
+            // **FIX END**
 
-            // 5. Solve for the update using the modified system K_t * delta_T = -R
             Eigen::VectorXd delta_T(heat_field->getSolution().size());
             LinearSolver::solve(K_heat_tangent, -R, delta_T);
-            // **FIX END**
 
             heat_field->getSolution() += damping_factor * delta_T;
 
@@ -113,7 +112,6 @@ namespace Solver {
         }
         logger.warn("--- Coupled steady-state solver did not converge after ", problem.getMaxIterations(), " iterations. ---");
     }
-
     void CoupledElectroThermalSolver::solveTransient(Core::Problem &problem) {
         auto &logger = Utils::Logger::instance();
         logger.info("\n--- Starting Coupled Transient Solve ---");
