@@ -1,7 +1,8 @@
 #include "physics/Magnetic2D.hpp"
 #include <core/mesh/TriElement.hpp>
 #include "utils/SimpleLogger.hpp"
-#include "core/FEValues.hpp" // Use the FEValues calculator
+#include "core/FEValues.hpp"
+#include "core/ReferenceElement.hpp"
 
 namespace Physics {
 
@@ -41,20 +42,21 @@ void Magnetic2D::assemble(const PhysicsField *coupled_field) {
 
     for (const auto& elem_ptr : mesh_->getElements()) {
         if (auto* tri_elem = dynamic_cast<Core::TriElement*>(elem_ptr)) {
-            // Set the element's mathematical order before creating FEValues
             tri_elem->setOrder(element_order_);
 
-            auto fe_values = tri_elem->create_fe_values(element_order_);
+            const auto& ref_data = Core::ReferenceElementCache::get(tri_elem->getTypeName(), tri_elem->getNodes().size(), element_order_, element_order_);
+            Core::FEValues fe_values(tri_elem->getGeometry(), element_order_, ref_data);
+
             const auto dofs = getElementDofs(tri_elem);
             const size_t num_elem_nodes = tri_elem->getNumNodes();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-            for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-                fe_values->reinit(q_p);
+            for (size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
+                fe_values.reinit(q_p);
 
-                const auto& B = fe_values->get_shape_gradients();
-                const double detJ_x_w = fe_values->get_detJ_times_weight();
+                const auto& B = fe_values.get_shape_gradients();
+                const double detJ_x_w = fe_values.get_detJ_times_weight();
 
                 ke_local += B.transpose() * inv_mu * B * detJ_x_w;
             }

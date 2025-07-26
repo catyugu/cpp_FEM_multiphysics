@@ -1,4 +1,3 @@
-// Modify catyugu/cpp_fem_multiphysics/cpp_FEM_multiphysics-dev/src/physics/PhysicsField.cpp
 #include "physics/PhysicsField.hpp"
 
 #include <core/mesh/LineElement.hpp>
@@ -8,6 +7,7 @@
 #include "utils/SimpleLogger.hpp"
 
 namespace Physics {
+    // ... (addBC, addBCs, applyBCs, applySources, removeBCsByTag, etc. remain unchanged) ...
     void PhysicsField::addBC(std::unique_ptr<Core::BoundaryCondition> bc) {
         bcs_.push_back(std::move(bc));
     }
@@ -29,7 +29,6 @@ namespace Physics {
 
         logger.info("Applying ", consolidated_bcs.size(), " unique, consolidated BCs.");
 
-        // Iterate through the consolidated map and apply the final, unique BCs.
         for (const auto &pair: consolidated_bcs) {
             pair.second->apply(K_, F_);
         }
@@ -37,9 +36,7 @@ namespace Physics {
 
 
     void PhysicsField::applySources() {
-        // Clear the force vector before applying sources to avoid accumulation across steps/iterations
         F_.setZero();
-        // Changed call to pass element_order_
         for (const auto &source: source_terms_) {
             source->apply(F_, *dof_manager_, *mesh_, getVariableName(), element_order_);
         }
@@ -47,7 +44,7 @@ namespace Physics {
 
 
     void PhysicsField::removeBCsByTag(const std::string &tag) {
-        if (tag.empty()) return; // Do not remove BCs with no tag
+        if (tag.empty()) return;
         auto it = std::remove_if(bcs_.begin(), bcs_.end(),
                                  [&](const std::unique_ptr<Core::BoundaryCondition> &bc_ptr) {
                                      return bc_ptr->getTag() == tag;
@@ -127,15 +124,13 @@ namespace Physics {
         std::vector<int> base_dofs;
         base_dofs.reserve(num_elem_nodes);
 
-        // 1. Get Vertex DOFs
         for (size_t i = 0; i < num_vertices; ++i) {
             base_dofs.push_back(dof_manager_->getEquationIndex(vertex_nodes[i]->getId(), getVariableName()));
         }
 
-        // 2. Get Higher-Order DOFs
         if (element_order_ > 1) {
             if (dynamic_cast<const Core::LineElement*>(elem)) {
-                base_dofs.insert(base_dofs.begin() + 1, dof_manager_->getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()}, getVariableName()));
+                base_dofs.push_back(dof_manager_->getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()}, getVariableName()));
             } else if (dynamic_cast<const Core::TriElement*>(elem)) {
                 const std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {2, 0}};
                 for (const auto& edge : edges) {
@@ -149,7 +144,6 @@ namespace Physics {
             }
         }
 
-        // 3. Expand base DOFs to include all components
         std::vector<int> dofs;
         int num_components = getNumComponents();
         dofs.reserve(num_elem_nodes * num_components);
@@ -166,7 +160,7 @@ namespace Physics {
         }
         return dofs;
     }
-    // --- END OF FIX ---
+
     Eigen::SparseMatrix<double> &PhysicsField::getStiffnessMatrix() { return K_; }
     Eigen::SparseMatrix<double> &PhysicsField::getMassMatrix() { return M_; }
     Eigen::VectorXd &PhysicsField::getRHS() { return F_; }

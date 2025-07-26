@@ -13,8 +13,9 @@ namespace Core {
         if (!elem) return;
 
         elem->setOrder(element_order);
-        auto fe_values = elem->create_fe_values(element_order);
 
+        const auto& ref_data = ReferenceElementCache::get(elem->getTypeName(), elem->getNodes().size(), element_order, element_order);
+        FEValues fe_values(elem->getGeometry(), element_order, ref_data);
         // This is a stand-in for a proper get_element_dofs from a PhysicsField context
         // It manually reconstructs the DOF list for all components
         std::vector<int> dofs;
@@ -41,10 +42,10 @@ namespace Core {
 
         Eigen::VectorXd fe_local = Eigen::VectorXd::Zero(dofs.size());
 
-        for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-            fe_values->reinit(q_p);
-            const auto& N = fe_values->get_shape_values();
-            const double detJ_x_w = fe_values->get_detJ_times_weight();
+        for (size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
+            fe_values.reinit(q_p);
+            const auto& N = fe_values.get_shape_values();
+            const double detJ_x_w = fe_values.get_detJ_times_weight();
 
             for (size_t i = 0; i < num_elem_nodes; ++i) {
                 fe_local(i * 3 + 0) += N(i) * current_density_(0) * detJ_x_w;

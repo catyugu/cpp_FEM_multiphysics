@@ -17,13 +17,10 @@ namespace Core {
         Element* elem = mesh.getElement(element_id_);
         if (!elem) return;
 
-        // Ensure the element's mathematical order is set for the FEValues creation
-        // This 'element_order' comes from the *receiving* field (Temperature)
         elem->setOrder(element_order);
 
-        // Create FEValues for the current element, using the element_order for both FE order and quadrature order
-        auto fe_values = elem->create_fe_values(element_order);
-
+        const auto& ref_data = ReferenceElementCache::get(elem->getTypeName(), elem->getNodes().size(), element_order, element_order);
+        FEValues fe_values(elem->getGeometry(), element_order, ref_data);
         // Get the correct DOF indices for the receiving field (Temperature) for this element
         // These DOFs will correspond to the 'element_order' of the receiving field.
         std::vector<int> element_dofs;
@@ -65,10 +62,10 @@ namespace Core {
         std::vector<double> integral_Ni_dV(elem->getNumNodes(), 0.0);
         double total_element_volume_recomputed = 0.0;
 
-        for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-            fe_values->reinit(q_p);
-            const auto& N = fe_values->get_shape_values();
-            const double detJ_x_w = fe_values->get_detJ_times_weight();
+        for (size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
+            fe_values.reinit(q_p);
+            const auto& N = fe_values.get_shape_values();
+            const double detJ_x_w = fe_values.get_detJ_times_weight();
 
             for (size_t i = 0; i < N.size(); ++i) {
                 integral_Ni_dV[i] += N(i) * detJ_x_w;

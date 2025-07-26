@@ -5,6 +5,7 @@
 #include "core/mesh/TriElement.hpp"
 #include "core/mesh/Node.hpp"
 #include "core/FEValues.hpp"
+#include "core/ReferenceElement.hpp" // 引入新头文件
 
 TEST(FEValuesTest, TriangleAreaAndGradients) {
     auto& logger = Utils::Logger::instance();
@@ -17,26 +18,26 @@ TEST(FEValuesTest, TriangleAreaAndGradients) {
     tri->addNode(n2);
     tri->addNode(n3);
     tri->setOrder(1); // Linear element
+    tri->update_geometry(); // Manually update geometry for the test
     logger.info("FEValuesTest: TriangleAreaAndGradients");
     logger.info("FEValuesTest: TriangleAreaAndGradients: Area: ", tri->getArea());
 
-    // Create FEValues with a 1-point quadrature rule (exact for linear triangles)
-    auto fe_values = tri->create_fe_values(1);
+    // 使用新的缓存机制创建 FEValues
+    const auto& ref_data = Core::ReferenceElementCache::get(tri->getTypeName(), 3, 1, 1);
+    Core::FEValues fe_values(tri->getGeometry(), 1, ref_data);
 
-    logger.info("FEValuesTest: TriangleAreaAndGradients: Quadrature points: ", fe_values->num_quadrature_points());
-
-
+    logger.info("FEValuesTest: TriangleAreaAndGradients: Quadrature points: ", fe_values.num_quadrature_points());
 
     // There should be one quadrature point
-    ASSERT_EQ(fe_values->num_quadrature_points(), 1);
+    ASSERT_EQ(fe_values.num_quadrature_points(), 1);
 
     // The area of this triangle is 0.5.
     // For a 1-point rule, the weight is 0.5, so det(J) should be 1.0.
     // And det(J) * weight should be 0.5.
-    ASSERT_NEAR(fe_values->get_detJ_times_weight(), 0.5, 1e-9);
+    ASSERT_NEAR(fe_values.get_detJ_times_weight(), 0.5, 1e-9);
 
     // For a linear triangle, the gradients (B-matrix) should be constant.
-    const auto& B = fe_values->get_shape_gradients();
+    const auto& B = fe_values.get_shape_gradients();
     // B = (1/2A) * [[y23, y31, y12], [x32, x13, x21]]
     // A = 0.5, so B = [[-1, 1, 0], [-1, 0, 1]]
     Eigen::MatrixXd B_expected(2, 3);

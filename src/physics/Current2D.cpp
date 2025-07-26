@@ -1,8 +1,9 @@
 #include "physics/Current2D.hpp"
-#include "physics/Heat2D.hpp" // 需要包含热场头文件以进行耦合
+#include "physics/Heat2D.hpp"
 #include <core/mesh/TriElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "core/FEValues.hpp"
+#include "core/ReferenceElement.hpp"
 
 namespace Physics {
 
@@ -45,7 +46,10 @@ namespace Physics {
         for (const auto& elem_ptr : mesh_->getElements()) {
             if (auto* tri_elem = dynamic_cast<Core::TriElement*>(elem_ptr)) {
                 tri_elem->setOrder(element_order_);
-                auto fe_values = tri_elem->create_fe_values(element_order_);
+
+                const auto& ref_data = Core::ReferenceElementCache::get(tri_elem->getTypeName(), tri_elem->getNodes().size(), element_order_, element_order_);
+                Core::FEValues fe_values(tri_elem->getGeometry(), element_order_, ref_data);
+
                 const auto dofs = getElementDofs(tri_elem);
                 const size_t num_elem_nodes = tri_elem->getNumNodes();
 
@@ -59,12 +63,11 @@ namespace Physics {
                     }
                 }
 
-
-                for(size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-                    fe_values->reinit(q_p);
-                    const auto& N = fe_values->get_shape_values();
-                    const auto& B = fe_values->get_shape_gradients();
-                    const double detJ_x_w = fe_values->get_detJ_times_weight();
+                for(size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
+                    fe_values.reinit(q_p);
+                    const auto& N = fe_values.get_shape_values();
+                    const auto& B = fe_values.get_shape_gradients();
+                    const double detJ_x_w = fe_values.get_detJ_times_weight();
 
                     double sigma;
                     if (heat_field) {
