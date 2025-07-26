@@ -21,7 +21,7 @@ protected:
     Core::Material copper{"Copper"};
 
     void SetUp() override {
-        auto mesh = std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(0.02, 0.01, 0.01, 5, 5, 5));
+        auto mesh = std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(0.02, 0.01, 0.01, 10, 10, 10));
         ASSERT_NE(mesh, nullptr);
 
         // Making conductivity dependent on temperature to properly test coupling

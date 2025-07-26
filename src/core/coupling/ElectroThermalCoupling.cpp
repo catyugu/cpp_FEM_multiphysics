@@ -54,7 +54,6 @@ namespace Core {
         for (const auto& elem_ptr : mesh->getElements()) {
             double total_element_power = 0.0;
 
-            // **FIX START**: Use a higher quadrature order for more accurate source term integration
             int quad_order = 2;
 
             // --- 分维度进行精确计算 ---
