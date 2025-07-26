@@ -10,7 +10,7 @@
 #include "utils/SimpleLogger.hpp"
 #include <string>
 #include <core/mesh/LineElement.hpp>
-#include <core/FEValues.hpp> // Include FEValues
+#include <core/FEValues.hpp> // 包含 FEValues
 
 namespace Core {
 
@@ -52,94 +52,129 @@ namespace Core {
         bool is_1d = dynamic_cast<Physics::Current1D*>(emag_field_) != nullptr;
 
         for (const auto& elem_ptr : mesh->getElements()) {
-            double avg_temp_kelvin = 293.15; // Default to room temp if no heat solution yet
-            if (heat_solution.size() > 0) {
-                elem_ptr->setOrder(heat_field_->getElementOrder());
-                const auto heat_element_dofs = heat_field_->get_element_dofs(elem_ptr);
-                avg_temp_kelvin = 0.0;
-                int valid_dofs = 0;
-                for (int dof_idx : heat_element_dofs) {
-                    if (dof_idx != -1) {
-                        avg_temp_kelvin += heat_solution(dof_idx);
-                        valid_dofs++;
-                    }
-                }
-                if (valid_dofs > 0) {
-                    avg_temp_kelvin /= valid_dofs;
-                } else {
-                    avg_temp_kelvin = 293.15; // Fallback if no valid DOFs
-                }
-            }
-
-            // *** THIS IS THE FIX: Get conductivity based on the element's average temperature ***
-            const double local_sigma = material.getProperty("electrical_conductivity", {{"Temperature", avg_temp_kelvin}});
             double total_element_power = 0.0;
 
-            // --- Dimension-Specific Calculations ---
+            // --- 分维度进行精确计算 ---
             if (is_3d) {
                 if (auto* tet_elem = dynamic_cast<TetElement*>(elem_ptr)) {
+                    // 为电场和热场分别创建FEValues对象，以处理它们可能不同的单元阶次
                     tet_elem->setOrder(emag_field_->getElementOrder());
-                    auto fe_values = tet_elem->create_fe_values(emag_field_->getElementOrder());
+                    auto emag_fe_values = tet_elem->create_fe_values(emag_field_->getElementOrder());
 
-                    double integrated_joule_heat_density = 0.0;
-                    for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-                        fe_values->reinit(q_p);
-                        const auto& B_matrix_from_fe = fe_values->get_shape_gradients();
-                        const double detJ_x_w = fe_values->get_detJ_times_weight();
+                    tet_elem->setOrder(heat_field_->getElementOrder());
+                    auto heat_fe_values = tet_elem->create_fe_values(heat_field_->getElementOrder());
 
-                        const auto element_dofs = emag_field_->get_element_dofs(tet_elem);
-                        Eigen::VectorXd nodal_voltages(tet_elem->getNumNodes());
-                        for (size_t k = 0; k < tet_elem->getNumNodes(); ++k) {
-                            nodal_voltages(k) = (element_dofs[k] != -1) ? emag_solution(element_dofs[k]) : 0.0;
-                        }
+                    const auto emag_dofs = emag_field_->get_element_dofs(tet_elem);
+                    const auto heat_dofs = heat_field_->get_element_dofs(tet_elem);
 
-                        Eigen::Vector3d grad_V = B_matrix_from_fe * nodal_voltages;
-                        integrated_joule_heat_density += local_sigma * grad_V.squaredNorm() * detJ_x_w;
+                    Eigen::VectorXd nodal_voltages(emag_dofs.size());
+                    for (size_t k = 0; k < emag_dofs.size(); ++k) {
+                        nodal_voltages(k) = (emag_dofs[k] != -1) ? emag_solution(emag_dofs[k]) : 0.0;
                     }
-                    total_element_power = integrated_joule_heat_density;
+
+                    Eigen::VectorXd nodal_temperatures(heat_dofs.size());
+                     for (size_t k = 0; k < heat_dofs.size(); ++k) {
+                        nodal_temperatures(k) = (heat_dofs[k] != -1) ? heat_solution(heat_dofs[k]) : 0.0;
+                    }
+
+                    double integrated_joule_heat = 0.0;
+                    // 假设两个场的FEValues对象使用相同的积分规则
+                    for (size_t q_p = 0; q_p < emag_fe_values->num_quadrature_points(); ++q_p) {
+                        emag_fe_values->reinit(q_p);
+                        heat_fe_values->reinit(q_p);
+
+                        // 获取当前积分点的值
+                        const auto& emag_B = emag_fe_values->get_shape_gradients();
+                        const auto& heat_N = heat_fe_values->get_shape_values();
+                        const double detJ_x_w = emag_fe_values->get_detJ_times_weight();
+
+                        // 1. 在积分点插值计算温度
+                        double temp_at_qp = heat_N.transpose() * nodal_temperatures;
+
+                        // 2. 根据插值得到的温度获取电导率
+                        const double sigma_at_qp = material.getProperty("electrical_conductivity", {{"Temperature", temp_at_qp}});
+
+                        // 3. 计算积分点的电场强度
+                        Eigen::Vector3d grad_V = emag_B * nodal_voltages;
+
+                        // 4. 计算焦耳热密度并累加到积分中
+                        integrated_joule_heat += sigma_at_qp * grad_V.squaredNorm() * detJ_x_w;
+                    }
+                    total_element_power = integrated_joule_heat;
                 }
             } else if (is_2d) {
                 if (auto* tri_elem = dynamic_cast<TriElement*>(elem_ptr)) {
                     tri_elem->setOrder(emag_field_->getElementOrder());
-                    auto fe_values = tri_elem->create_fe_values(emag_field_->getElementOrder());
+                    auto emag_fe_values = tri_elem->create_fe_values(emag_field_->getElementOrder());
 
-                    double integrated_joule_heat_density = 0.0;
-                    for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-                        fe_values->reinit(q_p);
-                        const auto& B_matrix_from_fe = fe_values->get_shape_gradients();
-                        const double detJ_x_w = fe_values->get_detJ_times_weight();
+                    tri_elem->setOrder(heat_field_->getElementOrder());
+                    auto heat_fe_values = tri_elem->create_fe_values(heat_field_->getElementOrder());
 
-                        const auto element_dofs = emag_field_->get_element_dofs(tri_elem);
-                        Eigen::VectorXd nodal_voltages(tri_elem->getNumNodes());
-                        for (size_t k = 0; k < tri_elem->getNumNodes(); ++k) {
-                           nodal_voltages(k) = (element_dofs[k] != -1) ? emag_solution(element_dofs[k]) : 0.0;
-                        }
+                    const auto emag_dofs = emag_field_->get_element_dofs(tri_elem);
+                    const auto heat_dofs = heat_field_->get_element_dofs(tri_elem);
 
-                        Eigen::Vector2d grad_V = B_matrix_from_fe * nodal_voltages;
-                        integrated_joule_heat_density += local_sigma * grad_V.squaredNorm() * detJ_x_w;
+                    Eigen::VectorXd nodal_voltages(emag_dofs.size());
+                    for (size_t k = 0; k < emag_dofs.size(); ++k) {
+                       nodal_voltages(k) = (emag_dofs[k] != -1) ? emag_solution(emag_dofs[k]) : 0.0;
                     }
-                    total_element_power = integrated_joule_heat_density;
+
+                    Eigen::VectorXd nodal_temperatures(heat_dofs.size());
+                    for (size_t k = 0; k < heat_dofs.size(); ++k) {
+                       nodal_temperatures(k) = (heat_dofs[k] != -1) ? heat_solution(heat_dofs[k]) : 0.0;
+                    }
+
+                    double integrated_joule_heat = 0.0;
+                    for (size_t q_p = 0; q_p < emag_fe_values->num_quadrature_points(); ++q_p) {
+                        emag_fe_values->reinit(q_p);
+                        heat_fe_values->reinit(q_p);
+
+                        const auto& emag_B = emag_fe_values->get_shape_gradients();
+                        const auto& heat_N = heat_fe_values->get_shape_values();
+                        const double detJ_x_w = emag_fe_values->get_detJ_times_weight();
+
+                        double temp_at_qp = heat_N.transpose() * nodal_temperatures;
+                        const double sigma_at_qp = material.getProperty("electrical_conductivity", {{"Temperature", temp_at_qp}});
+                        Eigen::Vector2d grad_V = emag_B * nodal_voltages;
+                        integrated_joule_heat += sigma_at_qp * grad_V.squaredNorm() * detJ_x_w;
+                    }
+                    total_element_power = integrated_joule_heat;
                 }
             } else if (is_1d) {
                  if (auto* line_elem = dynamic_cast<LineElement*>(elem_ptr)) {
                     line_elem->setOrder(emag_field_->getElementOrder());
-                    auto fe_values = line_elem->create_fe_values(emag_field_->getElementOrder());
+                    auto emag_fe_values = line_elem->create_fe_values(emag_field_->getElementOrder());
 
-                    double integrated_joule_heat_density = 0.0;
-                    for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-                        fe_values->reinit(q_p);
-                        const auto& B_matrix_from_fe = fe_values->get_shape_gradients();
-                        const double detJ_x_w = fe_values->get_detJ_times_weight();
+                    line_elem->setOrder(heat_field_->getElementOrder());
+                    auto heat_fe_values = line_elem->create_fe_values(heat_field_->getElementOrder());
 
-                        const auto element_dofs = emag_field_->get_element_dofs(line_elem);
-                        Eigen::VectorXd nodal_voltages(line_elem->getNumNodes());
-                        for (size_t k = 0; k < line_elem->getNumNodes(); ++k) {
-                            nodal_voltages(k) = (element_dofs[k] != -1) ? emag_solution(element_dofs[k]) : 0.0;
-                        }
-                        Eigen::Vector<double, 1> grad_V = B_matrix_from_fe * nodal_voltages;
-                        integrated_joule_heat_density += local_sigma * grad_V.squaredNorm() * detJ_x_w;
+                    const auto emag_dofs = emag_field_->get_element_dofs(line_elem);
+                    const auto heat_dofs = heat_field_->get_element_dofs(line_elem);
+
+                    Eigen::VectorXd nodal_voltages(emag_dofs.size());
+                    for (size_t k = 0; k < emag_dofs.size(); ++k) {
+                        nodal_voltages(k) = (emag_dofs[k] != -1) ? emag_solution(emag_dofs[k]) : 0.0;
                     }
-                    total_element_power = integrated_joule_heat_density;
+
+                    Eigen::VectorXd nodal_temperatures(heat_dofs.size());
+                    for (size_t k = 0; k < heat_dofs.size(); ++k) {
+                        nodal_temperatures(k) = (heat_dofs[k] != -1) ? heat_solution(heat_dofs[k]) : 0.0;
+                    }
+
+                    double integrated_joule_heat = 0.0;
+                    for (size_t q_p = 0; q_p < emag_fe_values->num_quadrature_points(); ++q_p) {
+                        emag_fe_values->reinit(q_p);
+                        heat_fe_values->reinit(q_p);
+
+                        const auto& emag_B = emag_fe_values->get_shape_gradients();
+                        const auto& heat_N = heat_fe_values->get_shape_values();
+                        const double detJ_x_w = emag_fe_values->get_detJ_times_weight();
+
+                        double temp_at_qp = heat_N.transpose() * nodal_temperatures;
+                        const double sigma_at_qp = material.getProperty("electrical_conductivity", {{"Temperature", temp_at_qp}});
+                        Eigen::Vector<double, 1> grad_V = emag_B * nodal_voltages;
+                        integrated_joule_heat += sigma_at_qp * grad_V.squaredNorm() * detJ_x_w;
+                    }
+                    total_element_power = integrated_joule_heat;
                 }
             }
 

@@ -202,10 +202,6 @@ namespace Solver {
                 }
                 T_prev_iter_inner_loop = heat_field->getSolution();
             }
-
-            // **FIX**: After the inner loop, update the EMag field with the final, consistent solution
-            // from the heat field (which was solved last and is most up-to-date).
-            emag_field->getSolution() = heat_field->getSolution();
         }
         logger.info("\n--- Coupled Transient Solve Finished ---");
     }

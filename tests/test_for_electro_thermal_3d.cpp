@@ -56,7 +56,7 @@ protected:
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
 
         problem->setup();
-        problem->setLinearSolverType(Solver::SolverType::BiCGSTAB);
+        // problem->setLinearSolverType(Solver::SolverType::BiCGSTAB);
         problem->setIterativeSolverParameters(1000, 1e-3);
     }
 };
