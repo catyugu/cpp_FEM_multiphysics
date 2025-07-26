@@ -47,7 +47,7 @@ void Heat1D::assemble(const PhysicsField *coupled_field) {
             line_elem->setOrder(element_order_);
 
             auto fe_values = line_elem->create_fe_values(element_order_);
-            const auto dofs = get_element_dofs(line_elem);
+            const auto dofs = getElementDofs(line_elem);
             const size_t num_elem_nodes = line_elem->getNumNodes();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);

@@ -36,7 +36,7 @@ namespace Post {
             elem->setOrder(heat_field->getElementOrder());
 
             auto fe_values = elem->create_fe_values(heat_field->getElementOrder());
-            const auto dofs = heat_field->get_element_dofs(elem);
+            const auto dofs = heat_field->getElementDofs(elem);
 
             Eigen::VectorXd nodal_temperatures(dofs.size());
             for (size_t j = 0; j < dofs.size(); ++j) {

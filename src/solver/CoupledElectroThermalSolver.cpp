@@ -34,7 +34,7 @@ namespace Solver {
             for (const auto& elem : problem.getMesh().getElements()) {
                 elem->setOrder(heat_field->getElementOrder());
                 // FIX: Corrected method name to get_element_dofs
-                const auto heat_element_dofs = heat_field->get_element_dofs(elem);
+                const auto heat_element_dofs = heat_field->getElementDofs(elem);
 
                 for (int dof_idx_local : heat_element_dofs) {
                     if (dof_idx_local != -1) {
@@ -64,7 +64,7 @@ namespace Solver {
             for (const auto& elem : problem.getMesh().getElements()) {
                 elem->setOrder(emag_field->getElementOrder());
                  // FIX: Corrected method name to get_element_dofs
-                const auto emag_element_dofs = emag_field->get_element_dofs(elem);
+                const auto emag_element_dofs = emag_field->getElementDofs(elem);
 
                 for (int dof_idx_local : emag_element_dofs) {
                     if (dof_idx_local != -1) {
@@ -131,7 +131,7 @@ namespace Solver {
 
                 for (const auto& elem : problem.getMesh().getElements()) {
                     elem->setOrder(heat_field->getElementOrder());
-                    const auto heat_element_dofs = heat_field->get_element_dofs(elem);
+                    const auto heat_element_dofs = heat_field->getElementDofs(elem);
                     for (int dof_idx_local : heat_element_dofs) {
                         if (dof_idx_local != -1) {
                             K_emag_solve.coeffRef(dof_idx_local, dof_idx_local) = 1.0;
@@ -157,7 +157,7 @@ namespace Solver {
 
                 for (const auto& elem : problem.getMesh().getElements()) {
                     elem->setOrder(emag_field->getElementOrder());
-                    const auto emag_element_dofs = emag_field->get_element_dofs(elem);
+                    const auto emag_element_dofs = emag_field->getElementDofs(elem);
                     for (int dof_idx_local : emag_element_dofs) {
                         if (dof_idx_local != -1) {
                             A_eff.coeffRef(dof_idx_local, dof_idx_local) = 1.0;

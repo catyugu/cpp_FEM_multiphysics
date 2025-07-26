@@ -106,7 +106,7 @@ namespace Physics {
         void enable() { enabled = true; }
         void disable() { enabled = false; }
         bool isEnabled() const { return enabled; }
-        std::vector<int> get_element_dofs(Core::Element *elem) const; // New function for getting DOFs
+        std::vector<int> getElementDofs(Core::Element *elem) const; // New function for getting DOFs
 
     protected:
 

@@ -64,8 +64,8 @@ namespace Core {
                     tet_elem->setOrder(heat_field_->getElementOrder());
                     auto heat_fe_values = tet_elem->create_fe_values(heat_field_->getElementOrder());
 
-                    const auto emag_dofs = emag_field_->get_element_dofs(tet_elem);
-                    const auto heat_dofs = heat_field_->get_element_dofs(tet_elem);
+                    const auto emag_dofs = emag_field_->getElementDofs(tet_elem);
+                    const auto heat_dofs = heat_field_->getElementDofs(tet_elem);
 
                     Eigen::VectorXd nodal_voltages(emag_dofs.size());
                     for (size_t k = 0; k < emag_dofs.size(); ++k) {
@@ -111,8 +111,8 @@ namespace Core {
                     tri_elem->setOrder(heat_field_->getElementOrder());
                     auto heat_fe_values = tri_elem->create_fe_values(heat_field_->getElementOrder());
 
-                    const auto emag_dofs = emag_field_->get_element_dofs(tri_elem);
-                    const auto heat_dofs = heat_field_->get_element_dofs(tri_elem);
+                    const auto emag_dofs = emag_field_->getElementDofs(tri_elem);
+                    const auto heat_dofs = heat_field_->getElementDofs(tri_elem);
 
                     Eigen::VectorXd nodal_voltages(emag_dofs.size());
                     for (size_t k = 0; k < emag_dofs.size(); ++k) {
@@ -148,8 +148,8 @@ namespace Core {
                     line_elem->setOrder(heat_field_->getElementOrder());
                     auto heat_fe_values = line_elem->create_fe_values(heat_field_->getElementOrder());
 
-                    const auto emag_dofs = emag_field_->get_element_dofs(line_elem);
-                    const auto heat_dofs = heat_field_->get_element_dofs(line_elem);
+                    const auto emag_dofs = emag_field_->getElementDofs(line_elem);
+                    const auto heat_dofs = heat_field_->getElementDofs(line_elem);
 
                     Eigen::VectorXd nodal_voltages(emag_dofs.size());
                     for (size_t k = 0; k < emag_dofs.size(); ++k) {

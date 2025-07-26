@@ -56,7 +56,7 @@ void Heat3D::assemble(const PhysicsField *coupled_field) {
             auto fe_values = tet_elem->create_fe_values(element_order_); // Use element_order_ for quad_order too for simplicity
 
             // 2. Get the correct DOF indices from the centralized function.
-            const auto dofs = get_element_dofs(tet_elem);
+            const auto dofs = getElementDofs(tet_elem);
             const size_t num_elem_nodes = tet_elem->getNumNodes(); // This now correctly reflects the order
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);

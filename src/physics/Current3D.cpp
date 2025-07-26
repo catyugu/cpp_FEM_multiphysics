@@ -48,12 +48,12 @@ void Current3D::assemble(const PhysicsField* coupled_field) {
         if (tet_elem) {
             tet_elem->setOrder(element_order_);
             auto fe_values = tet_elem->create_fe_values(element_order_);
-            const auto dofs = get_element_dofs(tet_elem);
+            const auto dofs = getElementDofs(tet_elem);
             const size_t num_elem_nodes = tet_elem->getNumNodes();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-            const auto heat_dofs = heat_field ? heat_field->get_element_dofs(tet_elem) : std::vector<int>();
+            const auto heat_dofs = heat_field ? heat_field->getElementDofs(tet_elem) : std::vector<int>();
             Eigen::VectorXd nodal_temperatures(heat_dofs.size());
             if (heat_field) {
                 for (size_t k = 0; k < heat_dofs.size(); ++k) {
