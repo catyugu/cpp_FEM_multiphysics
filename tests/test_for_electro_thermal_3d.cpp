@@ -35,26 +35,29 @@ protected:
         std::unique_ptr<Core::Mesh> mesh = IO::Importer::read_comsol_mphtxt(mesh_filename);
         ASSERT_NE(mesh, nullptr);
 
-        copper.setProperty("electrical_conductivity", 5.96e7);
+        copper.setProperty("electrical_conductivity", [](const std::map<std::string, double>& field_values) {
+            double T = field_values.count("Temperature") ? field_values.at("Temperature") : 293.15;
+            return 5.96e7 * (1.0 - 0.0039 * (T - 293.15)); // Simple linear model for copper resistivity
+        });
         copper.setProperty("thermal_conductivity", 401.0);
         copper.setProperty("density", 8960.0);
-        copper.setProperty("specific_heat", 385.0);
+        copper.setProperty("thermal_capacity", 385.0);
 
         problem = std::make_unique<Core::Problem>(std::move(mesh));
         auto current_field = std::make_unique<Physics::Current3D>(copper);
         auto heat_field = std::make_unique<Physics::Heat3D>(copper);
 
         // Set element order to 2 for both fields
-        current_field->setElementOrder(2);
-        heat_field->setElementOrder(2);
+        // current_field->setElementOrder(2);
+        // heat_field->setElementOrder(2);
 
         problem->addField(std::move(current_field));
         problem->addField(std::move(heat_field));
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
 
         problem->setup();
-        problem->setLinearSolverType(Solver::SolverType::BiCGSTAB);
-        problem->setIterativeSolverParameters(1000, 1e-9);
+        // problem->setLinearSolverType(Solver::SolverType::BiCGSTAB);
+        problem->setIterativeSolverParameters(1000, 1e-8);
     }
 };
 

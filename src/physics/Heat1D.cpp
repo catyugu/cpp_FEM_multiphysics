@@ -38,7 +38,7 @@ void Heat1D::assemble() {
     applySources();
 
     const double k = material_.getProperty("thermal_conductivity");
-    const double rho_cp = material_.getProperty("density") * material_.getProperty("specific_heat");
+    const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
 
     std::vector<Eigen::Triplet<double>> k_triplets, m_triplets;
 

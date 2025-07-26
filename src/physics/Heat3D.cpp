@@ -41,7 +41,7 @@ void Heat3D::assemble() {
     applySources(); // Apply source terms to F_
 
     const Eigen::Matrix3d D_mat = Eigen::Matrix3d::Identity() * k_;
-    const double rho_cp = material_.getProperty("density") * material_.getProperty("specific_heat");
+    const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
 
     std::vector<Eigen::Triplet<double>> k_triplets;
     std::vector<Eigen::Triplet<double>> m_triplets;

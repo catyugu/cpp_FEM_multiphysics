@@ -34,7 +34,7 @@ void Heat2D::assemble() {
     applySources(); // Apply source terms to F_
 
     const double k_therm = material_.getProperty("thermal_conductivity");
-    const double rho_cp = material_.getProperty("density") * material_.getProperty("specific_heat");
+    const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
     const Eigen::Matrix2d D = Eigen::Matrix2d::Identity() * k_therm;
 
     std::vector<Eigen::Triplet<double>> k_triplets;

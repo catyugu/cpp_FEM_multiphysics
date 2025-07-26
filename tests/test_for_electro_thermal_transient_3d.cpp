@@ -31,7 +31,7 @@ protected:
         });
         copper.setProperty("thermal_conductivity", 401.0);
         copper.setProperty("density", 8960.0);
-        copper.setProperty("specific_heat", 385.0);
+        copper.setProperty("thermal_capacity", 385.0);
 
         problem = std::make_unique<Core::Problem>(std::move(mesh));
         problem->addField(std::make_unique<Physics::Current3D>(copper));
