@@ -49,7 +49,7 @@ namespace Physics {
 
         virtual void setup(Core::Mesh &mesh, Core::DOFManager &dof_manager) = 0;
 
-        virtual void assemble() = 0;
+        virtual void assemble(const PhysicsField *coupled_field = nullptr) = 0;
 
         void addBC(std::unique_ptr<Core::BoundaryCondition> bc);
 
@@ -106,9 +106,10 @@ namespace Physics {
         void enable() { enabled = true; }
         void disable() { enabled = false; }
         bool isEnabled() const { return enabled; }
+        std::vector<int> get_element_dofs(Core::Element *elem) const; // New function for getting DOFs
 
     protected:
-        std::vector<int> get_element_dofs(Core::Element *elem) const; // New function for getting DOFs
+
         Core::Mesh *mesh_ = nullptr;
         Core::DOFManager *dof_manager_ = nullptr;
         bool enabled = true;

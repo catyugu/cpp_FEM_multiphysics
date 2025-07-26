@@ -18,7 +18,7 @@ namespace Physics {
 
 
         void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
-        void assemble() override;
+        void assemble(const PhysicsField *coupled_field) override;
 
     private:
         const Core::Material& material_;

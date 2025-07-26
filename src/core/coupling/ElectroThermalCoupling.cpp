@@ -102,7 +102,8 @@ namespace Core {
                     }
                     total_element_power = integrated_joule_heat;
                 }
-            } else if (is_2d) {
+            }
+            else if (is_2d) {
                 if (auto* tri_elem = dynamic_cast<TriElement*>(elem_ptr)) {
                     tri_elem->setOrder(emag_field_->getElementOrder());
                     auto emag_fe_values = tri_elem->create_fe_values(emag_field_->getElementOrder());

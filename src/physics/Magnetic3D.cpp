@@ -28,7 +28,7 @@ void Magnetic3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     U_prev_.setZero();
 }
 
-void Magnetic3D::assemble() {
+void Magnetic3D::assemble(const PhysicsField *coupled_field) {
     auto& logger = Utils::Logger::instance();
     logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 

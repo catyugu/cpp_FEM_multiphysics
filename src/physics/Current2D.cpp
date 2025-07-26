@@ -27,7 +27,7 @@ namespace Physics {
     }
 
 
-    void Current2D::assemble() {
+    void Current2D::assemble(const PhysicsField *coupled_field) {
         auto& logger = Utils::Logger::instance();
         logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 

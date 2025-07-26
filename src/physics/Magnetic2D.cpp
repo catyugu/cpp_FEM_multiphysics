@@ -28,7 +28,7 @@ void Magnetic2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
 }
 
 
-void Magnetic2D::assemble() {
+void Magnetic2D::assemble(const PhysicsField *coupled_field) {
     auto& logger = Utils::Logger::instance();
     logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 

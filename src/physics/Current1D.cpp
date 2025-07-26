@@ -23,7 +23,7 @@ namespace Physics {
         F_.setZero();
         U_.setZero();
     }
-  void Current1D::assemble() {
+  void Current1D::assemble(const PhysicsField *coupled_field) {
         auto& logger = Utils::Logger::instance();
         logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
