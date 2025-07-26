@@ -38,6 +38,7 @@ namespace Core {
         if (!emag_field_ || !heat_field_) return;
 
         const std::string joule_heat_tag = "joule_heating_source";
+        // 1. 清除上一迭代步的焦耳热源
         heat_field_->removeSourcesByTag(joule_heat_tag);
 
         auto& logger = Utils::Logger::instance();
@@ -50,7 +51,7 @@ namespace Core {
 
         for (const auto& elem_ptr : mesh->getElements()) {
             double total_element_power = 0.0;
-            int quad_order = 2; // Or a more appropriate order
+            int quad_order = 2;
 
             elem_ptr->setOrder(emag_field_->getElementOrder());
             const auto& emag_ref_data = Core::ReferenceElementCache::get(elem_ptr->getTypeName(), elem_ptr->getNodes().size(), emag_field_->getElementOrder(), quad_order);
@@ -98,6 +99,7 @@ namespace Core {
             }
             total_element_power = integrated_joule_heat;
 
+            // 2. 将新计算的焦耳热作为一个VolumetricSource对象添加到热场中
             if (total_element_power > 0) {
                 auto source = std::make_unique<VolumetricSource>(
                     elem_ptr->getId(), total_element_power, joule_heat_tag

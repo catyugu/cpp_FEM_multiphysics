@@ -1,13 +1,11 @@
 #include "physics/PhysicsField.hpp"
-
 #include <core/mesh/LineElement.hpp>
 #include <core/mesh/TetElement.hpp>
 #include <core/mesh/TriElement.hpp>
-
 #include "utils/SimpleLogger.hpp"
+#include <set> // 确保包含 set
 
 namespace Physics {
-    // ... (addBC, addBCs, applyBCs, applySources, removeBCsByTag, etc. remain unchanged) ...
     void PhysicsField::addBC(std::unique_ptr<Core::BoundaryCondition> bc) {
         bcs_.push_back(std::move(bc));
     }
@@ -20,20 +18,60 @@ namespace Physics {
         auto &logger = Utils::Logger::instance();
         logger.info("Applying ", bcs_.size(), " defined BCs for ", getName());
 
-        std::map<int, const Core::BoundaryCondition *> consolidated_bcs;
-        for (const auto &bc: bcs_) {
-            if (bc->getEquationIndex() != -1) {
-                consolidated_bcs[bc->getEquationIndex()] = bc.get();
+        // --- 高效的批量边界条件处理 ---
+        std::map<int, double> dirichlet_dofs;
+        std::vector<const Core::BoundaryCondition*> other_bcs;
+
+        // 1. 分离狄利克雷和其他边界条件
+        for (const auto& bc : bcs_) {
+            if (auto* dirichlet = dynamic_cast<const Core::DirichletBC*>(bc.get())) {
+                if (dirichlet->getEquationIndex() != -1) {
+                    // 使用 .at(0) 因为我们的BC值都是1维向量
+                    dirichlet_dofs[dirichlet->getEquationIndex()] = dirichlet->getValue()(0);
+                }
+            } else {
+                other_bcs.push_back(bc.get());
             }
         }
 
-        logger.info("Applying ", consolidated_bcs.size(), " unique, consolidated BCs.");
+        logger.info("Applying ", dirichlet_dofs.size(), " unique, consolidated Dirichlet BCs.");
 
-        for (const auto &pair: consolidated_bcs) {
-            pair.second->apply(K_, F_);
+        // 2. 批量修改 F 向量
+        Eigen::VectorXd U_bc = Eigen::VectorXd::Zero(K_.rows());
+        for (const auto& pair : dirichlet_dofs) {
+            U_bc(pair.first) = pair.second;
+        }
+        F_ -= K_ * U_bc;
+
+        // 3. 批量修改 K 矩阵
+        std::set<int> dirichlet_indices;
+        for(const auto& pair : dirichlet_dofs) {
+            dirichlet_indices.insert(pair.first);
+        }
+
+        for (int k=0; k < K_.outerSize(); ++k) {
+            for (Eigen::SparseMatrix<double>::InnerIterator it(K_, k); it; ++it) {
+                if (dirichlet_indices.count(it.row()) || dirichlet_indices.count(it.col())) {
+                    if (it.row() == it.col()) {
+                        it.valueRef() = 1.0; // 对角线元素设为1
+                    } else {
+                        it.valueRef() = 0.0; // 非对角线元素设为0
+                    }
+                }
+            }
+        }
+        K_.prune(0.0); // 移除被置为0的元素
+
+        // 4. 最终设置 F 向量
+        for (const auto& pair : dirichlet_dofs) {
+            F_(pair.first) = pair.second;
+        }
+
+        // 5. 应用其他类型的边界条件 (Neumann, Cauchy)
+        for (const auto& bc : other_bcs) {
+            bc->apply(K_, F_);
         }
     }
-
 
     void PhysicsField::applySources() {
         F_.setZero();
@@ -42,14 +80,12 @@ namespace Physics {
         }
     }
 
-
     void PhysicsField::removeBCsByTag(const std::string &tag) {
         if (tag.empty()) return;
         auto it = std::remove_if(bcs_.begin(), bcs_.end(),
                                  [&](const std::unique_ptr<Core::BoundaryCondition> &bc_ptr) {
                                      return bc_ptr->getTag() == tag;
                                  });
-
         if (it != bcs_.end()) {
             bcs_.erase(it, bcs_.end());
         }
@@ -64,7 +100,6 @@ namespace Physics {
                                  [&](const std::unique_ptr<Core::SourceTerm> &source_ptr) {
                                      return source_ptr->getTag() == tag;
                                  });
-
         if (it != source_terms_.end()) {
             source_terms_.erase(it, source_terms_.end());
         }
@@ -86,7 +121,6 @@ namespace Physics {
         element_order_ = order;
     }
 
-
     const Eigen::VectorXd &PhysicsField::getPreviousSolution() const {
         return U_prev_;
     }
@@ -95,10 +129,8 @@ namespace Physics {
         if (U_.size() > 0) {
             U_.setConstant(initial_value);
             U_prev_ = U_;
-            Utils::Logger::instance().info("Set initial condition for '", getVariableName(), "' to ", initial_value);
         } else {
-            Utils::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(),
-                                            "'.");
+            Utils::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(), "'.");
         }
     }
 
@@ -109,10 +141,8 @@ namespace Physics {
                 U_(i) = func(mesh_->getNode(i));
             }
             U_prev_ = U_;
-            Utils::Logger::instance().info("Set initial condition for '", getVariableName(), "' to ", func);
         } else {
-            Utils::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(),
-                                            "'.");
+            Utils::Logger::instance().error("Cannot set initial conditions before field setup for '", getVariableName(), "'.");
         }
     }
 
@@ -170,4 +200,4 @@ namespace Physics {
     const Eigen::SparseMatrix<double> &PhysicsField::getMassMatrix() const { return M_; }
     const Eigen::VectorXd &PhysicsField::getRHS() const { return F_; }
     const Eigen::VectorXd &PhysicsField::getSolution() const { return U_; }
-} // namespace Physics
+}
