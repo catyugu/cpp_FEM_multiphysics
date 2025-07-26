@@ -147,7 +147,6 @@ namespace Solver {
                 Eigen::SparseMatrix<double> K_emag_solve = emag_field->getStiffnessMatrix();
                 Eigen::VectorXd F_emag_solve = emag_field->getRHS();
 
-                // Stabilize for Temperature DOFs
                 for (const auto& node : nodes) {
                     int temp_dof = dof_manager.getEquationIndex(node->getId(), "Temperature");
                     if (temp_dof != -1) {
