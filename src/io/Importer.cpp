@@ -1,8 +1,8 @@
 #include "io/Importer.hpp"
 #include <core/mesh/Mesh.hpp>
 #include <core/mesh/Node.hpp>
-#include <core/mesh/TriElement.hpp> // For 2D meshes
-#include <core/mesh/TetElement.hpp> // For 3D meshes
+#include <core/mesh/TriElement.hpp>
+#include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "utils/Exceptions.hpp"
 #include <fstream>
@@ -24,9 +24,27 @@ namespace IO {
 
         auto mesh = std::make_unique<Core::Mesh>();
         int element_id_counter = 0;
+        int sdim = 0; // 存储空间维度
         std::string line;
 
-        // --- Pass 1: Read all Vertices/Nodes ---
+        file.clear();
+        file.seekg(0, std::ios::beg);
+
+        // --- 预扫描: 找到空间维度 sdim ---
+        while (std::getline(file, line)) {
+            if (line.find("# sdim") != std::string::npos) {
+                std::stringstream ss(line);
+                ss >> sdim;
+                logger.info("Detected spatial dimension (sdim) = ", sdim);
+                break;
+            }
+        }
+        if (sdim == 0) {
+            throw Exception::FileIOException("Could not determine spatial dimension (sdim) from mesh file.");
+        }
+
+
+        // --- Pass 1: 读取所有顶点/节点 ---
         file.clear();
         file.seekg(0, std::ios::beg);
         logger.info("Pass 1: Reading mesh vertices...");
@@ -40,7 +58,7 @@ namespace IO {
 
                 for (int i = 0; i < num_vertices && std::getline(file, line); ++i) {
                     std::stringstream data_ss(line);
-                    double x, y, z = 0.0;
+                    double x = 0.0, y = 0.0, z = 0.0;
                     data_ss >> x >> y >> z;
                     int node_id = mesh->getNodes().size();
                     mesh->addNode(new Core::Node(node_id, x, y, z));
@@ -50,19 +68,19 @@ namespace IO {
             }
         }
 
-        // --- Pass 2: Read all Triangle Elements (if any) ---
+        // --- Pass 2: 只读取与问题维度相符的单元 ---
         file.clear();
         file.seekg(0, std::ios::beg);
-        logger.info("Pass 2: Reading triangle elements...");
+        logger.info("Pass 2: Reading mesh elements for ", sdim, "D problem...");
+        int loaded_elements = 0;
         while (std::getline(file, line)) {
-            if (line.find("tri # type name") != std::string::npos) {
+            // 如果是2D问题，只读取三角形单元
+            if (sdim == 2 && line.find("tri # type name") != std::string::npos) {
                 while (std::getline(file, line) && line.find("# number of elements") == std::string::npos);
                 int num_elements = 0;
                 std::stringstream ss(line);
                 ss >> num_elements;
-
                 while (std::getline(file, line) && line.find("# Elements") == std::string::npos);
-
                 for (int i = 0; i < num_elements && std::getline(file, line); ++i) {
                     std::stringstream data_ss(line);
                     int n1, n2, n3;
@@ -73,69 +91,56 @@ namespace IO {
                         tri_elem->addNode(mesh->getNode(n3));
                         tri_elem->update_geometry();
                         mesh->addElement(tri_elem);
+                        loaded_elements++;
                     }
                 }
-                break;
             }
-        }
-
-        // --- Pass 3: Read all Tetrahedron Elements (if any) ---
-           while (std::getline(file, line)) {
-        if (line.find("tet # type name") != std::string::npos) {
-            while (std::getline(file, line) && line.find("# number of elements") == std::string::npos);
-            int num_elements = 0;
-            std::stringstream ss(line);
-            ss >> num_elements;
-
-            while (std::getline(file, line) && line.find("# Elements") == std::string::npos);
-
-            for (int i = 0; i < num_elements && std::getline(file, line); ++i) {
-                std::stringstream data_ss(line);
-                int n_id1, n_id2, n_id3, n_id4; // Read raw node IDs
-                if (data_ss >> n_id1 >> n_id2 >> n_id3 >> n_id4) {
-                    auto *tet_elem = new Core::TetElement(element_id_counter++);
-
-                    // Get actual Node* pointers based on IDs from file
-                    std::vector<Core::Node*> current_nodes_order = {
-                        mesh->getNode(n_id1),
-                        mesh->getNode(n_id2),
-                        mesh->getNode(n_id3),
-                        mesh->getNode(n_id4)
-                    };
-
-                    // Add nodes initially in the order read from the file
-                    for (Core::Node* node_ptr : current_nodes_order) {
-                        tet_elem->addNode(node_ptr);
-                    }
-                    tet_elem->update_geometry(); // Calculate initial geometry and signed volume
-
-                    // Check signed volume and reorder if negative (inverted element)
-                    if (tet_elem->getVolume() < 0) {
-                        logger.warn("Tetrahedron element ", tet_elem->getId(), " has negative signed volume (", tet_elem->getVolume(), "). Attempting to reorder nodes.");
-
-                        // A common fix is to swap the last two nodes (indices 2 and 3 in a 0-indexed array)
-                        std::swap(current_nodes_order[2], current_nodes_order[3]);
-
-                        // Use the new protected method to update the element's internal node list
-                        tet_elem->set_nodes_internal(current_nodes_order);
-                        tet_elem->update_geometry(); // Recalculate geometry with the new, corrected order
-
-                        if (tet_elem->getVolume() < 0) {
-                            // If still negative after a common swap, it indicates a more complex inversion
-                            // or a truly degenerate element that cannot be fixed by simple reordering.
-                            logger.error("Tetrahedron element ", tet_elem->getId(), " still has negative signed volume after reordering attempt. Volume: ", tet_elem->getVolume());
-                            throw Exception::SolverException("Degenerate or inverted tetrahedron element encountered in mesh import, unable to fix by reordering.");
-                        } else {
-                            logger.info("Tetrahedron element ", tet_elem->getId(), " reordered successfully. New signed volume: ", tet_elem->getVolume());
+            // 如果是3D问题，只读取四面体单元
+            else if (sdim == 3 && line.find("tet # type name") != std::string::npos) {
+                while (std::getline(file, line) && line.find("# number of elements") == std::string::npos);
+                int num_elements = 0;
+                std::stringstream ss(line);
+                ss >> num_elements;
+                while (std::getline(file, line) && line.find("# Elements") == std::string::npos);
+                for (int i = 0; i < num_elements && std::getline(file, line); ++i) {
+                    std::stringstream data_ss(line);
+                    int n1, n2, n3, n4;
+                    if (data_ss >> n1 >> n2 >> n3 >> n4) {
+                        auto *tet_elem = new Core::TetElement(element_id_counter++);
+                         std::vector<Core::Node*> current_nodes_order = {
+                            mesh->getNode(n1), mesh->getNode(n2), mesh->getNode(n3), mesh->getNode(n4)
+                        };
+                        for (Core::Node* node_ptr : current_nodes_order) {
+                            tet_elem->addNode(node_ptr);
                         }
+                        tet_elem->update_geometry();
+                        double volume = tet_elem->getVolume();
+
+                        if (std::abs(volume) < 1e-12) {
+                            logger.warn("Degenerate (zero volume) element ", tet_elem->getId(), " skipped.");
+                            delete tet_elem;
+                            continue;
+                        }
+
+                        if (volume < 0) {
+                             std::swap(current_nodes_order[2], current_nodes_order[3]);
+                             tet_elem->set_nodes_internal(current_nodes_order);
+                             tet_elem->update_geometry();
+                             if (tet_elem->getVolume() < 0) {
+                                logger.error("Inverted element ", tet_elem->getId(), " could not be fixed. Skipping.");
+                                delete tet_elem;
+                                continue;
+                             }
+                        }
+                        mesh->addElement(tet_elem);
+                        loaded_elements++;
                     }
-                    mesh->addElement(tet_elem);
                 }
             }
-            break;
         }
-    }
-        logger.info("Import finished. Total: ", mesh->getNodes().size(), " nodes, ", mesh->getElements().size(), " elements.");
+
+        logger.info("Import finished. Loaded ", loaded_elements, " dimensionally-correct elements.");
+        logger.info("Total: ", mesh->getNodes().size(), " nodes, ", mesh->getElements().size(), " elements.");
 
         if (mesh->getNodes().empty() || mesh->getElements().empty()) {
             throw Exception::FileIOException(
@@ -145,6 +150,7 @@ namespace IO {
         return mesh;
     }
 
+    // ... (rest of the file remains unchanged) ...
     std::unique_ptr<Core::Mesh> Importer::read_gmsh_msh(const std::string &filename) {
         auto &logger = Utils::Logger::instance();
         logger.info("Importing Gmsh mesh from file: ", filename);
@@ -334,4 +340,4 @@ namespace IO {
         logger.info("Finished reading VTU. Found ", vtu_data.points.size(), " points.");
         return vtu_data;
     }
-} // namespace IO
+}
