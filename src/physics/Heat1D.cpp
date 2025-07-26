@@ -29,7 +29,7 @@ void Heat1D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     U_prev_.setZero();
 }
 
-void Heat1D::assemble() {
+void Heat1D::assemble(const PhysicsField *coupled_field) {
     auto& logger = Utils::Logger::instance();
     logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
@@ -38,7 +38,7 @@ void Heat1D::assemble() {
     applySources();
 
     const double k = material_.getProperty("thermal_conductivity");
-    const double rho_cp = material_.getProperty("density") * material_.getProperty("specific_heat");
+    const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
 
     std::vector<Eigen::Triplet<double>> k_triplets, m_triplets;
 
@@ -47,7 +47,7 @@ void Heat1D::assemble() {
             line_elem->setOrder(element_order_);
 
             auto fe_values = line_elem->create_fe_values(element_order_);
-            const auto dofs = get_element_dofs(line_elem);
+            const auto dofs = getElementDofs(line_elem);
             const size_t num_elem_nodes = line_elem->getNumNodes();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);

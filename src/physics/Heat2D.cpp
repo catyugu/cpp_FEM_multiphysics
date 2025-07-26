@@ -25,7 +25,7 @@ void Heat2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     U_prev_.resize(num_eq,1); U_prev_.setZero();
 }
 
-void Heat2D::assemble() {
+void Heat2D::assemble(const PhysicsField *coupled_field) {
     auto& logger = Utils::Logger::instance();
     logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
@@ -34,7 +34,7 @@ void Heat2D::assemble() {
     applySources(); // Apply source terms to F_
 
     const double k_therm = material_.getProperty("thermal_conductivity");
-    const double rho_cp = material_.getProperty("density") * material_.getProperty("specific_heat");
+    const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
     const Eigen::Matrix2d D = Eigen::Matrix2d::Identity() * k_therm;
 
     std::vector<Eigen::Triplet<double>> k_triplets;
@@ -49,7 +49,7 @@ void Heat2D::assemble() {
             auto fe_values = tri_elem->create_fe_values(element_order_);
 
             // 2. Get the correct DOF indices from the centralized function.
-            const auto dofs = get_element_dofs(tri_elem);
+            const auto dofs = getElementDofs(tri_elem);
             const size_t num_elem_nodes = tri_elem->getNumNodes();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);

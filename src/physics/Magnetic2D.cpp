@@ -28,7 +28,7 @@ void Magnetic2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
 }
 
 
-void Magnetic2D::assemble() {
+void Magnetic2D::assemble(const PhysicsField *coupled_field) {
     auto& logger = Utils::Logger::instance();
     logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
@@ -45,7 +45,7 @@ void Magnetic2D::assemble() {
             tri_elem->setOrder(element_order_);
 
             auto fe_values = tri_elem->create_fe_values(element_order_);
-            const auto dofs = get_element_dofs(tri_elem);
+            const auto dofs = getElementDofs(tri_elem);
             const size_t num_elem_nodes = tri_elem->getNumNodes();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);

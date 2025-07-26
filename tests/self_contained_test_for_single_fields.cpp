@@ -74,7 +74,7 @@ TEST(HigherOrderSingleFieldTest, Current1D_Order2) {
 TEST(HigherOrderSingleFieldTest, Heat1D_Order2) {
     Core::Material material("Test");
     material.setProperty("thermal_conductivity", 1.0);
-    material.setProperty("specific_heat", 1.0);
+    material.setProperty("thermal_capacity", 1.0);
     material.setProperty("density", 1.0);
     auto problem = std::make_unique<Core::Problem>(std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_1d_mesh(1.0, 10)));
 
@@ -154,7 +154,7 @@ TEST(HigherOrderSingleFieldTest, Heat2D_Order2) {
     Core::Material material("Test");
     material.setProperty("thermal_conductivity", 1.0);
     material.setProperty("density", 1.0);
-    material.setProperty("specific_heat", 1.0);
+    material.setProperty("thermal_capacity", 1.0);
     setup_and_validate_2D_problem("Temperature", new Physics::Heat2D(material));
 }
 
@@ -255,7 +255,7 @@ TEST(HigherOrderSingleFieldTest, Heat3D_Order2) {
     Core::Material material("TestMaterial");
     material.setProperty("thermal_conductivity", 1.0);
     material.setProperty("density", 1.0);
-    material.setProperty("specific_heat", 1.0);
+    material.setProperty("thermal_capacity", 1.0);
     setup_and_validate_3D_problem("Temperature", new Physics::Heat3D(material));
 }
 

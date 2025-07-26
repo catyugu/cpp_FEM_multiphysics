@@ -32,7 +32,7 @@ void Heat3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     U_prev_.setZero();
 }
 
-void Heat3D::assemble() {
+void Heat3D::assemble(const PhysicsField *coupled_field) {
     auto& logger = Utils::Logger::instance();
     logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
@@ -41,7 +41,7 @@ void Heat3D::assemble() {
     applySources(); // Apply source terms to F_
 
     const Eigen::Matrix3d D_mat = Eigen::Matrix3d::Identity() * k_;
-    const double rho_cp = material_.getProperty("density") * material_.getProperty("specific_heat");
+    const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
 
     std::vector<Eigen::Triplet<double>> k_triplets;
     std::vector<Eigen::Triplet<double>> m_triplets;
@@ -56,7 +56,7 @@ void Heat3D::assemble() {
             auto fe_values = tet_elem->create_fe_values(element_order_); // Use element_order_ for quad_order too for simplicity
 
             // 2. Get the correct DOF indices from the centralized function.
-            const auto dofs = get_element_dofs(tet_elem);
+            const auto dofs = getElementDofs(tet_elem);
             const size_t num_elem_nodes = tet_elem->getNumNodes(); // This now correctly reflects the order
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);

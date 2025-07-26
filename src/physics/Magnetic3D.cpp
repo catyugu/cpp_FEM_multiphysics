@@ -28,7 +28,7 @@ void Magnetic3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     U_prev_.setZero();
 }
 
-void Magnetic3D::assemble() {
+void Magnetic3D::assemble(const PhysicsField *coupled_field) {
     auto& logger = Utils::Logger::instance();
     logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
@@ -45,7 +45,7 @@ void Magnetic3D::assemble() {
         if (tet_elem) {
             tet_elem->setOrder(element_order_);
             auto fe_values = tet_elem->create_fe_values(element_order_);
-            const auto dofs = get_element_dofs(tet_elem);
+            const auto dofs = getElementDofs(tet_elem);
             const size_t num_elem_nodes = tet_elem->getNumNodes();
             const int num_components = getNumComponents();
 

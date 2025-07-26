@@ -119,7 +119,7 @@ namespace Physics {
         }
     }
 
-    std::vector<int> PhysicsField::get_element_dofs(Core::Element* elem) const {
+    std::vector<int> PhysicsField::getElementDofs(Core::Element* elem) const {
         const auto& vertex_nodes = elem->getNodes();
         const size_t num_vertices = vertex_nodes.size();
         elem->setOrder(element_order_);

@@ -13,7 +13,7 @@ namespace Solver {
                 continue;
             }
             logger.info("Solving for field: ", field->getName());
-            field->assemble();
+            field->assemble(nullptr);
             field->applySources(); // Apply sources AFTER assembly
             field->applyBCs();
 
@@ -29,7 +29,7 @@ namespace Solver {
         auto &logger = Utils::Logger::instance();
         logger.info("\n--- Solving Single-Field Transient Problem ---");
         auto* field = problem.getFields()[0].get(); // Assuming one field
-        field->assemble();
+        field->assemble(nullptr);
 
         Eigen::SparseMatrix<double> A_eff;
         Eigen::VectorXd b_eff;
