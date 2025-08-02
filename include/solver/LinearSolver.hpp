@@ -26,7 +26,7 @@ namespace Solver {
          * @param tolerance Convergence tolerance for iterative solvers.
          */
         static void solve(const Eigen::SparseMatrix<double>& A, const Eigen::VectorXd& b, Eigen::VectorXd& x,
-                          SolverType solver_type = SolverType::LU,
+                          SolverType solver_type = SolverType::BiCGSTAB,
                           int max_iterations = 1000, double tolerance = 1e-9) {
             auto& logger = Utils::Logger::instance();
             logger.info("Starting linear solve...");
