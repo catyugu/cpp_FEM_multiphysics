@@ -2,6 +2,7 @@
 #include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "core/FEValues.hpp"
+#include "core/ReferenceElement.hpp"
 #include "utils/Exceptions.hpp"
 #include <cmath>
 
@@ -10,7 +11,7 @@ namespace Physics {
 Magnetic3D::Magnetic3D(const Core::Material& material) : material_(material) {}
 
 const char* Magnetic3D::getName() const { return "Magnetic Field 3D"; }
-const char* Magnetic3D::getVariableName() const { return "MagneticPotential"; }
+const char* Magnetic3D::getVariableName() const { return "MagneticVectorPotential"; }
 
 void Magnetic3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     mesh_ = &mesh;
@@ -28,50 +29,52 @@ void Magnetic3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     U_prev_.setZero();
 }
 
-void Magnetic3D::assemble() {
+void Magnetic3D::assemble(const PhysicsField *coupled_field) {
     auto& logger = Utils::Logger::instance();
     logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
     K_.setZero();
     F_.setZero();
 
-    const double mu = material_.getProperty("magnetic_permeability");
-    const double inv_mu = 1.0 / mu;
-    Eigen::Matrix3d D = Eigen::Matrix3d::Identity() * inv_mu;
+    const double inv_mu = 1.0 / material_.getProperty("magnetic_permeability");
 
     std::vector<Eigen::Triplet<double>> triplet_list;
 
     for (const auto& elem_ptr : mesh_->getElements()) {
         auto* tet_elem = dynamic_cast<Core::TetElement*>(elem_ptr);
         if (tet_elem) {
-            // Set the element's mathematical order before creating FEValues
             tet_elem->setOrder(element_order_);
 
-            // 1. Create the FEValues calculator for this element.
-            auto fe_values = tet_elem->create_fe_values(element_order_);
+            const auto& ref_data = Core::ReferenceElementCache::get(tet_elem->getTypeName(), tet_elem->getNodes().size(), element_order_, element_order_);
+            Core::FEValues fe_values(tet_elem->getGeometry(), element_order_, ref_data);
 
-            // 2. Get the correct DOF indices from the centralized function.
-            const auto dofs = get_element_dofs(tet_elem);
+            const auto dofs = getElementDofs(tet_elem);
             const size_t num_elem_nodes = tet_elem->getNumNodes();
+            const int num_components = getNumComponents();
 
-            Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
+            Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes * num_components, num_elem_nodes * num_components);
 
-            // 3. Loop over quadrature points using FEValues.
-            for(size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-                fe_values->reinit(q_p);
+            for(size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
+                fe_values.reinit(q_p);
+                const auto& grad_N = fe_values.get_shape_gradients();
+                const double detJ_x_w = fe_values.get_detJ_times_weight();
 
-                // 4. Get pre-calculated values (gradients in REAL coordinates).
-                const auto& B = fe_values->get_shape_gradients(); // This is the B matrix (∇N)
-                const double detJ_x_w = fe_values->get_detJ_times_weight(); // This is det(J) * w_q
+                Eigen::MatrixXd B_curl(3, num_elem_nodes * 3);
+                B_curl.setZero();
+                for(size_t i = 0; i < num_elem_nodes; ++i) {
+                    double dN_dx = grad_N(0, i);
+                    double dN_dy = grad_N(1, i);
+                    double dN_dz = grad_N(2, i);
 
-                // 5. Compute local matrices using these values.
-                // For Magnetic, it's integral( (∇N)^T * D * (∇N) dV )
-                ke_local += B.transpose() * D * B * detJ_x_w;
+                    B_curl(0, i*3 + 1) = -dN_dz; B_curl(0, i*3 + 2) =  dN_dy;
+                    B_curl(1, i*3 + 0) =  dN_dz; B_curl(1, i*3 + 2) = -dN_dx;
+                    B_curl(2, i*3 + 0) = -dN_dy; B_curl(2, i*3 + 1) =  dN_dx;
+                }
+                ke_local += B_curl.transpose() * inv_mu * B_curl * detJ_x_w;
             }
 
-            // Assembly into global triplet list remains the same
-            for (size_t i = 0; i < num_elem_nodes; ++i) {
-                for (size_t j = 0; j < num_elem_nodes; ++j) {
+            for (size_t i = 0; i < dofs.size(); ++i) {
+                for (size_t j = 0; j < dofs.size(); ++j) {
                     if (dofs[i] != -1 && dofs[j] != -1) {
                         triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
                     }

@@ -35,8 +35,10 @@ namespace Post {
             Core::Element* elem = mesh.getElements()[i];
             elem->setOrder(heat_field->getElementOrder());
 
-            auto fe_values = elem->create_fe_values(heat_field->getElementOrder());
-            const auto dofs = heat_field->get_element_dofs(elem);
+            const auto& ref_data = Core::ReferenceElementCache::get(elem->getTypeName(), elem->getNodes().size(), heat_field->getElementOrder(), heat_field->getElementOrder());
+            Core::FEValues fe_values(elem->getGeometry(), heat_field->getElementOrder(), ref_data);
+
+            const auto dofs = heat_field->getElementDofs(elem);
 
             Eigen::VectorXd nodal_temperatures(dofs.size());
             for (size_t j = 0; j < dofs.size(); ++j) {
@@ -44,10 +46,10 @@ namespace Post {
             }
 
             // Store the flux vector for each quadrature point of the element
-            result.data[i].resize(fe_values->num_quadrature_points());
-            for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-                fe_values->reinit(q_p);
-                const auto& B = fe_values->get_shape_gradients(); // B is ∇N
+            result.data[i].resize(fe_values.num_quadrature_points());
+            for (size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
+                fe_values.reinit(q_p);
+                const auto& B = fe_values.get_shape_gradients(); // B is ∇N
                 Eigen::VectorXd grad_T = B * nodal_temperatures;
                 result.data[i][q_p] = -k_therm * grad_T;
             }

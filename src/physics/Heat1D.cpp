@@ -1,7 +1,8 @@
 #include "physics/Heat1D.hpp"
 #include "utils/SimpleLogger.hpp"
 #include <core/mesh/LineElement.hpp>
-#include "core/FEValues.hpp" // Use the FEValues calculator
+#include "core/FEValues.hpp"
+#include "core/ReferenceElement.hpp"
 #include "core/sources/SourceTerm.hpp"
 
 namespace Physics {
@@ -29,7 +30,7 @@ void Heat1D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
     U_prev_.setZero();
 }
 
-void Heat1D::assemble() {
+void Heat1D::assemble(const PhysicsField *coupled_field) {
     auto& logger = Utils::Logger::instance();
     logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
@@ -38,7 +39,7 @@ void Heat1D::assemble() {
     applySources();
 
     const double k = material_.getProperty("thermal_conductivity");
-    const double rho_cp = material_.getProperty("density") * material_.getProperty("specific_heat");
+    const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
 
     std::vector<Eigen::Triplet<double>> k_triplets, m_triplets;
 
@@ -46,18 +47,20 @@ void Heat1D::assemble() {
         if (auto* line_elem = dynamic_cast<Core::LineElement*>(elem_ptr)) {
             line_elem->setOrder(element_order_);
 
-            auto fe_values = line_elem->create_fe_values(element_order_);
-            const auto dofs = get_element_dofs(line_elem);
+            const auto& ref_data = Core::ReferenceElementCache::get(line_elem->getTypeName(), line_elem->getNodes().size(), element_order_, element_order_);
+            Core::FEValues fe_values(line_elem->getGeometry(), element_order_, ref_data);
+
+            const auto dofs = getElementDofs(line_elem);
             const size_t num_elem_nodes = line_elem->getNumNodes();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
             Eigen::MatrixXd me_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-            for(size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-                fe_values->reinit(q_p);
-                const auto& N = fe_values->get_shape_values();
-                const auto& B = fe_values->get_shape_gradients();
-                const double detJ_x_w = fe_values->get_detJ_times_weight();
+            for(size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
+                fe_values.reinit(q_p);
+                const auto& N = fe_values.get_shape_values();
+                const auto& B = fe_values.get_shape_gradients();
+                const double detJ_x_w = fe_values.get_detJ_times_weight();
 
                 ke_local += B.transpose() * k * B * detJ_x_w;
                 me_local += N * rho_cp * N.transpose() * detJ_x_w;

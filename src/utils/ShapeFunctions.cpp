@@ -4,69 +4,45 @@
 
 namespace Utils {
 
-// Helper for Lagrangian polynomials
-double lagrange_basis(int order, int i, double xi, const std::vector<double>& points) {
-    double result = 1.0;
-    for (int j = 0; j <= order; ++j) {
-        if (i == j) continue;
-        result *= (xi - points[j]) / (points[i] - points[j]);
-    }
-    return result;
-}
-
-double lagrange_basis_derivative(int order, int i, double xi, const std::vector<double>& points) {
-    double result = 0.0;
-    for (int k = 0; k <= order; ++k) {
-        if (k == i) continue;
-        double term = 1.0 / (points[i] - points[k]);
-        for (int j = 0; j <= order; ++j) {
-            if (j == i || j == k) continue;
-            term *= (xi - points[j]) / (points[i] - points[j]);
-        }
-        result += term;
-    }
-    return result;
-}
-
-
 // --- 1D Line Shape Functions ---
 Eigen::VectorXd ShapeFunctions::getLineShapeFunctions(int order, double xi) {
-    int num_nodes = order + 1;
-    Eigen::VectorXd N(num_nodes);
-    std::vector<double> points(num_nodes);
-    for(int i = 0; i < num_nodes; ++i) {
-        points[i] = -1.0 + 2.0 * i / order;
+    if (order == 1) { // Linear, nodes at xi = -1, 1
+        Eigen::Vector2d N;
+        N << (1.0 - xi) / 2.0, (1.0 + xi) / 2.0;
+        return N;
     }
-
-    for (int i = 0; i < num_nodes; ++i) {
-        N(i) = lagrange_basis(order, i, xi, points);
+    if (order == 2) { // Quadratic, standard node order: xi = -1, 1, 0
+        Eigen::VectorXd N(3);
+        N(0) = 0.5 * xi * (xi - 1.0);  // N for node at xi = -1
+        N(1) = 0.5 * xi * (xi + 1.0);  // N for node at xi = +1
+        N(2) = (1.0 - xi * xi);        // N for node at xi = 0
+        return N;
     }
-    return N;
+    throw std::invalid_argument("Line shape function order > 2 not implemented with standard ordering.");
 }
 
 Eigen::VectorXd ShapeFunctions::getLineShapeFunctionDerivatives(int order, double xi) {
-    int num_nodes = order + 1;
-    Eigen::VectorXd dN_dxi(num_nodes);
-    std::vector<double> points(num_nodes);
-    for(int i = 0; i < num_nodes; ++i) {
-        points[i] = -1.0 + 2.0 * i / order;
+    if (order == 1) {
+        Eigen::Vector2d dN_dxi;
+        dN_dxi << -0.5, 0.5;
+        return dN_dxi;
     }
-
-    for (int i = 0; i < num_nodes; ++i) {
-        dN_dxi(i) = lagrange_basis_derivative(order, i, xi, points);
+    if (order == 2) {
+        Eigen::VectorXd dN_dxi(3);
+        dN_dxi(0) = 0.5 * (2.0 * xi - 1.0); // dN0/dxi
+        dN_dxi(1) = 0.5 * (2.0 * xi + 1.0); // dN1/dxi
+        dN_dxi(2) = -2.0 * xi;              // dN2/dxi
+        return dN_dxi;
     }
-    return dN_dxi;
+    throw std::invalid_argument("Line shape function derivative order > 2 not implemented with standard ordering.");
 }
 
-
-// --- 2D Triangle Shape Functions (in terms of L-coordinates) ---
+// --- 2D Triangle Shape Functions (unchanged, but provided for completeness) ---
 Eigen::VectorXd ShapeFunctions::getTriShapeFunctions(int order, double xi, double eta) {
     double L1 = 1.0 - xi - eta;
     double L2 = xi;
     double L3 = eta;
 
-    // This is a placeholder for a proper implementation based on L-coordinates
-    // For simplicity, we only implement P1 and P2 for now.
     if (order == 1) {
         Eigen::Vector3d N;
         N << L1, L2, L3;
@@ -82,56 +58,42 @@ Eigen::VectorXd ShapeFunctions::getTriShapeFunctions(int order, double xi, doubl
              4 * L3 * L1;
         return N;
     }
-
-    // Orders 3, 4, 5 would require a more general formula for the basis functions
-    // which is significantly more complex. We will throw an error for now.
     throw std::invalid_argument("Triangle shape function order > 2 not yet implemented.");
 }
 
-    Eigen::MatrixXd ShapeFunctions::getTriShapeFunctionDerivatives(int order, double xi, double eta) {
+Eigen::MatrixXd ShapeFunctions::getTriShapeFunctionDerivatives(int order, double xi, double eta) {
     double L1 = 1.0 - xi - eta;
     double L2 = xi;
     double L3 = eta;
 
     if (order == 1) {
         Eigen::MatrixXd dN(3, 2);
-        // dN/dxi, dN/deta
-        dN << -1.0, -1.0,  // N1
-               1.0,  0.0,  // N2
-               0.0,  1.0;  // N3
+        dN << -1.0, -1.0,
+               1.0,  0.0,
+               0.0,  1.0;
         return dN;
     }
     if (order == 2) {
         Eigen::MatrixXd dN(6, 2);
-        // Derivatives w.r.t. xi (the first column)
         dN(0, 0) = -1.0 * (4 * L1 - 1);
         dN(1, 0) = 4 * L2 - 1;
         dN(2, 0) = 0;
         dN(3, 0) = 4 * (L1 - L2);
         dN(4, 0) = 4 * L3;
         dN(5, 0) = -4 * L3;
-
-        // Derivatives w.r.t. eta (the second column)
         dN(0, 1) = -1.0 * (4 * L1 - 1);
         dN(1, 1) = 0;
         dN(2, 1) = 4 * L3 - 1;
         dN(3, 1) = -4 * L2;
-
-        // --- THE FIX IS HERE ---
-        // The shape function N5 is 4*L2*L3.
-        // Its derivative with respect to eta is 4 * ( (dL2/deta * L3) + (L2 * dL3/deta) )
-        // Since dL2/deta = 0 and dL3/deta = 1, the result is 4 * L2.
-        // The old code incorrectly had a different formula.
         dN(4, 1) = 4 * L2;
-
         dN(5, 1) = 4 * (L1 - L3);
         return dN;
     }
     throw std::invalid_argument("Triangle shape function derivative order > 2 not yet implemented.");
 }
 
-// --- 3D Tetrahedron Shape Functions ---
 
+// --- 3D Tetrahedron Shape Functions (unchanged, but provided for completeness) ---
 Eigen::VectorXd ShapeFunctions::getTetShapeFunctions(int order, double xi, double eta, double zeta) {
     double L1 = 1.0 - xi - eta - zeta;
     double L2 = xi;
@@ -153,35 +115,27 @@ Eigen::VectorXd ShapeFunctions::getTetShapeFunctions(int order, double xi, doubl
 }
 
 Eigen::MatrixXd ShapeFunctions::getTetShapeFunctionDerivatives(int order, double xi, double eta, double zeta) {
-    // Derivatives of L-coords w.r.t natural coords (xi, eta, zeta)
-    // dL1 = [-1, -1, -1]
-    // dL2 = [ 1,  0,  0]
-    // dL3 = [ 0,  1,  0]
-    // dL4 = [ 0,  0,  1]
-
     if (order == 1) {
         Eigen::MatrixXd dN(4, 3);
-        dN.row(0) << -1, -1, -1; // dN1
-        dN.row(1) <<  1,  0,  0; // dN2
-        dN.row(2) <<  0,  1,  0; // dN3
-        dN.row(3) <<  0,  0,  1; // dN4
+        dN.row(0) << -1, -1, -1;
+        dN.row(1) <<  1,  0,  0;
+        dN.row(2) <<  0,  1,  0;
+        dN.row(3) <<  0,  0,  1;
         return dN;
     }
      if (order == 2) {
         double L1 = 1.0 - xi - eta - zeta, L2 = xi, L3 = eta, L4 = zeta;
         Eigen::MatrixXd dN(10, 3);
-        // Derivatives of vertex nodes
-        dN.row(0) << -1*(4*L1-1), -1*(4*L1-1), -1*(4*L1-1); // dN1
-        dN.row(1) <<  1*(4*L2-1),  0,           0;          // dN2
-        dN.row(2) <<  0,           1*(4*L3-1),  0;          // dN3
-        dN.row(3) <<  0,           0,           1*(4*L4-1); // dN4
-        // Derivatives of edge nodes
-        dN.row(4) <<  4*(L1-L2),  -4*L2, -4*L2; // dN5 (L1,L2)
-        dN.row(5) <<  -4*L3, 4*(L1-L3), -4*L3; // dN6 (L1,L3)
-        dN.row(6) <<  -4*L4, -4*L4, 4*(L1-L4); // dN7 (L1,L4)
-        dN.row(7) <<   4*L3,  4*L2,  0;        // dN8 (L2,L3)
-        dN.row(8) <<   4*L4,   0,   4*L2;      // dN9 (L2,L4)
-        dN.row(9) <<   0,    4*L4,  4*L3;      // dN10(L3,L4)
+        dN.row(0) << -1*(4*L1-1), -1*(4*L1-1), -1*(4*L1-1);
+        dN.row(1) <<  1*(4*L2-1),  0,           0;
+        dN.row(2) <<  0,           1*(4*L3-1),  0;
+        dN.row(3) <<  0,           0,           1*(4*L4-1);
+        dN.row(4) <<  4*(L1-L2),  -4*L2, -4*L2;
+        dN.row(5) <<  -4*L3, 4*(L1-L3), -4*L3;
+        dN.row(6) <<  -4*L4, -4*L4, 4*(L1-L4);
+        dN.row(7) <<   4*L3,  4*L2,  0;
+        dN.row(8) <<   4*L4,   0,   4*L2;
+        dN.row(9) <<   0,    4*L4,  4*L3;
         return dN;
     }
     throw std::invalid_argument("Tetrahedron shape function derivative order > 2 not yet implemented.");

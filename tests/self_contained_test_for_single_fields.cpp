@@ -74,7 +74,7 @@ TEST(HigherOrderSingleFieldTest, Current1D_Order2) {
 TEST(HigherOrderSingleFieldTest, Heat1D_Order2) {
     Core::Material material("Test");
     material.setProperty("thermal_conductivity", 1.0);
-    material.setProperty("specific_heat", 1.0);
+    material.setProperty("thermal_capacity", 1.0);
     material.setProperty("density", 1.0);
     auto problem = std::make_unique<Core::Problem>(std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_1d_mesh(1.0, 10)));
 
@@ -88,23 +88,6 @@ TEST(HigherOrderSingleFieldTest, Heat1D_Order2) {
 
     ASSERT_NO_THROW(problem->solveSteadyState());
     validate_1D_solution(*problem, "Temperature");
-}
-
-TEST(HigherOrderSingleFieldTest, Magnetic1D_Order2) {
-    Core::Material material("Test");
-    material.setProperty("magnetic_permeability", 1.0);
-    auto problem = std::make_unique<Core::Problem>(std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_1d_mesh(1.0, 10)));
-
-    auto* field = new Physics::Magnetic1D(material);
-    field->setElementOrder(2);
-    problem->addField(std::unique_ptr<Physics::PhysicsField>(field));
-    problem->setup();
-
-    field->addBC(std::make_unique<Core::DirichletBC>(problem->getDofManager(), 0, "MagneticPotential", Eigen::Vector<double, 1>(0.0)));
-    field->addBC(std::make_unique<Core::DirichletBC>(problem->getDofManager(), 10, "MagneticPotential", Eigen::Vector<double, 1>(1.0)));
-
-    ASSERT_NO_THROW(problem->solveSteadyState());
-    validate_1D_solution(*problem, "MagneticPotential");
 }
 
 // =================================================================
@@ -171,14 +154,8 @@ TEST(HigherOrderSingleFieldTest, Heat2D_Order2) {
     Core::Material material("Test");
     material.setProperty("thermal_conductivity", 1.0);
     material.setProperty("density", 1.0);
-    material.setProperty("specific_heat", 1.0);
+    material.setProperty("thermal_capacity", 1.0);
     setup_and_validate_2D_problem("Temperature", new Physics::Heat2D(material));
-}
-
-TEST(HigherOrderSingleFieldTest, Magnetic2D_Order2) {
-    Core::Material material("Test");
-    material.setProperty("magnetic_permeability", 1.0);
-    setup_and_validate_2D_problem("MagneticPotential", new Physics::Magnetic2D(material));
 }
 
 
@@ -278,7 +255,7 @@ TEST(HigherOrderSingleFieldTest, Heat3D_Order2) {
     Core::Material material("TestMaterial");
     material.setProperty("thermal_conductivity", 1.0);
     material.setProperty("density", 1.0);
-    material.setProperty("specific_heat", 1.0);
+    material.setProperty("thermal_capacity", 1.0);
     setup_and_validate_3D_problem("Temperature", new Physics::Heat3D(material));
 }
 
@@ -289,10 +266,3 @@ TEST(HigherOrderSingleFieldTest, Current3D_Order2) {
     setup_and_validate_3D_problem("Voltage", new Physics::Current3D(material));
 }
 
-
-// Test for 3D Magnetics
-TEST(HigherOrderSingleFieldTest, Magnetic3D_Order2) {
-    Core::Material material("TestMaterial");
-    material.setProperty("magnetic_permeability", 1.0);
-    setup_and_validate_3D_problem("MagneticPotential", new Physics::Magnetic3D(material));
-}

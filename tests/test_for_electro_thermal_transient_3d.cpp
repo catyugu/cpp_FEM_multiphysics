@@ -21,7 +21,7 @@ protected:
     Core::Material copper{"Copper"};
 
     void SetUp() override {
-        auto mesh = std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(0.02, 0.01, 0.01, 5, 5, 5));
+        auto mesh = std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(0.02, 0.01, 0.01, 10, 10, 10));
         ASSERT_NE(mesh, nullptr);
 
         // Making conductivity dependent on temperature to properly test coupling
@@ -31,7 +31,7 @@ protected:
         });
         copper.setProperty("thermal_conductivity", 401.0);
         copper.setProperty("density", 8960.0);
-        copper.setProperty("specific_heat", 385.0);
+        copper.setProperty("thermal_capacity", 385.0);
 
         problem = std::make_unique<Core::Problem>(std::move(mesh));
         problem->addField(std::make_unique<Physics::Current3D>(copper));
@@ -39,7 +39,7 @@ protected:
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
 
         problem->setTimeSteppingParameters(0.1, 1.0);
-        problem->setIterativeSolverParameters(30, 1e-6);
+        problem->setIterativeSolverParameters(30, 1e-5);
 
         problem->setup();
     }

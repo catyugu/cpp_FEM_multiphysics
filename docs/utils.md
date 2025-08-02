@@ -17,15 +17,15 @@ This namespace provides general-purpose utilities that support the core numerica
 * **Supported Orders**: The class currently provides shape functions for linear (order 1) and quadratic (order 2) elements for lines, triangles, and tetrahedra. It supports up to order 5 for line elements.
 
 ### **Quadrature**
-* **Description**: A static utility class that provides sets of points and corresponding weights for performing accurate numerical integration (Gaussian Quadrature) over elements. The choice of quadrature order is critical for correctly integrating the element matrices, especially for higher-order elements.
+* **Description**: A static utility class that provides sets of points and corresponding weights for performing accurate numerical integration (Gaussian Quadrature) over reference elements.
 * **Key Static Functions**:
-  * `getLineQuadrature(int order)`: Returns quadrature points and weights for 1D line elements. Now supports up to order 5.
-  * `getTriangleQuadrature(int order)`: Returns quadrature points and weights for 2D triangle elements.
-  * `getTetrahedronQuadrature(int order)`: Returns quadrature points and weights for 3D tetrahedron elements.
+  * `getLineQuadrature(int order)`: Returns quadrature rules for 1D line elements (up to order 5).
+  * `getTriangleQuadrature(int order)`: Returns quadrature rules for 2D triangle elements (up to order 5).
+  * `getTetrahedronQuadrature(int order)`: Returns quadrature rules for 3D tetrahedron elements (up to order 5).
 * **Functionality**: Returns a `std::vector` of `QuadraturePoint` structs, each containing the coordinate of the integration point in the element's natural coordinate system and its corresponding weight.
 
 ### **SimpleLogger**
-* **Description**: A thread-safe, singleton logger for writing timestamped and color-coded messages to the console and/or a log file.
+* **Description**: A thread-safe, singleton logger for writing timestamped and color-coded messages to the console and/or a log file. It supports different log levels (info, warn, error).
 
 ### **Exceptions**
-* **Description**: A namespace containing custom exception types (`FileIOException`, `SolverException`, `ConfigurationException`) to provide more specific error information than standard exceptions.
+* **Description**: A namespace containing custom exception types (`FileIOException`, `SolverException`, `ConfigurationException`) to provide more specific error information than standard exceptions, improving debugging and error handling.
