@@ -36,19 +36,15 @@ namespace Core {
         // 获取单元几何信息
         const ElementGeometry& getGeometry();
         void update_geometry();
-
-        // ============ 工厂方法 ============
-        /**
-         * @brief 为此单元创建一个 FEValues 计算器。
-         * @param quad_order 所需的积分阶次。
-         * @return 一个配置好的 FEValues 对象的 unique_ptr。
-         */
+        void setMaterialID(int id) { material_id_ = id; }
+        int getMaterialID() const { return material_id_; }
         virtual std::unique_ptr<FEValues> createFEValues(int quad_order) = 0;
 
     protected:
         int id_;
         std::vector<Node*> nodes_;
         int order_ = 1;
+        int material_id_ = 0;
         std::unique_ptr<ElementGeometry> geometry_;
 
         void set_nodes_internal(const std::vector<Node*>& new_nodes);

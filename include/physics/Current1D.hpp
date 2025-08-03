@@ -2,26 +2,24 @@
 #define EMAG1D_HPP
 
 #include "PhysicsField.hpp"
-#include "core/Material.hpp"
+#include "core/Problem.hpp" // Include Problem to access materials
 #include <vector>
 
 namespace Physics {
 
     class Current1D : public PhysicsField {
     public:
-        explicit Current1D(const Core::Material& material);
+        explicit Current1D();
 
         const char* getName() const override;
         const char* getVariableName() const override;
-        const Core::Material& getMaterial() const override { return material_; }
         int getDimension() const override { return 1; }
+        const Core::Material& getMaterial(const Core::Element* elem) const override {
+            return problem_->getMaterial(elem->getMaterialID());
+        }
 
-
-        void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
+        void setup(Core::Problem& problem, Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
         void assemble(const PhysicsField *coupled_field) override;
-
-    private:
-        const Core::Material& material_;
     };
 
 } // namespace Physics

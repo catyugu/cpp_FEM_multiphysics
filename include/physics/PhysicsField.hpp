@@ -12,6 +12,11 @@
 #include <core/sources/SourceTerm.hpp>
 #include <functional>
 
+// Forward declarations
+namespace Core {
+    class Problem;
+}
+
 namespace Post { class HeatFluxCalculator; }
 namespace IO { class Exporter; }
 namespace Solver { class CoupledElectroThermalSolver; }
@@ -29,15 +34,15 @@ namespace Physics {
 
         virtual const char *getName() const = 0;
         virtual const char *getVariableName() const = 0;
-        virtual const Core::Material &getMaterial() const = 0;
         virtual int getDimension() const = 0;
         virtual int getNumComponents() const { return 1; }
+        virtual const Core::Material& getMaterial(const Core::Element* elem) const = 0;
 
-        virtual void setup(Core::Mesh &mesh, Core::DOFManager &dof_manager);
+        virtual void setup(Core::Problem& problem, Core::Mesh& mesh, Core::DOFManager& dof_manager);
         virtual void assemble(const PhysicsField *coupled_field = nullptr) = 0;
 
         void addBC(std::unique_ptr<Core::BoundaryCondition> bc);
-        void addBCs(std::vector<std::unique_ptr<Core::BoundaryCondition> > bcs);
+        void addBCs(std::vector<std::unique_ptr<Core::BoundaryCondition>> &&bcs);
         void applyBCs();
         const std::vector<std::unique_ptr<Core::BoundaryCondition> > &getBCs() const;
 
@@ -71,11 +76,15 @@ namespace Physics {
         void removeBCsByTag(const std::string &tag);
         void removeSourcesByTag(const std::string &tag);
 
+        // 新增获取方法
+        const std::vector<std::unique_ptr<Core::SourceTerm>>& getSources() const { return source_terms_; }
+
         void enable() { enabled = true; }
         void disable() { enabled = false; }
         bool isEnabled() const { return enabled; }
 
     protected:
+        Core::Problem* problem_ = nullptr;
         Core::Mesh *mesh_ = nullptr;
         Core::DOFManager *dof_manager_ = nullptr;
         bool enabled = true;

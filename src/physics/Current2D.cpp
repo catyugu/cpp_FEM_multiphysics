@@ -6,26 +6,18 @@
 #include "core/ReferenceElement.hpp"
 
 namespace Physics {
-    Current2D::Current2D(const Core::Material &material)
-        : material_(material) {
+    Current2D::Current2D() {
     }
 
     const char *Current2D::getName() const { return "Current 2D"; }
     const char *Current2D::getVariableName() const { return "Voltage"; }
 
-    void Current2D::setup(Core::Mesh &mesh, Core::DOFManager &dof_manager) {
-        mesh_ = &mesh;
-        dof_manager_ = &dof_manager;
+    void Current2D::setup(Core::Problem& problem, Core::Mesh &mesh, Core::DOFManager &dof_manager) {
+        // Call the base class setup
+        PhysicsField::setup(problem, mesh, dof_manager);
+
         auto &logger = Utils::Logger::instance();
-        logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
-
-        size_t num_eq = dof_manager_->getNumEquations();
-
-        K_.resize(num_eq, num_eq);
-        F_.resize(num_eq, 1);
-        U_.resize(num_eq, 1);
-        F_.setZero();
-        U_.setZero();
+        logger.info("Setting up ", getName(), " for mesh.");
     }
 
     void Current2D::assemble(const PhysicsField *coupled_field) {
@@ -45,9 +37,11 @@ namespace Physics {
         for (const auto &elem_ptr: mesh_->getElements()) {
             elem_ptr->setOrder(element_order_);
 
-            // --- 重构后的代码 ---
+            // --- NEW: Get material for the current element ---
+            const auto& material = getMaterial(elem_ptr);
+            // ------------------------------------------------
+
             auto fe_values = elem_ptr->createFEValues(element_order_);
-            // --------------------
 
             const auto dofs = getElementDofs(elem_ptr);
             const size_t num_elem_nodes = elem_ptr->getNumNodes();
@@ -71,9 +65,9 @@ namespace Physics {
                 double sigma;
                 if (heat_field) {
                     double temp_at_qp = N.transpose() * nodal_temperatures;
-                    sigma = material_.getProperty("electrical_conductivity", {{"Temperature", temp_at_qp}});
+                    sigma = material.getProperty("electrical_conductivity", {{"Temperature", temp_at_qp}});
                 } else {
-                    sigma = material_.getProperty("electrical_conductivity");
+                    sigma = material.getProperty("electrical_conductivity");
                 }
                 const Eigen::Matrix2d D = Eigen::Matrix2d::Identity() * sigma;
 

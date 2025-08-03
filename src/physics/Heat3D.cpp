@@ -7,30 +7,20 @@
 #include <cmath>
 
 namespace Physics {
-    Heat3D::Heat3D(const Core::Material &material) : material_(material), k_(0.0) {
+    Heat3D::Heat3D() : k_(0.0) {
     }
 
     const char *Heat3D::getName() const { return "Heat Transfer 3D"; }
     const char *Heat3D::getVariableName() const { return "Temperature"; }
 
-    void Heat3D::setup(Core::Mesh &mesh, Core::DOFManager &dof_manager) {
-        mesh_ = &mesh;
-        dof_manager_ = &dof_manager;
-        k_ = material_.getProperty("thermal_conductivity");
-
+    void Heat3D::setup(Core::Problem& problem, Core::Mesh &mesh, Core::DOFManager &dof_manager) {
+        // Call the base class setup
+        PhysicsField::setup(problem, mesh, dof_manager);
+        
+        // Note: We can no longer set a single 'k_' here, as it can vary per element.
+        // We will fetch it inside the assemble loop instead.
         auto &logger = Utils::Logger::instance();
-        logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
-        logger.info("-> Thermal Conductivity (k): ", k_);
-
-        size_t num_eq = dof_manager_->getNumEquations();
-        K_.resize(num_eq, num_eq);
-        M_.resize(num_eq, num_eq);
-        F_.resize(num_eq, 1);
-        U_.resize(num_eq, 1);
-        U_prev_.resize(num_eq, 1);
-        F_.setZero();
-        U_.setZero();
-        U_prev_.setZero();
+        logger.info("Setting up ", getName(), " for mesh.");
     }
 
     void Heat3D::assemble(const PhysicsField *coupled_field) {
@@ -41,18 +31,20 @@ namespace Physics {
         M_.setZero();
         applySources();
 
-        const Eigen::Matrix3d D_mat = Eigen::Matrix3d::Identity() * k_;
-        const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
-
         std::vector<Eigen::Triplet<double> > k_triplets;
         std::vector<Eigen::Triplet<double> > m_triplets;
 
         for (const auto &elem_ptr: mesh_->getElements()) {
-            elem_ptr->setOrder(element_order_); // 统一设置单元阶次
+            elem_ptr->setOrder(element_order_);
+            
+            // --- NEW: Get material for the current element ---
+            const auto& material = getMaterial(elem_ptr);
+            const double k = material.getProperty("thermal_conductivity");
+            const double rho_cp = material.getProperty("density") * material.getProperty("thermal_capacity");
+            const Eigen::Matrix3d D_mat = Eigen::Matrix3d::Identity() * k;
+            // ------------------------------------------------
 
-            // ============ 见证简化的威力！ ============
             auto fe_values = elem_ptr->createFEValues(element_order_);
-            // ==========================================
 
             const auto dofs = getElementDofs(elem_ptr);
             const size_t num_elem_nodes = elem_ptr->getNumNodes();

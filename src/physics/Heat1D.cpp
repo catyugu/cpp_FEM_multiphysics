@@ -6,31 +6,19 @@
 #include "core/sources/SourceTerm.hpp"
 
 namespace Physics {
-    Heat1D::Heat1D(const Core::Material &material) : material_(material) {
+    Heat1D::Heat1D() {
     }
 
     const char *Heat1D::getName() const { return "Heat Transfer 1D"; }
     const char *Heat1D::getVariableName() const { return "Temperature"; }
 
-    void Heat1D::setup(Core::Mesh &mesh, Core::DOFManager &dof_manager) {
-        mesh_ = &mesh;
-        dof_manager_ = &dof_manager;
+    void Heat1D::setup(Core::Problem& problem, Core::Mesh &mesh, Core::DOFManager &dof_manager) {
+        // Call the base class setup
+        PhysicsField::setup(problem, mesh, dof_manager);
+        
         auto &logger = Utils::Logger::instance();
-        logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
-
-        size_t num_eq = dof_manager_->getNumEquations();
-        K_.resize(num_eq, num_eq);
-        M_.resize(num_eq, num_eq);
-        F_.resize(num_eq, 1);
-        U_.resize(num_eq, 1);
-        U_prev_.resize(num_eq, 1);
-
-        F_.setZero();
-        U_.setZero();
-        U_prev_.setZero();
+        logger.info("Setting up ", getName(), " for mesh.");
     }
-
-    // src/physics/Heat1D.cpp
 
     void Heat1D::assemble(const PhysicsField *coupled_field) {
         auto &logger = Utils::Logger::instance();
@@ -40,17 +28,18 @@ namespace Physics {
         M_.setZero();
         applySources();
 
-        const double k = material_.getProperty("thermal_conductivity");
-        const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
-
         std::vector<Eigen::Triplet<double> > k_triplets, m_triplets;
 
         for (const auto &elem_ptr: mesh_->getElements()) {
             elem_ptr->setOrder(element_order_);
+            
+            // --- NEW: Get material for the current element ---
+            const auto& material = getMaterial(elem_ptr);
+            const double k = material.getProperty("thermal_conductivity");
+            const double rho_cp = material.getProperty("density") * material.getProperty("thermal_capacity");
+            // ------------------------------------------------
 
-            // --- 重构后的代码 ---
             auto fe_values = elem_ptr->createFEValues(element_order_);
-            // --------------------
 
             const auto dofs = getElementDofs(elem_ptr);
             const size_t num_elem_nodes = elem_ptr->getNumNodes();
@@ -81,4 +70,4 @@ namespace Physics {
         M_.setFromTriplets(m_triplets.begin(), m_triplets.end());
         logger.info("Assembly for ", getName(), " complete.");
     }
-}
+} // namespace Physics

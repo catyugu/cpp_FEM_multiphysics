@@ -7,26 +7,18 @@
 #include <cmath>
 
 namespace Physics {
-    Magnetic3D::Magnetic3D(const Core::Material &material) : material_(material) {
+    Magnetic3D::Magnetic3D() {
     }
 
     const char *Magnetic3D::getName() const { return "Magnetic Field 3D"; }
     const char *Magnetic3D::getVariableName() const { return "MagneticVectorPotential"; }
 
-    void Magnetic3D::setup(Core::Mesh &mesh, Core::DOFManager &dof_manager) {
-        mesh_ = &mesh;
-        dof_manager_ = &dof_manager;
+    void Magnetic3D::setup(Core::Problem& problem, Core::Mesh &mesh, Core::DOFManager &dof_manager) {
+        // Call the base class setup
+        PhysicsField::setup(problem, mesh, dof_manager);
+        
         auto &logger = Utils::Logger::instance();
-        logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
-
-        size_t num_eq = dof_manager_->getNumEquations();
-        K_.resize(num_eq, num_eq);
-        F_.resize(num_eq, 1);
-        U_.resize(num_eq, 1);
-        U_prev_.resize(num_eq, 1);
-        F_.setZero();
-        U_.setZero();
-        U_prev_.setZero();
+        logger.info("Setting up ", getName(), " for mesh.");
     }
 
     void Magnetic3D::assemble(const PhysicsField *coupled_field) {
@@ -34,17 +26,21 @@ namespace Physics {
         logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
         K_.setZero();
-
-        const double inv_mu = 1.0 / material_.getProperty("magnetic_permeability");
+        F_.setZero(); // Sources are applied via addSource, not here
 
         std::vector<Eigen::Triplet<double> > triplet_list;
 
         for (const auto &elem_ptr: mesh_->getElements()) {
             elem_ptr->setOrder(element_order_);
+            
+            // --- NEW: Get material for the current element ---
+            const auto& material = getMaterial(elem_ptr);
+            // 修复：正确使用磁导率而不是其倒数
+            const double mu = material.getProperty("magnetic_permeability");
+            const double inv_mu = 1.0 / mu;
+            // ------------------------------------------------
 
-            // --- 重构后的代码 ---
             auto fe_values = elem_ptr->createFEValues(element_order_);
-            // --------------------
 
             const auto dofs = getElementDofs(elem_ptr);
             const size_t num_elem_nodes = elem_ptr->getNumNodes();
@@ -72,8 +68,9 @@ namespace Physics {
                     B_curl(2, i * 3 + 0) = -dN_dy;
                     B_curl(2, i * 3 + 1) = dN_dx;
                 }
-                ke_local += B_curl.transpose() * inv_mu * B_curl * detJ_x_w;
-            }
+            // 修复：使用inv_mu而不是mu
+            ke_local += B_curl.transpose() * inv_mu * B_curl * detJ_x_w;
+        }
 
             for (size_t i = 0; i < dofs.size(); ++i) {
                 for (size_t j = 0; j < dofs.size(); ++j) {

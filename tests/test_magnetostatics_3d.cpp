@@ -16,18 +16,17 @@ TEST(Magnetostatics3DTest, SolenoidTest) {
     auto& logger = Utils::Logger::instance();
     logger.info("--- Setting up 3D Magnetostatics Test: Solenoid (Corrected BCs) ---");
 
-    // 1. Create a denser mesh for better accuracy
     auto mesh = std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(1.0, 1.0, 5.0, 10, 10, 50));
     ASSERT_NE(mesh, nullptr);
 
-    Core::Material air("Air");
+    auto air = std::make_shared<Core::Material>(0, "Air");
     const double mu_0 = 4.0 * EIGEN_PI * 1e-7;
-    air.setProperty("magnetic_permeability", mu_0);
+    air->setProperty("magnetic_permeability", mu_0);
 
-    // 2. Create Problem, add field and post-processor
     auto problem = std::make_unique<Core::Problem>(std::move(mesh));
-    auto magnetic_field = std::make_unique<Physics::Magnetic3D>(air);
-    problem->addField(std::move(magnetic_field));
+    problem->addMaterial(air);
+
+    problem->addField(std::make_unique<Physics::Magnetic3D>());
     problem->addPostProcessor(std::make_unique<Post::MagneticFieldCalculator>());
 
     problem->setup();
@@ -134,19 +133,17 @@ TEST(Magnetostatics3DTest, SolenoidQuarterSymmetryTest) {
     auto& logger = Utils::Logger::instance();
     logger.info("--- Setting up 3D Magnetostatics Test: Quarter Symmetry Solenoid ---");
 
-    // 1. 只创建四分之一的网格 (0->0.5, 0->0.5, 0->5.0)
-    // 注意 nx 和 ny 减半
     auto mesh = std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(0.5, 0.5, 5.0, 5, 5, 50));
     ASSERT_NE(mesh, nullptr);
 
-    Core::Material air("Air");
+    auto air = std::make_shared<Core::Material>(0, "Air");
     const double mu_0 = 4.0 * EIGEN_PI * 1e-7;
-    air.setProperty("magnetic_permeability", mu_0);
+    air->setProperty("magnetic_permeability", mu_0);
 
     auto problem = std::make_unique<Core::Problem>(std::move(mesh));
-    auto magnetic_field = std::make_unique<Physics::Magnetic3D>(air);
-    problem->addField(std::move(magnetic_field));
-    // 我们仍然可以使用后处理器来验证结果
+    problem->addMaterial(air);
+
+    problem->addField(std::make_unique<Physics::Magnetic3D>());
     problem->addPostProcessor(std::make_unique<Post::MagneticFieldCalculator>());
 
     problem->setup();

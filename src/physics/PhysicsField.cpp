@@ -6,7 +6,8 @@
 #include <set>
 
 namespace Physics {
-    void PhysicsField::setup(Core::Mesh &mesh, Core::DOFManager &dof_manager) {
+    void PhysicsField::setup(Core::Problem& problem, Core::Mesh& mesh, Core::DOFManager& dof_manager) {
+        problem_ = &problem; // Store the pointer to the problem
         mesh_ = &mesh;
         dof_manager_ = &dof_manager;
 
@@ -28,11 +29,12 @@ namespace Physics {
     void PhysicsField::addBC(std::unique_ptr<Core::BoundaryCondition> bc) {
         bcs_.push_back(std::move(bc));
     }
-
-    void PhysicsField::addBCs(std::vector<std::unique_ptr<Core::BoundaryCondition> > bcs) {
-        bcs_.insert(bcs_.end(), std::make_move_iterator(bcs.begin()), std::make_move_iterator(bcs.end()));
+    void PhysicsField::addBCs(std::vector<std::unique_ptr<Core::BoundaryCondition>> &&bcs) {
+        for (auto& bc : bcs) {
+            bcs_.push_back(std::move(bc));
+        }
     }
-
+    
     void PhysicsField::applyBCs() {
         auto &logger = Utils::Logger::instance();
         logger.info("Applying ", bcs_.size(), " defined BCs for ", getName());
