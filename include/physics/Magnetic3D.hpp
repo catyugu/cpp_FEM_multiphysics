@@ -2,25 +2,27 @@
 #define MAGNETIC3D_HPP
 
 #include "PhysicsField.hpp"
-#include "core/Material.hpp"
+#include "core/Problem.hpp"
 
 namespace Physics {
 
     class Magnetic3D : public PhysicsField {
     public:
-        explicit Magnetic3D(const Core::Material& material);
+        explicit Magnetic3D();
 
         const char* getName() const override;
         const char* getVariableName() const override;
-        const Core::Material& getMaterial() const override { return material_; }
+        const Core::Material& getMaterial(const Core::Element* elem) const override {
+            return problem_->getMaterial(elem->getMaterialID());
+        }
         int getDimension() const override { return 3; }
         int getNumComponents() const override { return 3; }
 
-        void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
+        void setup(Core::Problem& problem, Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
         void assemble(const PhysicsField *coupled_field) override;
 
     private:
-        const Core::Material& material_;
+        // No material_ member anymore, fetched via Problem
     };
 
 } // namespace Physics

@@ -3,7 +3,7 @@
 
 namespace Core {
 
-    Material::Material(const std::string& name) : name_(name) {}
+    Material::Material(int id,const std::string& name) : name_(name), id_(id) {}
 
     void Material::setProperty(const std::string& prop_name, double value) {
         properties_[prop_name] = value;

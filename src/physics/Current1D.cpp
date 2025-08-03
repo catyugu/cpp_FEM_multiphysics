@@ -5,25 +5,18 @@
 #include "core/ReferenceElement.hpp"
 
 namespace Physics {
-    Current1D::Current1D(const Core::Material &material)
-        : material_(material) {
+    Current1D::Current1D() {
     }
 
     const char *Current1D::getName() const { return "Current 1D"; }
     const char *Current1D::getVariableName() const { return "Voltage"; }
 
-    void Current1D::setup(Core::Mesh &mesh, Core::DOFManager &dof_manager) {
-        mesh_ = &mesh;
-        dof_manager_ = &dof_manager;
+    void Current1D::setup(Core::Problem& problem, Core::Mesh &mesh, Core::DOFManager &dof_manager) {
+        // Call the base class setup
+        PhysicsField::setup(problem, mesh, dof_manager);
+        
         auto &logger = Utils::Logger::instance();
-        logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
-        size_t num_eq = dof_manager_->getNumEquations();
-        K_.resize(num_eq, num_eq);
-        M_.resize(num_eq, num_eq);
-        F_.resize(num_eq, 1);
-        U_.resize(num_eq, 1);
-        F_.setZero();
-        U_.setZero();
+        logger.info("Setting up ", getName(), " for mesh.");
     }
 
     void Current1D::assemble(const PhysicsField *coupled_field) {
@@ -33,15 +26,17 @@ namespace Physics {
         K_.setZero();
         F_.setZero();
 
-        const double local_sigma = material_.getProperty("electrical_conductivity");
         std::vector<Eigen::Triplet<double>> k_triplets;
 
         for (const auto &elem_ptr: mesh_->getElements()) {
             elem_ptr->setOrder(element_order_);
+            
+            // --- NEW: Get material for the current element ---
+            const auto& material = getMaterial(elem_ptr);
+            const double local_sigma = material.getProperty("electrical_conductivity");
+            // ------------------------------------------------
 
-            // --- 重构后的代码 ---
             auto fe_values = elem_ptr->createFEValues(element_order_);
-            // --------------------
 
             const auto dofs = getElementDofs(elem_ptr);
             const size_t num_elem_nodes = elem_ptr->getNumNodes();

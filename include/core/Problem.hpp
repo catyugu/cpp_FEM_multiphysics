@@ -57,7 +57,10 @@ namespace Core {
         double getTotalTime() const { return total_time_;}
         Solver::SolverType getLinearSolverType() const { return linear_solver_type_; }
 
-        CouplingManager& getCouplingManager() { return coupling_manager_; }
+        CouplingManager& getCouplingManager();
+        void Problem::addMaterial(std::shared_ptr<Material> material);
+        const Material& getMaterial(int id) const;
+
 
     private:
         void runPostProcessors(); // New private helper method
@@ -66,8 +69,9 @@ namespace Core {
         std::unique_ptr<DOFManager> dof_manager_;
         std::unique_ptr<Solver::Solver> solver_;
         std::vector<std::unique_ptr<Physics::PhysicsField>> fields_;
-        std::vector<std::unique_ptr<Post::PostProcessor>> post_processors_; // New member
-        std::map<std::string, Post::PostProcessingResult> post_processing_results_; // New member
+        std::vector<std::unique_ptr<Post::PostProcessor>> post_processors_;
+        std::map<std::string, Post::PostProcessingResult> post_processing_results_;
+        std::map<int, std::shared_ptr<Material>> materials_;
         CouplingManager coupling_manager_;
 
         int max_iterations_ = 20;
