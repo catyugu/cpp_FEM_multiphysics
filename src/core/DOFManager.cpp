@@ -21,7 +21,7 @@ void DOFManager::build(const std::map<std::string, int>& field_orders) {
     // --- Pass 1: Assign DOFs to all vertex nodes ---
     for (const auto& node : mesh_.getNodes()) {
         for (size_t i = 0; i < variable_names_.size(); ++i) {
-            vertex_dof_map_[{node->getId(), i}] = equation_counter;
+            vertex_dof_map_[{node->getId(), static_cast<int>(i)}] = equation_counter;
             int num_components = variable_components_.at(variable_names_[i]);
             equation_counter += num_components;
         }

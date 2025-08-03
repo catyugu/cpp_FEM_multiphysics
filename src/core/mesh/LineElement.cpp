@@ -31,5 +31,9 @@ namespace Core {
                          std::pow(p2[1] - p1[1], 2) +
                          std::pow(p2[2] - p1[2], 2));
     }
+    std::unique_ptr<FEValues> LineElement::createFEValues(int quad_order) {
+        const auto& ref_data = ReferenceElementCache::get(getTypeName(), getNodes().size(), getOrder(), quad_order);
+        return std::make_unique<FEValues>(getGeometry(), getOrder(), ref_data);
+    }
 
 }

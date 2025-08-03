@@ -30,6 +30,8 @@ namespace Physics {
         U_prev_.setZero();
     }
 
+    // src/physics/Current3D.cpp
+
     void Current3D::assemble(const PhysicsField *coupled_field) {
         auto &logger = Utils::Logger::instance();
         logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
@@ -45,50 +47,47 @@ namespace Physics {
         std::vector<Eigen::Triplet<double> > triplet_list;
 
         for (const auto &elem_ptr: mesh_->getElements()) {
-            auto *tet_elem = dynamic_cast<Core::TetElement *>(elem_ptr);
-            if (tet_elem) {
-                tet_elem->setOrder(element_order_);
+            elem_ptr->setOrder(element_order_);
 
-                const auto &ref_data = Core::ReferenceElementCache::get(
-                    tet_elem->getTypeName(), tet_elem->getNodes().size(), element_order_, element_order_);
-                Core::FEValues fe_values(tet_elem->getGeometry(), element_order_, ref_data);
+            // --- 重构后的代码 ---
+            auto fe_values = elem_ptr->createFEValues(element_order_);
+            // --------------------
 
-                const auto dofs = getElementDofs(tet_elem);
-                const size_t num_elem_nodes = tet_elem->getNumNodes();
+            const auto dofs = getElementDofs(elem_ptr);
+            const size_t num_elem_nodes = elem_ptr->getNumNodes();
 
-                Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
+            Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-                const auto heat_dofs = heat_field ? heat_field->getElementDofs(tet_elem) : std::vector<int>();
-                Eigen::VectorXd nodal_temperatures(heat_dofs.size());
+            const auto heat_dofs = heat_field ? heat_field->getElementDofs(elem_ptr) : std::vector<int>();
+            Eigen::VectorXd nodal_temperatures(heat_dofs.size());
+            if (heat_field) {
+                for (size_t k = 0; k < heat_dofs.size(); ++k) {
+                    nodal_temperatures(k) = (heat_dofs[k] != -1) ? heat_solution(heat_dofs[k]) : 293.15;
+                }
+            }
+
+            for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+                fe_values->reinit(q_p);
+                const auto &N = fe_values->get_shape_values();
+                const auto &B = fe_values->get_shape_gradients();
+                const double detJ_x_w = fe_values->get_detJ_times_weight();
+
+                double sigma;
                 if (heat_field) {
-                    for (size_t k = 0; k < heat_dofs.size(); ++k) {
-                        nodal_temperatures(k) = (heat_dofs[k] != -1) ? heat_solution(heat_dofs[k]) : 293.15;
-                    }
+                    double temp_at_qp = N.transpose() * nodal_temperatures;
+                    sigma = material_.getProperty("electrical_conductivity", {{"Temperature", temp_at_qp}});
+                } else {
+                    sigma = material_.getProperty("electrical_conductivity");
                 }
 
-                for (size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
-                    fe_values.reinit(q_p);
-                    const auto &N = fe_values.get_shape_values();
-                    const auto &B = fe_values.get_shape_gradients();
-                    const double detJ_x_w = fe_values.get_detJ_times_weight();
+                const Eigen::Matrix3d D = Eigen::Matrix3d::Identity() * sigma;
+                ke_local += B.transpose() * D * B * detJ_x_w;
+            }
 
-                    double sigma;
-                    if (heat_field) {
-                        double temp_at_qp = N.transpose() * nodal_temperatures;
-                        sigma = material_.getProperty("electrical_conductivity", {{"Temperature", temp_at_qp}});
-                    } else {
-                        sigma = material_.getProperty("electrical_conductivity");
-                    }
-
-                    const Eigen::Matrix3d D = Eigen::Matrix3d::Identity() * sigma;
-                    ke_local += B.transpose() * D * B * detJ_x_w;
-                }
-
-                for (size_t i = 0; i < num_elem_nodes; ++i) {
-                    for (size_t j = 0; j < num_elem_nodes; ++j) {
-                        if (dofs[i] != -1 && dofs[j] != -1) {
-                            triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
-                        }
+            for (size_t i = 0; i < num_elem_nodes; ++i) {
+                for (size_t j = 0; j < num_elem_nodes; ++j) {
+                    if (dofs[i] != -1 && dofs[j] != -1) {
+                        triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
                     }
                 }
             }

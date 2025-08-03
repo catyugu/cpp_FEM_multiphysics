@@ -80,6 +80,7 @@ This document describes the fundamental components related to the mesh, includin
   * `getDimension() const`: Pure virtual function returning the element's dimension (1, 2, or 3).
   * `setOrder(int order)` and `getOrder() const`: Set and get the mathematical order for the element's approximation.
   * `getGeometry()`: Returns a reference to the `ElementGeometry` object.
+  * `createFEValues(int quad_order)`: Returns a `unique_ptr<FEValues>` ptr for the element.
 * **Protected Members**:
   * `id_`: `int`
   * `nodes_`: The geometric vertices (`std::vector<Node*>`).

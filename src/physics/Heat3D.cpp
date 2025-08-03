@@ -48,37 +48,34 @@ namespace Physics {
         std::vector<Eigen::Triplet<double> > m_triplets;
 
         for (const auto &elem_ptr: mesh_->getElements()) {
-            auto *tet_elem = dynamic_cast<Core::TetElement *>(elem_ptr);
-            if (tet_elem) {
-                tet_elem->setOrder(element_order_);
+            elem_ptr->setOrder(element_order_); // 统一设置单元阶次
 
-                const auto &ref_data = Core::ReferenceElementCache::get(
-                    tet_elem->getTypeName(), tet_elem->getNodes().size(), element_order_, element_order_);
-                Core::FEValues fe_values(tet_elem->getGeometry(), element_order_, ref_data);
+            // ============ 见证简化的威力！ ============
+            auto fe_values = elem_ptr->createFEValues(element_order_);
+            // ==========================================
 
-                const auto dofs = getElementDofs(tet_elem);
-                const size_t num_elem_nodes = tet_elem->getNumNodes();
+            const auto dofs = getElementDofs(elem_ptr);
+            const size_t num_elem_nodes = elem_ptr->getNumNodes();
 
-                Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
-                Eigen::MatrixXd me_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
+            Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
+            Eigen::MatrixXd me_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-                for (size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
-                    fe_values.reinit(q_p);
+            for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+                fe_values->reinit(q_p);
 
-                    const auto &N = fe_values.get_shape_values();
-                    const auto &B = fe_values.get_shape_gradients();
-                    const double detJ_x_w = fe_values.get_detJ_times_weight();
+                const auto &N = fe_values->get_shape_values();
+                const auto &B = fe_values->get_shape_gradients();
+                const double detJ_x_w = fe_values->get_detJ_times_weight();
 
-                    ke_local += B.transpose() * D_mat * B * detJ_x_w;
-                    me_local += N * rho_cp * N.transpose() * detJ_x_w;
-                }
+                ke_local += B.transpose() * D_mat * B * detJ_x_w;
+                me_local += N * rho_cp * N.transpose() * detJ_x_w;
+            }
 
-                for (size_t i = 0; i < num_elem_nodes; ++i) {
-                    for (size_t j = 0; j < num_elem_nodes; ++j) {
-                        if (dofs[i] != -1 && dofs[j] != -1) {
-                            k_triplets.emplace_back(dofs[i], dofs[j], ke_local(i, j));
-                            m_triplets.emplace_back(dofs[i], dofs[j], me_local(i, j));
-                        }
+            for (size_t i = 0; i < num_elem_nodes; ++i) {
+                for (size_t j = 0; j < num_elem_nodes; ++j) {
+                    if (dofs[i] != -1 && dofs[j] != -1) {
+                        k_triplets.emplace_back(dofs[i], dofs[j], ke_local(i, j));
+                        m_triplets.emplace_back(dofs[i], dofs[j], me_local(i, j));
                     }
                 }
             }
