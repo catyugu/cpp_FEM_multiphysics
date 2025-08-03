@@ -38,7 +38,8 @@ namespace Solver {
                 }
             } else if (solver_type == SolverType::BiCGSTAB) {
                 // --- 核心修改：使用 IncompleteLUT 预条件器 ---
-                Eigen::BiCGSTAB<Eigen::SparseMatrix<double>, Eigen::IncompleteLUT<double>> solver;
+                // Eigen::BiCGSTAB<Eigen::SparseMatrix<double>, Eigen::IncompleteLUT<double>> solver;
+                Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver;
                 solver.setMaxIterations(max_iterations);
                 solver.setTolerance(tolerance);
 
