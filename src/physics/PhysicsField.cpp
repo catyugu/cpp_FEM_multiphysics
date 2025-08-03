@@ -6,8 +6,7 @@
 #include <set>
 
 namespace Physics {
-
-    void PhysicsField::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
+    void PhysicsField::setup(Core::Mesh &mesh, Core::DOFManager &dof_manager) {
         mesh_ = &mesh;
         dof_manager_ = &dof_manager;
 
@@ -30,7 +29,7 @@ namespace Physics {
         bcs_.push_back(std::move(bc));
     }
 
-    void PhysicsField::addBCs(std::vector<std::unique_ptr<Core::BoundaryCondition>> bcs) {
+    void PhysicsField::addBCs(std::vector<std::unique_ptr<Core::BoundaryCondition> > bcs) {
         bcs_.insert(bcs_.end(), std::make_move_iterator(bcs.begin()), std::make_move_iterator(bcs.end()));
     }
 
@@ -38,9 +37,9 @@ namespace Physics {
         auto &logger = Utils::Logger::instance();
         logger.info("Applying ", bcs_.size(), " defined BCs for ", getName());
         std::map<int, double> dirichlet_dofs;
-        std::vector<const Core::BoundaryCondition*> other_bcs;
-        for (const auto& bc : bcs_) {
-            if (auto* dirichlet = dynamic_cast<const Core::DirichletBC*>(bc.get())) {
+        std::vector<const Core::BoundaryCondition *> other_bcs;
+        for (const auto &bc: bcs_) {
+            if (auto *dirichlet = dynamic_cast<const Core::DirichletBC *>(bc.get())) {
                 if (dirichlet->getEquationIndex() != -1) {
                     dirichlet_dofs[dirichlet->getEquationIndex()] = dirichlet->getValue()(0);
                 }
@@ -51,13 +50,13 @@ namespace Physics {
         logger.info("Applying ", dirichlet_dofs.size(), " unique, consolidated Dirichlet BCs.");
         if (!dirichlet_dofs.empty()) {
             Eigen::VectorXd U_bc = Eigen::VectorXd::Zero(K_.rows());
-            for (const auto& pair : dirichlet_dofs) U_bc(pair.first) = pair.second;
+            for (const auto &pair: dirichlet_dofs) U_bc(pair.first) = pair.second;
             F_ -= K_ * U_bc;
 
             std::set<int> dirichlet_indices;
-            for(const auto& pair : dirichlet_dofs) dirichlet_indices.insert(pair.first);
+            for (const auto &pair: dirichlet_dofs) dirichlet_indices.insert(pair.first);
 
-            for (int k=0; k < K_.outerSize(); ++k) {
+            for (int k = 0; k < K_.outerSize(); ++k) {
                 for (Eigen::SparseMatrix<double>::InnerIterator it(K_, k); it; ++it) {
                     if (dirichlet_indices.count(it.row()) || dirichlet_indices.count(it.col())) {
                         it.valueRef() = (it.row() == it.col()) ? 1.0 : 0.0;
@@ -65,9 +64,9 @@ namespace Physics {
                 }
             }
             K_.prune(0.0);
-            for (const auto& pair : dirichlet_dofs) F_(pair.first) = pair.second;
+            for (const auto &pair: dirichlet_dofs) F_(pair.first) = pair.second;
         }
-        for (const auto& bc : other_bcs) {
+        for (const auto &bc: other_bcs) {
             bc->apply(K_, F_);
         }
     }
@@ -138,10 +137,10 @@ namespace Physics {
     void PhysicsField::setInitialConditions(Func func) {
         if (U_.size() > 0) {
             int num_components = getNumComponents();
-            for (const auto& node : mesh_->getNodes()) {
+            for (const auto &node: mesh_->getNodes()) {
                 int base_dof_idx = dof_manager_->getEquationIndex(node->getId(), getVariableName());
                 if (base_dof_idx != -1) {
-                    const auto& coords = node->getCoords();
+                    const auto &coords = node->getCoords();
                     auto values = func(coords);
                     if constexpr (std::is_convertible_v<decltype(values), double>) {
                         if (num_components == 1) U_(base_dof_idx) = values;
@@ -157,8 +156,8 @@ namespace Physics {
         }
     }
 
-    std::vector<int> PhysicsField::getElementDofs(Core::Element* elem) const {
-        const auto& vertex_nodes = elem->getNodes();
+    std::vector<int> PhysicsField::getElementDofs(Core::Element *elem) const {
+        const auto &vertex_nodes = elem->getNodes();
         const size_t num_vertices = vertex_nodes.size();
         elem->setOrder(element_order_);
         const size_t num_elem_nodes = elem->getNumNodes();
@@ -169,17 +168,21 @@ namespace Physics {
         }
 
         if (element_order_ > 1) {
-            if (dynamic_cast<const Core::LineElement*>(elem)) {
-                base_dofs.push_back(dof_manager_->getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()}, getVariableName()));
-            } else if (dynamic_cast<const Core::TriElement*>(elem)) {
-                const std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {2, 0}};
-                for (const auto& edge : edges) {
-                    base_dofs.push_back(dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName()));
+            if (dynamic_cast<const Core::LineElement *>(elem)) {
+                base_dofs.push_back(
+                    dof_manager_->getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()},
+                                                       getVariableName()));
+            } else if (dynamic_cast<const Core::TriElement *>(elem)) {
+                const std::vector<std::pair<int, int> > edges = {{0, 1}, {1, 2}, {2, 0}};
+                for (const auto &edge: edges) {
+                    base_dofs.push_back(dof_manager_->getEdgeEquationIndex(
+                        {vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName()));
                 }
-            } else if (dynamic_cast<const Core::TetElement*>(elem)) {
-                const std::vector<std::pair<int, int>> edges = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
-                for (const auto& edge : edges) {
-                    base_dofs.push_back(dof_manager_->getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName()));
+            } else if (dynamic_cast<const Core::TetElement *>(elem)) {
+                const std::vector<std::pair<int, int> > edges = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+                for (const auto &edge: edges) {
+                    base_dofs.push_back(dof_manager_->getEdgeEquationIndex(
+                        {vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, getVariableName()));
                 }
             }
         }
@@ -187,7 +190,7 @@ namespace Physics {
         std::vector<int> dofs;
         int num_components = getNumComponents();
         dofs.reserve(num_elem_nodes * num_components);
-        for (int base_dof : base_dofs) {
+        for (int base_dof: base_dofs) {
             if (base_dof != -1) {
                 for (int c = 0; c < num_components; ++c) dofs.push_back(base_dof + c);
             } else {
