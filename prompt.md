@@ -110,48 +110,33 @@ To this:
 
 -----
 
-## **IV. Future Development Requirements**
+### **IV. Future Development Requirements**
 
-We can now focus on expanding the framework's capabilities. Please address the following tasks.
+**Congratulations!** You have successfully completed the core implementation of the vector field solver, including the necessary upgrades to `DOFManager` and `PhysicsField`, and have delivered a functional 3D magnetostatics solver with foundational tests. Our focus now shifts to in-depth optimization, theoretical expansion, and feature completeness.
 
-### **1. Implement Electromagnetic Field (Maxwell's Equations)**
-* **Goal**: Add a full electromagnetic field simulation, initially focusing on a 3D Magnetostatics formulation as a key first step. The main challenge is upgrading the core components to handle **vector-valued variables**.
-* **Guiding Equation (Magnetostatics)**: $\nabla \times \left( \frac{1}{\mu} \nabla \times \mathbf{A} \right) = \mathbf{J}$
-    * **A** is the magnetic vector potential (a vector with components Ax, Ay, Az).
-    * **μ** is the magnetic permeability.
-    * **J** is the current density source.
+### **1. Solver Performance Optimization & Robustness Enhancement**
+* **Goal**: To significantly improve the solver's speed for large-scale problems, making it competitive with commercial software, and to ensure the absolute reliability of its results.
+* **Key Tasks**:
+    * **Advanced Preconditioning**: Research and implement more sophisticated preconditioners (e.g., Incomplete LU factorization `Eigen::IncompleteLUT`) for the `BiCGSTAB` solver to accelerate the convergence of complex electromagnetic problems.
+    * **Parallelized Assembly**: Leverage the existing OpenMP integration to refactor the matrix assembly process (the element loop within the `assemble` function) for parallel execution and benchmark the performance gains.
+    * **Comprehensive Benchmarking**: Establish a rigorous benchmark suite for the magnetostatics solver. Identify classic models with analytical solutions (e.g., Helmholtz coils) and write tests to perform **quantitative** accuracy validation, ensuring the error is within an acceptable tolerance.
+    * **Enhanced Post-Processing**: Develop a new post-processor, similar to the `HeatFluxCalculator`, to compute the magnetic field **B** = ∇×**A**. This will be crucial for automated validation of the magnetic field results within the test suite.
 
-* **Step-by-Step Implementation Guide**:
-    1.  **Upgrade Core to Support Vector Fields**:
-        * **`DOFManager`**:
-            * Modify `registerVariable` to accept a component count: `void registerVariable(const std::string& var_name, int num_components = 1);`
-            * Update the `build()` method to increment the equation counter by the number of components for each variable.
-            * Ensure `getEquationIndex` returns the *starting* index for a variable's components (e.g., the index of `Ax`).
-        * **`PhysicsField`**:
-            * Add a new virtual method to the base class: `virtual int getNumComponents() const { return 1; }`. This defaults to 1 for all existing scalar fields.
+### **2. Advancing into High-Frequency Applications: The Frequency-Domain Solver**
+* **Goal**: To extend the solver's capabilities from static fields to time-harmonic fields (frequency domain), which is the core requirement for microwave, RF, and signal integrity simulations.
+* **Governing Equation (Vector Helmholtz Equation)**: $\nabla \times \left( \frac{1}{\mu_r} \nabla \times \mathbf{E} \right) - k_0^2 \epsilon_r \mathbf{E} = 0$
+    * Where **E** is the complex-valued electric field vector.
+    * $k_0$ is the free-space wavenumber.
+    * $\epsilon_r$ and $\mu_r$ are the relative permittivity and permeability.
+* **Implementation Steps**:
+    1.  **Support for Complex Arithmetic**: Extend the `LinearSolver` and `PhysicsField` classes to handle `std::complex<double>` matrices and vectors. The Eigen library provides native support for this.
+    2.  **Create a `FrequencyDomainSolver`**: Develop a new `Solver` class designed to handle complex-valued linear systems.
+    3.  **Implement `WavePropagation3D` Physics Field**: Create a new physics module to solve the Vector Helmholtz equation. This will require constructing complex-valued element stiffness matrices in the `assemble` method.
+    4.  **Implement Advanced Boundary Conditions**: High-frequency simulations require **Absorbing Boundary Conditions (ABC)** or **Perfectly Matched Layers (PML)** to simulate open, non-reflecting boundaries. Begin by implementing a first- or second-order ABC.
 
-    2.  **Implement the New `Magnetostatics3D` Physics Field**:
-        * Create the new class inheriting from `Physics::PhysicsField`.
-        * Override `getVariableName()` to return `"MagneticVectorPotential"`.
-        * **Crucially, override `getNumComponents()` to return `3`**.
-        * In the `assemble()` method, the local stiffness matrix `ke_local` for a 10-node quadratic tetrahedron will now be `30x30`. The "B-Matrix" must be reformulated to represent the **curl operator (`∇×`)** applied to vector-valued shape functions.
-
-    3.  **Define a Current Source (`J`)**:
-        * Create a new `PrescribedCurrentDensity` class that derives from `SourceTerm`.
-        * Its constructor should accept a 3-component `Eigen::Vector3d` representing the current density.
-        * Its `apply()` method must add the source contributions to the correct components of the global force vector `F`.
-
-    4.  **Create a Validation Test**:
-        * A great test case is a **long solenoid**.
-        * Apply a circular `PrescribedCurrentDensity` in a cylindrical mesh to simulate the coil.
-        * Set **A**=0 on the outer simulation boundary.
-        * Validate that the computed magnetic field (**B** = ∇×**A**) is uniform inside the solenoid and matches the analytical solution.
-
-### **2. Support for Advanced Research Problem Types (Solvers)**
-* **Goal**: Expand the solver capabilities to handle more diverse research problems.
-* **Requirements**:
-    * **Time Domain Steady-State**: Implement a solver (or extend existing ones) to handle time-domain (transient) problems.
-    * **Time Domain Transient**: Implement a solver (or extend existing ones) to handle time-domain (transient) problems.
-    * **Frequency Domain Steady-State**: Implement a solver (or extend existing ones) to handle time-harmonic (AC) problems, where the solution is a complex number representing amplitude and phase. This will involve working with complex Eigen matrices.
-    * **Coupled Transient Solvers**: Further enhance the robustness and efficiency of existing transient solvers, especially for highly non-linear and strongly coupled multiphysics problems.
-
+### **3. Improving Project Generality and Usability**
+* **Goal**: To enhance the project's modularity and ease of use, moving it closer to a general-purpose FEM solver core.
+* **Key Tasks**:
+    * **Non-Linear Material Support**: Extend the `Material` class to handle non-linear material properties, such as the B-H curve for magnetic materials. This will require implementing a **Newton-Raphson** iterative scheme within the solver.
+    * **Advanced Meshing Capabilities**: Enhance the `Importer` to parse and utilize **Physical Groups** from Gmsh files. This will enable the application of different material properties and boundary conditions to distinct geometric regions within a single mesh.
+    * **Documentation and Examples**: Create detailed documentation and clear example cases for newly implemented features, especially the frequency-domain solver and non-linear materials. This is critical for making the project understandable and usable by others.

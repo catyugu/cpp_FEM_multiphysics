@@ -2,6 +2,9 @@
 #include "core/mesh/Element.hpp"
 #include "core/FEValues.hpp"
 #include "physics/PhysicsField.hpp"
+#include <core/mesh/LineElement.hpp>
+#include <core/mesh/TriElement.hpp>
+#include <core/mesh/TetElement.hpp>
 
 namespace Core {
 
@@ -16,29 +19,44 @@ namespace Core {
 
         const auto& ref_data = ReferenceElementCache::get(elem->getTypeName(), elem->getNodes().size(), element_order, element_order);
         FEValues fe_values(elem->getGeometry(), element_order, ref_data);
-        // This is a stand-in for a proper get_element_dofs from a PhysicsField context
-        // It manually reconstructs the DOF list for all components
-        std::vector<int> dofs;
+
+        // **【FIX START】**: Use the comprehensive DOF gathering logic, identical to PhysicsField::getElementDofs
+        const auto& vertex_nodes = elem->getNodes();
+        const size_t num_vertices = vertex_nodes.size();
         const size_t num_elem_nodes = elem->getNumNodes();
-        dofs.reserve(num_elem_nodes * 3);
 
         std::vector<int> base_dofs;
         base_dofs.reserve(num_elem_nodes);
-        for(const auto& node : elem->getNodes()) {
-            base_dofs.push_back(dof_manager.getEquationIndex(node->getId(), var_name));
+        for (size_t i = 0; i < num_vertices; ++i) {
+            base_dofs.push_back(dof_manager.getEquationIndex(vertex_nodes[i]->getId(), var_name));
         }
 
-        for (int base_dof : base_dofs) {
-            if (base_dof != -1) {
-                for (int c = 0; c < 3; ++c) {
-                    dofs.push_back(base_dof + c);
+        if (element_order > 1) {
+            if (dynamic_cast<const Core::LineElement*>(elem)) {
+                base_dofs.push_back(dof_manager.getEdgeEquationIndex({vertex_nodes[0]->getId(), vertex_nodes[1]->getId()}, var_name));
+            } else if (dynamic_cast<const Core::TriElement*>(elem)) {
+                const std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {2, 0}};
+                for (const auto& edge : edges) {
+                    base_dofs.push_back(dof_manager.getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, var_name));
                 }
-            } else {
-                for (int c = 0; c < 3; ++c) {
-                    dofs.push_back(-1);
+            } else if (dynamic_cast<const Core::TetElement*>(elem)) {
+                const std::vector<std::pair<int, int>> edges = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+                for (const auto& edge : edges) {
+                    base_dofs.push_back(dof_manager.getEdgeEquationIndex({vertex_nodes[edge.first]->getId(), vertex_nodes[edge.second]->getId()}, var_name));
                 }
             }
         }
+
+        std::vector<int> dofs;
+        dofs.reserve(num_elem_nodes * 3); // 3 components for vector potential
+        for (int base_dof : base_dofs) {
+            if (base_dof != -1) {
+                for (int c = 0; c < 3; ++c) dofs.push_back(base_dof + c);
+            } else {
+                for (int c = 0; c < 3; ++c) dofs.push_back(-1);
+            }
+        }
+        // **【FIX END】**
 
         Eigen::VectorXd fe_local = Eigen::VectorXd::Zero(dofs.size());
 

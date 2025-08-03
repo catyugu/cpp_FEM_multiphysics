@@ -69,5 +69,9 @@ Eigen::Matrix<double, 3, 4> TetElement::getBMatrix() const {
 
     return B;
 }
+    std::unique_ptr<FEValues> TetElement::createFEValues(int quad_order) {
+        const auto& ref_data = ReferenceElementCache::get(getTypeName(), getNodes().size(), getOrder(), quad_order);
+        return std::make_unique<FEValues>(getGeometry(), getOrder(), ref_data);
+    }
 
 } // namespace Core

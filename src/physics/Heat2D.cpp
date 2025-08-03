@@ -6,63 +6,66 @@
 #include "core/sources/SourceTerm.hpp"
 
 namespace Physics {
+    Heat2D::Heat2D(const Core::Material &material) : material_(material) {
+    }
 
-Heat2D::Heat2D(const Core::Material& material) : material_(material) {}
+    const char *Heat2D::getName() const { return "Heat Transfer 2D"; }
+    const char *Heat2D::getVariableName() const { return "Temperature"; }
 
-const char* Heat2D::getName() const { return "Heat Transfer 2D"; }
-const char* Heat2D::getVariableName() const { return "Temperature"; }
+    void Heat2D::setup(Core::Mesh &mesh, Core::DOFManager &dof_manager) {
+        mesh_ = &mesh;
+        dof_manager_ = &dof_manager;
+        auto &logger = Utils::Logger::instance();
+        logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
 
-void Heat2D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
-    mesh_ = &mesh;
-    dof_manager_ = &dof_manager;
-    auto& logger = Utils::Logger::instance();
-    logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
+        size_t num_eq = dof_manager_->getNumEquations();
+        K_.resize(num_eq, num_eq);
+        M_.resize(num_eq, num_eq);
+        F_.resize(num_eq, 1);
+        F_.setZero();
+        U_.resize(num_eq, 1);
+        U_.setZero();
+        U_prev_.resize(num_eq, 1);
+        U_prev_.setZero();
+    }
 
-    size_t num_eq = dof_manager_->getNumEquations();
-    K_.resize(num_eq, num_eq);
-    M_.resize(num_eq, num_eq);
-    F_.resize(num_eq,1); F_.setZero();
-    U_.resize(num_eq,1); U_.setZero();
-    U_prev_.resize(num_eq,1); U_prev_.setZero();
-}
+    void Heat2D::assemble(const PhysicsField *coupled_field) {
+        auto &logger = Utils::Logger::instance();
+        logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
-void Heat2D::assemble(const PhysicsField *coupled_field) {
-    auto& logger = Utils::Logger::instance();
-    logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
+        K_.setZero();
+        M_.setZero();
+        applySources();
 
-    K_.setZero();
-    M_.setZero();
-    applySources();
+        const double k_therm = material_.getProperty("thermal_conductivity");
+        const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
+        const Eigen::Matrix2d D = Eigen::Matrix2d::Identity() * k_therm;
 
-    const double k_therm = material_.getProperty("thermal_conductivity");
-    const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
-    const Eigen::Matrix2d D = Eigen::Matrix2d::Identity() * k_therm;
+        std::vector<Eigen::Triplet<double> > k_triplets;
+        std::vector<Eigen::Triplet<double> > m_triplets;
 
-    std::vector<Eigen::Triplet<double>> k_triplets;
-    std::vector<Eigen::Triplet<double>> m_triplets;
+        for (const auto &elem_ptr: mesh_->getElements()) {
+            elem_ptr->setOrder(element_order_); // 统一设置单元阶次
 
-    for (const auto& elem_ptr : mesh_->getElements()) {
-        if (auto* tri_elem = dynamic_cast<Core::TriElement*>(elem_ptr)) {
-            tri_elem->setOrder(element_order_);
+            // ============ 见证简化的威力！ ============
+            auto fe_values = elem_ptr->createFEValues(element_order_);
+            // ==========================================
 
-            const auto& ref_data = Core::ReferenceElementCache::get(tri_elem->getTypeName(), tri_elem->getNodes().size(), element_order_, element_order_);
-            Core::FEValues fe_values(tri_elem->getGeometry(), element_order_, ref_data);
-
-            const auto dofs = getElementDofs(tri_elem);
-            const size_t num_elem_nodes = tri_elem->getNumNodes();
+            const auto dofs = getElementDofs(elem_ptr);
+            const size_t num_elem_nodes = elem_ptr->getNumNodes();
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
             Eigen::MatrixXd me_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-            for (size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
-                fe_values.reinit(q_p);
+            for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+                fe_values->reinit(q_p);
 
-                const auto& N = fe_values.get_shape_values();
-                const auto& B = fe_values.get_shape_gradients();
-                const double detJ_x_w = fe_values.get_detJ_times_weight();
+                const auto &N = fe_values->get_shape_values();
+                const auto &B = fe_values->get_shape_gradients();
+                const double detJ_x_w = fe_values->get_detJ_times_weight();
 
                 ke_local += B.transpose() * D * B * detJ_x_w;
-                me_local += N * (rho_cp * N.transpose()) * detJ_x_w;
+                me_local += N * rho_cp * N.transpose() * detJ_x_w;
             }
 
             for (size_t r = 0; r < num_elem_nodes; ++r) {
@@ -74,10 +77,8 @@ void Heat2D::assemble(const PhysicsField *coupled_field) {
                 }
             }
         }
+        K_.setFromTriplets(k_triplets.begin(), k_triplets.end());
+        M_.setFromTriplets(m_triplets.begin(), m_triplets.end());
+        logger.info("Assembly for ", getName(), " complete.");
     }
-    K_.setFromTriplets(k_triplets.begin(), k_triplets.end());
-    M_.setFromTriplets(m_triplets.begin(), m_triplets.end());
-    logger.info("Assembly for ", getName(), " complete.");
-}
-
 }

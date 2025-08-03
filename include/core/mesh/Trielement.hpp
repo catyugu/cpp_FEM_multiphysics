@@ -1,6 +1,9 @@
 #ifndef TRIELEMENT_HPP
 #define TRIELEMENT_HPP
 
+#include <core/FEValues.hpp>
+#include <core/ReferenceElement.hpp>
+
 #include "Element.hpp"
 #include <Eigen/Dense>
 
@@ -28,6 +31,7 @@ namespace Core {
         //                          { T3 }
         // where B = (1/2A) * [[y2-y3, y3-y1, y1-y2], [x3-x2, x1-x3, x2-x1]]
         Eigen::Matrix<double, 2, 3> getBMatrix() const;
+        std::unique_ptr<FEValues> createFEValues(int quad_order) override;
     };
 
 } // namespace Core
