@@ -6,7 +6,22 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(OpenMP REQUIRED) # Find OpenMP
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Ot")
-set(EIGEN3_INCLUDE_DIR "E:/env/cpp/eigen-3.4.0")
+set(EIGEN3_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/share/eigen-3.4.0)
+set(BOOST_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/share/boost-1.88.0)
+
+if(EXISTS ${EIGEN3_INCLUDE_DIR})
+        message(STATUS "Found local Eigen library at: ${EIGEN3_INCLUDE_DIR}")
+else()
+        message(FATAL_ERROR "Eigen library not found at the specified path: ${EIGEN3_INCLUDE_DIR}. Please download and place it there.")
+endif()
+
+# Check if the directory exists
+if(EXISTS ${BOOST_INCLUDE_DIR})
+        message(STATUS "Found local Boost library at: ${BOOST_INCLUDE_DIR}")
+else()
+        message(FATAL_ERROR "Boost library not found at the specified path: ${BOOST_INCLUDE_DIR}. Please download and place it there.")
+endif()
+
 
 file(GLOB_RECURSE SOURCES
         ${PROJECT_SOURCE_DIR}/src/core/*.cpp
@@ -22,12 +37,15 @@ add_library(femlib
 target_link_libraries(femlib PUBLIC
         OpenMP::OpenMP_CXX
 )
+
+
 target_include_directories(femlib PUBLIC
         ${PROJECT_SOURCE_DIR}/include
 )
 target_include_directories(femlib PUBLIC
         include
         ${EIGEN3_INCLUDE_DIR}
+        ${BOOST_INCLUDE_DIR}
 )
 
 # --- Main Executable ---
@@ -51,6 +69,7 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}/src
         ${PROJECT_SOURCE_DIR}/include
         ${EIGEN3_INCLUDE_DIR}
+        ${BOOST_INCLUDE_DIR}
 )
 # 链接 Google Test 库
 target_link_libraries(google_test PRIVATE gtest gtest_main)
