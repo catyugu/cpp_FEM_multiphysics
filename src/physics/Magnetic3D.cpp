@@ -40,51 +40,45 @@ namespace Physics {
         std::vector<Eigen::Triplet<double> > triplet_list;
 
         for (const auto &elem_ptr: mesh_->getElements()) {
-            auto *tet_elem = dynamic_cast<Core::TetElement *>(elem_ptr);
-            if (tet_elem) {
-                tet_elem->setOrder(element_order_);
+            elem_ptr->setOrder(element_order_);
 
-                const auto &ref_data = Core::ReferenceElementCache::get(
-                    tet_elem->getTypeName(), tet_elem->getNodes().size(), element_order_, element_order_);
-                Core::FEValues fe_values(tet_elem->getGeometry(), element_order_, ref_data);
+            // --- 重构后的代码 ---
+            auto fe_values = elem_ptr->create_fe_values(element_order_);
+            // --------------------
 
-                const auto dofs = getElementDofs(elem_ptr);
-                const size_t num_elem_nodes = tet_elem->getNumNodes();
-                const int num_components = getNumComponents();
+            const auto dofs = getElementDofs(elem_ptr);
+            const size_t num_elem_nodes = elem_ptr->getNumNodes();
+            const int num_components = getNumComponents();
 
-                Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes * num_components,
-                                                                 num_elem_nodes * num_components);
+            Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes * num_components,
+                                                             num_elem_nodes * num_components);
 
-                for (size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
-                    fe_values.reinit(q_p);
-                    const auto &grad_N = fe_values.get_shape_gradients();
-                    const double detJ_x_w = fe_values.get_detJ_times_weight();
+            for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+                fe_values->reinit(q_p);
+                const auto &grad_N = fe_values->get_shape_gradients();
+                const double detJ_x_w = fe_values->get_detJ_times_weight();
 
-                    Eigen::MatrixXd B_curl(3, num_elem_nodes * 3);
-                    B_curl.setZero();
-                    for (size_t i = 0; i < num_elem_nodes; ++i) {
-                        double dN_dx = grad_N(0, i);
-                        double dN_dy = grad_N(1, i);
-                        double dN_dz = grad_N(2, i);
+                Eigen::MatrixXd B_curl(3, num_elem_nodes * 3);
+                B_curl.setZero();
+                for (size_t i = 0; i < num_elem_nodes; ++i) {
+                    double dN_dx = grad_N(0, i);
+                    double dN_dy = grad_N(1, i);
+                    double dN_dz = grad_N(2, i);
 
-                        // Bx = dAz/dy - dAy/dz
-                        B_curl(0, i * 3 + 1) = -dN_dz;
-                        B_curl(0, i * 3 + 2) = dN_dy;
-                        // By = dAx/dz - dAz/dx
-                        B_curl(1, i * 3 + 0) = dN_dz;
-                        B_curl(1, i * 3 + 2) = -dN_dx;
-                        // Bz = dAy/dx - dAx/dy
-                        B_curl(2, i * 3 + 0) = -dN_dy;
-                        B_curl(2, i * 3 + 1) = dN_dx;
-                    }
-                    ke_local += B_curl.transpose() * inv_mu * B_curl * detJ_x_w;
+                    B_curl(0, i * 3 + 1) = -dN_dz;
+                    B_curl(0, i * 3 + 2) = dN_dy;
+                    B_curl(1, i * 3 + 0) = dN_dz;
+                    B_curl(1, i * 3 + 2) = -dN_dx;
+                    B_curl(2, i * 3 + 0) = -dN_dy;
+                    B_curl(2, i * 3 + 1) = dN_dx;
                 }
+                ke_local += B_curl.transpose() * inv_mu * B_curl * detJ_x_w;
+            }
 
-                for (size_t i = 0; i < dofs.size(); ++i) {
-                    for (size_t j = 0; j < dofs.size(); ++j) {
-                        if (dofs[i] != -1 && dofs[j] != -1) {
-                            triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
-                        }
+            for (size_t i = 0; i < dofs.size(); ++i) {
+                for (size_t j = 0; j < dofs.size(); ++j) {
+                    if (dofs[i] != -1 && dofs[j] != -1) {
+                        triplet_list.emplace_back(dofs[i], dofs[j], ke_local(i, j));
                     }
                 }
             }

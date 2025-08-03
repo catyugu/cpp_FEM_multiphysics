@@ -52,5 +52,9 @@ namespace Core {
 
         return B / (2.0 * area);
     }
+    std::unique_ptr<FEValues> TriElement::create_fe_values(int quad_order) {
+        const auto& ref_data = ReferenceElementCache::get(getTypeName(), getNodes().size(), getOrder(), quad_order);
+        return std::make_unique<FEValues>(getGeometry(), getOrder(), ref_data);
+    }
 
 } // namespace Core

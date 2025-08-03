@@ -1,3 +1,5 @@
+// src/post/MagneticFieldCalculator.cpp
+
 #include "post/MagneticFieldCalculator.hpp"
 #include "core/Problem.hpp"
 #include "physics/PhysicsField.hpp"
@@ -9,7 +11,7 @@
 namespace Post {
 
     const char* MagneticFieldCalculator::getName() const {
-        return "MagneticField";
+        return "MagneticField_B";
     }
 
     PostProcessingResult MagneticFieldCalculator::compute_derived_quantities(const Core::Problem& problem) const {
@@ -21,16 +23,13 @@ namespace Post {
         if (!magnetic_field) {
             throw Exception::ConfigurationException("MagneticFieldCalculator requires a 'MagneticVectorPotential' field.");
         }
-        if (magnetic_field->getNumComponents() != 3) {
-            throw Exception::ConfigurationException("MagneticVectorPotential field must be a 3-component vector field.");
-        }
 
         const auto& mesh = problem.getMesh();
         const auto& A_solution = magnetic_field->getSolution();
 
         PostProcessingResult result;
         result.name = getName();
-        result.dimension = 3; // B field is a 3D vector
+        result.dimension = 3; // B 是一个三维矢量
         result.data.resize(mesh.getElements().size());
 
         // 2. 遍历网格中的所有单元
@@ -43,41 +42,40 @@ namespace Post {
 
             const auto dofs = magnetic_field->getElementDofs(elem);
             const size_t num_elem_nodes = elem->getNumNodes();
+            const int num_components = magnetic_field->getNumComponents();
 
-            // 3. 提取当前单元的节点解 (A_x, A_y, A_z at each node)
+            // 提取该单元的节点上的磁矢量势 A 的值 (Ax, Ay, Az, ...)
             Eigen::VectorXd nodal_A_values(dofs.size());
             for (size_t j = 0; j < dofs.size(); ++j) {
                 nodal_A_values(j) = (dofs[j] != -1) ? A_solution(dofs[j]) : 0.0;
             }
 
-            // 4. 在每个单元的积分点上计算B场
             result.data[i].resize(fe_values.num_quadrature_points());
+            // 3. 遍历每个单元的所有积分点 (高斯点)
             for (size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
                 fe_values.reinit(q_p);
-                const auto& grad_N = fe_values.get_shape_gradients(); // ∇N in real coordinates
+                const auto& grad_N = fe_values.get_shape_gradients(); // 获取形函数梯度 ∇N
 
-                // 5. Build the B_curl matrix with the CORRECTED signs
-                Eigen::MatrixXd B_curl(3, num_elem_nodes * 3);
+                // 构建旋度算子矩阵 B_curl
+                Eigen::MatrixXd B_curl(3, num_elem_nodes * num_components);
                 B_curl.setZero();
                 for(size_t node_idx = 0; node_idx < num_elem_nodes; ++node_idx) {
                     double dN_dx = grad_N(0, node_idx);
                     double dN_dy = grad_N(1, node_idx);
                     double dN_dz = grad_N(2, node_idx);
 
-                    // Correct Bx = dAz/dy - dAy/dz
+                    // 填充 B_curl 矩阵，这与 Magnetic3D::assemble 中的逻辑完全一致
                     B_curl(0, node_idx*3 + 1) = -dN_dz; B_curl(0, node_idx*3 + 2) =  dN_dy;
-                    // Correct By = dAx/dz - dAz/dx
                     B_curl(1, node_idx*3 + 0) =  dN_dz; B_curl(1, node_idx*3 + 2) = -dN_dx;
-                    // Correct Bz = dAy/dx - dAx/dy
                     B_curl(2, node_idx*3 + 0) = -dN_dy; B_curl(2, node_idx*3 + 1) =  dN_dx;
                 }
 
-                // 6. Calculate B = B_curl * A_nodal_values
+                // 计算积分点处的磁场 B = B_curl * nodal_A
                 result.data[i][q_p] = B_curl * nodal_A_values;
             }
         }
 
-        logger.info("Magnetic Field calculation complete.");
+        logger.info("Magnetic Field (B) calculation complete.");
         return result;
     }
 

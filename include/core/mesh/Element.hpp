@@ -33,9 +33,17 @@ namespace Core {
         int getOrder() const { return order_; }
         void setOrder(int order) { order_ = order; }
 
-        // 新增: 获取单元几何信息
+        // 获取单元几何信息
         const ElementGeometry& getGeometry();
         void update_geometry();
+
+        // ============ 工厂方法 ============
+        /**
+         * @brief 为此单元创建一个 FEValues 计算器。
+         * @param quad_order 所需的积分阶次。
+         * @return 一个配置好的 FEValues 对象的 unique_ptr。
+         */
+        virtual std::unique_ptr<FEValues> create_fe_values(int quad_order) = 0;
 
     protected:
         int id_;

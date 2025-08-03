@@ -1,6 +1,9 @@
 #ifndef TETELEMENT_HPP
 #define TETELEMENT_HPP
 
+#include <core/FEValues.hpp>
+#include <core/ReferenceElement.hpp>
+
 #include "Element.hpp"
 #include <Eigen/Dense>
 
@@ -26,6 +29,8 @@ namespace Core {
         // For 3D heat transfer, this 3x4 matrix relates the temperature gradients
         // (in x, y, z) to the 4 nodal temperatures.
         Eigen::Matrix<double, 3, 4> getBMatrix() const;
+
+        std::unique_ptr<FEValues> create_fe_values(int quad_order) override;
     };
 
 } // namespace Core
