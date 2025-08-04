@@ -68,7 +68,6 @@ namespace Physics {
                     B_curl(2, i * 3 + 0) = -dN_dy;
                     B_curl(2, i * 3 + 1) = dN_dx;
                 }
-            // 修复：使用inv_mu而不是mu
             ke_local += B_curl.transpose() * inv_mu * B_curl * detJ_x_w;
         }
 
