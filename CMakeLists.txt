@@ -15,13 +15,6 @@ else()
         message(FATAL_ERROR "Eigen library not found at the specified path: ${EIGEN3_INCLUDE_DIR}. Please download and place it there.")
 endif()
 
-# Check if the directory exists
-if(EXISTS ${BOOST_INCLUDE_DIR})
-        message(STATUS "Found local Boost library at: ${BOOST_INCLUDE_DIR}")
-else()
-        message(FATAL_ERROR "Boost library not found at the specified path: ${BOOST_INCLUDE_DIR}. Please download and place it there.")
-endif()
-
 
 file(GLOB_RECURSE SOURCES
         ${PROJECT_SOURCE_DIR}/src/core/*.cpp
@@ -45,7 +38,6 @@ target_include_directories(femlib PUBLIC
 target_include_directories(femlib PUBLIC
         include
         ${EIGEN3_INCLUDE_DIR}
-        ${BOOST_INCLUDE_DIR}
 )
 
 # --- Main Executable ---
@@ -69,7 +61,6 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}/src
         ${PROJECT_SOURCE_DIR}/include
         ${EIGEN3_INCLUDE_DIR}
-        ${BOOST_INCLUDE_DIR}
 )
 # 链接 Google Test 库
 target_link_libraries(google_test PRIVATE gtest gtest_main)
