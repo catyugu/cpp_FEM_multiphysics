@@ -44,29 +44,29 @@ namespace Core {
         for (const auto& elem_ptr : mesh->getElements()) {
             int quad_order = 2;
 
-            const auto& emag_ref_data = Core::ReferenceElementCache::get(elem_ptr->getTypeName(), elem_ptr->getNodes().size(), emag_field_->getElementOrder(), quad_order);
+            const auto& emag_ref_data = Core::ReferenceElementCache::get(elem_ptr->getTypeName(), static_cast<int>(elem_ptr->getNodes().size()), emag_field_->getElementOrder(), quad_order);
             Core::FEValues emag_fe_values(elem_ptr->getGeometry(), emag_field_->getElementOrder(), emag_ref_data);
 
-            const auto& heat_ref_data = Core::ReferenceElementCache::get(elem_ptr->getTypeName(), elem_ptr->getNodes().size(), heat_field_->getElementOrder(), quad_order);
+            const auto& heat_ref_data = Core::ReferenceElementCache::get(elem_ptr->getTypeName(), static_cast<int>(elem_ptr->getNodes().size()), heat_field_->getElementOrder(), quad_order);
             Core::FEValues heat_fe_values(elem_ptr->getGeometry(), heat_field_->getElementOrder(), heat_ref_data);
 
             const auto emag_dofs = emag_field_->getElementDofs(elem_ptr);
             const auto heat_dofs = heat_field_->getElementDofs(elem_ptr);
 
-            Eigen::VectorXd nodal_voltages(emag_dofs.size());
-            for (size_t k = 0; k < emag_dofs.size(); ++k) nodal_voltages(k) = (emag_dofs[k] != -1) ? emag_solution(emag_dofs[k]) : 0.0;
+            Eigen::VectorXd nodal_voltages(static_cast<Eigen::Index>(emag_dofs.size()));
+            for (size_t k = 0; k < emag_dofs.size(); ++k) nodal_voltages(static_cast<Eigen::Index>(k)) = (emag_dofs[k] != -1) ? emag_solution(emag_dofs[k]) : 0.0;
 
-            Eigen::VectorXd nodal_temperatures(heat_dofs.size());
-            for (size_t k = 0; k < heat_dofs.size(); ++k) nodal_temperatures(k) = (heat_dofs[k] != -1) ? heat_solution(heat_dofs[k]) : 0.0;
+            Eigen::VectorXd nodal_temperatures(static_cast<Eigen::Index>(heat_dofs.size()));
+            for (size_t k = 0; k < heat_dofs.size(); ++k) nodal_temperatures(static_cast<Eigen::Index>(k)) = (heat_dofs[k] != -1) ? heat_solution(heat_dofs[k]) : 0.0;
 
             const auto& material = emag_field_->getMaterial(elem_ptr);
             
             // Calculate integrated Joule heating directly
-            Eigen::VectorXd fe_local = Eigen::VectorXd::Zero(heat_dofs.size());
-            
+            Eigen::VectorXd fe_local = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(heat_dofs.size()));
+
             for (size_t q_p = 0; q_p < emag_fe_values.num_quadrature_points(); ++q_p) {
-                emag_fe_values.reinit(q_p);
-                heat_fe_values.reinit(q_p);
+                emag_fe_values.reinit(static_cast<int>(q_p));
+                heat_fe_values.reinit(static_cast<int>(q_p));
 
                 const auto& emag_B = emag_fe_values.get_shape_gradients();
                 const auto& heat_N = heat_fe_values.get_shape_values();
@@ -85,7 +85,7 @@ namespace Core {
             // Assemble into global coupling vector
             for (size_t i = 0; i < heat_dofs.size(); ++i) {
                 if (heat_dofs[i] != -1) {
-                    F_coupling(heat_dofs[i]) += fe_local(i);
+                    F_coupling(heat_dofs[i]) += fe_local(static_cast<Eigen::Index>(i));
                 }
             }
         }

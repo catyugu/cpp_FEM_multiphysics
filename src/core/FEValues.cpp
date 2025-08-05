@@ -1,6 +1,5 @@
 #include "core/FEValues.hpp"
 #include "utils/Exceptions.hpp"
-#include <cmath>
 
 namespace Core {
 
@@ -23,16 +22,19 @@ static Eigen::MatrixXd calculate_all_node_coords(const Core::ElementGeometry& ge
         Eigen::MatrixXd all_coords(dim, num_elem_nodes);
 
         // Vertices first for all element types
-        all_coords.leftCols(num_vertices) = vertex_coords;
-        int edge_node_idx = num_vertices;
+        all_coords.leftCols(static_cast<Eigen::Index>(num_vertices)) = vertex_coords;
+        int edge_node_idx = static_cast<int>(num_vertices);
 
         if (num_vertices == 2) { // P2 Line: v0, v1, midpoint
             all_coords.col(edge_node_idx++) = (vertex_coords.col(0) + vertex_coords.col(1)) * 0.5;
         } else {
             // P2 Tri/Tet: edge midpoints in canonical order.
             std::vector<std::pair<int, int>> edges;
-            if (num_vertices == 3)      edges = {{0,1}, {1,2}, {2,0}};
-            else if (num_vertices == 4) edges = {{0,1}, {0,2}, {0,3}, {1,2}, {1,3}, {2,3}};
+            if (num_vertices == 3) {
+                edges = {{0,1}, {1,2}, {2,0}};
+            } else { // num_vertices == 4
+                edges = {{0,1}, {0,2}, {0,3}, {1,2}, {1,3}, {2,3}};
+            }
 
             for (const auto& edge : edges) {
                 all_coords.col(edge_node_idx++) = (vertex_coords.col(edge.first) + vertex_coords.col(edge.second)) * 0.5;
@@ -46,7 +48,7 @@ static Eigen::MatrixXd calculate_all_node_coords(const Core::ElementGeometry& ge
 
 
 FEValues::FEValues(const ElementGeometry& geom, int order, const ReferenceElementData& ref_data)
-    : geometry_(geom), fe_order_(order), ref_data_(ref_data) {
+    : detJ_x_w_(0.0), geometry_(geom), fe_order_(order), ref_data_(ref_data) {
 
     Eigen::MatrixXd all_node_coords = calculate_all_node_coords(geometry_, fe_order_);
 
@@ -62,7 +64,7 @@ FEValues::FEValues(const ElementGeometry& geom, int order, const ReferenceElemen
         Eigen::MatrixXd J_inv = J.inverse();
         Eigen::MatrixXd dN_dx = dN_d_natural * J_inv;
 
-        all_dN_dx_values_.push_back(dN_dx.transpose());
+        all_dN_dx_values_.emplace_back(dN_dx.transpose());
         all_detJ_x_w_.push_back(detJ * ref_data_.quadrature_points[qp_idx].weight);
     }
 
