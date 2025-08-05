@@ -2,7 +2,6 @@
 #include "core/Problem.hpp"
 #include <solver/LinearSolver.hpp>
 #include "utils/SimpleLogger.hpp"
-#include "utils/Exceptions.hpp"
 
 namespace Solver {
 
@@ -15,13 +14,13 @@ namespace Solver {
         auto *heat_field = problem.getField("Temperature");
         auto &coupling_manager = problem.getCouplingManager();
         const auto& mesh = problem.getMesh();
-        const double damping_factor = 0.8;
         if (heat_field->getSolution().isZero(1e-9)) {
             heat_field->getSolution().setConstant(293.15);
         }
         Eigen::VectorXd T_prev_iter = heat_field->getSolution();
 
         for (int iter = 0; iter < problem.getMaxIterations(); ++iter) {
+            constexpr double damping_factor = 0.8;
             logger.info("--> Iteration ", iter + 1, " / ", problem.getMaxIterations());
             logger.info("    Solving EMag Field...");
             emag_field->assemble(heat_field);
