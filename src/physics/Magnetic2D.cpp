@@ -2,11 +2,9 @@
 #include <core/mesh/TriElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "core/FEValues.hpp"
-#include "core/ReferenceElement.hpp"
 
 namespace Physics {
-    Magnetic2D::Magnetic2D() {
-    }
+    Magnetic2D::Magnetic2D() = default;
 
     const char *Magnetic2D::getName() const { return "Magnetic Field 2D"; }
     const char *Magnetic2D::getVariableName() const { return "MagneticPotential"; }
@@ -39,12 +37,12 @@ namespace Physics {
             auto fe_values = elem_ptr->createFEValues(element_order_);
 
             const auto dofs = getElementDofs(elem_ptr);
-            const size_t num_elem_nodes = elem_ptr->getNumNodes();
+            auto num_elem_nodes = static_cast<Eigen::Index>(elem_ptr->getNumNodes());
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-            for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-                fe_values->reinit(q_p);
+            for (Eigen::Index q_p = 0; q_p < static_cast<Eigen::Index>(fe_values->num_quadrature_points()); ++q_p) {
+                fe_values->reinit(static_cast<int>(q_p));
 
                 const auto &B = fe_values->get_shape_gradients();
                 const double detJ_x_w = fe_values->get_detJ_times_weight();
@@ -54,10 +52,10 @@ namespace Physics {
                 ke_local += B.transpose() * D_mat * B * detJ_x_w;
             }
 
-            for (size_t i = 0; i < num_elem_nodes; ++i) {
-                for (size_t j = 0; j < num_elem_nodes; ++j) {
+            for (Eigen::Index i = 0; i < num_elem_nodes; ++i) {
+                for (Eigen::Index j = 0; j < num_elem_nodes; ++j) {
                     if (dofs[i] != -1 && dofs[j] != -1) {
-                        k_triplets.emplace_back(dofs[i], dofs[j], ke_local(i, j));
+                        k_triplets.emplace_back(static_cast<int>(dofs[i]), static_cast<int>(dofs[j]), ke_local(i, j));
                     }
                 }
             }
