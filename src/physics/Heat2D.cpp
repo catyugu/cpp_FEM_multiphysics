@@ -2,14 +2,9 @@
 #include <core/mesh/TriElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "core/FEValues.hpp"
-#include "core/ReferenceElement.hpp"
-#include "utils/Exceptions.hpp"
-#include <cmath>
-#include "core/sources/SourceTerm.hpp"
 
 namespace Physics {
-    Heat2D::Heat2D() {
-    }
+    Heat2D::Heat2D() = default;
 
     const char *Heat2D::getName() const { return "Heat Transfer 2D"; }
     const char *Heat2D::getVariableName() const { return "Temperature"; }
@@ -46,13 +41,13 @@ namespace Physics {
             auto fe_values = elem_ptr->createFEValues(element_order_);
 
             const auto dofs = getElementDofs(elem_ptr);
-            const size_t num_elem_nodes = elem_ptr->getNumNodes();
+            const auto num_elem_nodes = static_cast<Eigen::Index>(elem_ptr->getNumNodes());
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
             Eigen::MatrixXd me_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
             for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
-                fe_values->reinit(q_p);
+                fe_values->reinit(static_cast<int>(q_p));
 
                 const auto &N = fe_values->get_shape_values();
                 const auto &B = fe_values->get_shape_gradients();
@@ -62,11 +57,11 @@ namespace Physics {
                 me_local += N * rho_cp * N.transpose() * detJ_x_w;
             }
 
-            for (size_t i = 0; i < num_elem_nodes; ++i) {
-                for (size_t j = 0; j < num_elem_nodes; ++j) {
+            for (size_t i = 0; i < static_cast<size_t>(num_elem_nodes); ++i) {
+                for (size_t j = 0; j < static_cast<size_t>(num_elem_nodes); ++j) {
                     if (dofs[i] != -1 && dofs[j] != -1) {
-                        k_triplets.emplace_back(dofs[i], dofs[j], ke_local(i, j));
-                        m_triplets.emplace_back(dofs[i], dofs[j], me_local(i, j));
+                        k_triplets.emplace_back(dofs[i], dofs[j], ke_local(static_cast<Eigen::Index>(i), static_cast<Eigen::Index>(j)));
+                        m_triplets.emplace_back(dofs[i], dofs[j], me_local(static_cast<Eigen::Index>(i), static_cast<Eigen::Index>(j)));
                     }
                 }
             }

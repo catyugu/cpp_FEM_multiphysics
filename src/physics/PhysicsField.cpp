@@ -11,7 +11,7 @@ namespace Physics {
         mesh_ = &mesh;
         dof_manager_ = &dof_manager;
 
-        size_t num_eq = dof_manager.getNumEquations();
+        auto num_eq = static_cast<Eigen::Index>(dof_manager.getNumEquations());
         K_.resize(num_eq, num_eq);
         M_.resize(num_eq, num_eq);
         F_.resize(num_eq);
@@ -60,7 +60,7 @@ namespace Physics {
 
             for (int k = 0; k < K_.outerSize(); ++k) {
                 for (Eigen::SparseMatrix<double>::InnerIterator it(K_, k); it; ++it) {
-                    if (dirichlet_indices.count(it.row()) || dirichlet_indices.count(it.col())) {
+                    if (dirichlet_indices.count(static_cast<int>(it.row())) || dirichlet_indices.count(static_cast<int>(it.col()))) {
                         it.valueRef() = (it.row() == it.col()) ? 1.0 : 0.0;
                     }
                 }
@@ -145,8 +145,8 @@ namespace Physics {
                     const auto &coords = node->getCoords();
                     auto values = func(coords);
                     if constexpr (std::is_convertible_v<decltype(values), double>) {
-                        if (num_components == 1) U_(base_dof_idx) = values;
-                        else U_(base_dof_idx) = values;
+                        // 修复：对于标量值，直接赋值给第一个分量
+                        U_(base_dof_idx) = values;
                     } else {
                         if (values.size() == num_components) {
                             for (int c = 0; c < num_components; ++c) U_(base_dof_idx + c) = values(c);

@@ -6,6 +6,7 @@
 #include <core/bcs/BoundaryCondition.hpp>
 #include "utils/SimpleLogger.hpp"
 #include <cmath>
+#include <utility>
 
 // All 1D Physics
 #include "physics/Current1D.hpp"
@@ -102,7 +103,7 @@ void setup_and_validate_2D_problem(const std::string& field_name, Physics::Physi
     field->setElementOrder(2);
     problem->addField(std::unique_ptr<Physics::PhysicsField>(field));
     problem->setup();
-    problem->addMaterial(material);
+    problem->addMaterial(std::move(material));
 
     const auto& dof_manager = problem->getDofManager();
     const auto& mesh_ref = problem->getMesh();
@@ -174,7 +175,7 @@ void setup_and_validate_3D_problem(const std::string& field_name, Physics::Physi
     field->setElementOrder(2); // Assuming Order 2 for this test
     problem->addField(std::unique_ptr<Physics::PhysicsField>(field));
     problem->setup();
-    problem->addMaterial(material);
+    problem->addMaterial(std::move(material));
 
     auto& dof_manager = problem->getDofManager();
     const auto& mesh_ref = problem->getMesh();
@@ -192,7 +193,7 @@ void setup_and_validate_3D_problem(const std::string& field_name, Physics::Physi
 
     // Apply boundary conditions to all higher-order EDGE DOFs on the exterior faces.
     for (const auto& elem : mesh_ref.getElements()) {
-        auto element_nodes = elem->getNodes();
+        const auto& element_nodes = elem->getNodes();
         for (size_t i = 0; i < element_nodes.size(); ++i) {
             for (size_t j = i + 1; j < element_nodes.size(); ++j) {
                  auto* node1 = element_nodes[i];
@@ -239,7 +240,7 @@ void setup_and_validate_3D_problem(const std::string& field_name, Physics::Physi
         }
     }
      for(const auto& elem : mesh_ref.getElements()){
-        auto element_nodes = elem->getNodes();
+        const auto& element_nodes = elem->getNodes();
         for(size_t i = 0; i < element_nodes.size(); ++i){
             for(size_t j = i + 1; j < element_nodes.size(); ++j){
                  std::vector<int> edge_dof_key = {element_nodes[i]->getId(), element_nodes[j]->getId()};
