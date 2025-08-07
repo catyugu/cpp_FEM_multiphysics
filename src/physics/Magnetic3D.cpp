@@ -38,6 +38,9 @@ namespace Physics {
 
             auto fe_values = elem_ptr->createFEValues(element_order_);
 
+            // 新增：设置分析类型为矢量旋度问题，自动构建B_curl矩阵
+            fe_values->setAnalysisType(Core::AnalysisType::VECTOR_CURL);
+
             const auto dofs = getElementDofs(elem_ptr);
             auto num_elem_nodes = static_cast<Eigen::Index>(elem_ptr->getNumNodes());
             auto num_components = static_cast<Eigen::Index>(getNumComponents());
@@ -47,25 +50,13 @@ namespace Physics {
 
             for (Eigen::Index q_p = 0; q_p < static_cast<Eigen::Index>(fe_values->num_quadrature_points()); ++q_p) {
                 fe_values->reinit(static_cast<int>(q_p));
-                const auto &grad_N = fe_values->get_shape_gradients();
+
+                // 直接获取预构建的B_curl矩阵，无需手动构建
+                const auto &B_curl = fe_values->getBMatrix();
                 const double detJ_x_w = fe_values->get_detJ_times_weight();
 
-                Eigen::MatrixXd B_curl(3, num_elem_nodes * 3);
-                B_curl.setZero();
-                for (Eigen::Index i = 0; i < num_elem_nodes; ++i) {
-                    double dN_dx = grad_N(0, i);
-                    double dN_dy = grad_N(1, i);
-                    double dN_dz = grad_N(2, i);
-
-                    B_curl(0, i * 3 + 1) = -dN_dz;
-                    B_curl(0, i * 3 + 2) = dN_dy;
-                    B_curl(1, i * 3 + 0) = dN_dz;
-                    B_curl(1, i * 3 + 2) = -dN_dx;
-                    B_curl(2, i * 3 + 0) = -dN_dy;
-                    B_curl(2, i * 3 + 1) = dN_dx;
-                }
-            ke_local += B_curl.transpose() * inv_mu * B_curl * detJ_x_w;
-        }
+                ke_local += B_curl.transpose() * inv_mu * B_curl * detJ_x_w;
+            }
 
             for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(dofs.size()); ++i) {
                 for (Eigen::Index j = 0; j < static_cast<Eigen::Index>(dofs.size()); ++j) {

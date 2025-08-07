@@ -43,6 +43,9 @@ namespace Physics {
 
             auto fe_values = elem_ptr->createFEValues(element_order_);
 
+            // 新增：设置分析类型为标量扩散问题，自动构建B矩阵
+            fe_values->setAnalysisType(Core::AnalysisType::SCALAR_DIFFUSION);
+
             const auto dofs = getElementDofs(elem_ptr);
             const auto num_elem_nodes = static_cast<Eigen::Index>(elem_ptr->getNumNodes());
 
@@ -53,7 +56,8 @@ namespace Physics {
                 fe_values->reinit(q_p);
 
                 const auto &N = fe_values->get_shape_values();
-                const auto &B = fe_values->get_shape_gradients();
+                // 直接获取预构建的B矩阵（梯度矩阵）
+                const auto &B = fe_values->getBMatrix();
                 const double detJ_x_w = fe_values->get_detJ_times_weight();
 
                 ke_local += B.transpose() * D_mat * B * detJ_x_w;

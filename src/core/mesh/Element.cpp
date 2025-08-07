@@ -38,4 +38,8 @@ namespace Core {
         return *geometry_;
     }
 
+    // 新增：获取与此单元关联的 FEValues 对象，如果尚未创建则创建并初始化
+    FEValues* Element::getFEValues(int quad_order, AnalysisType analysis_type) {
+        // 检查缓存是否需要更新 (例如，如果积分阶数或分析类型改变)
+        if (!fe_values_ || stored_quad_order_ != quad_order || stored_analysis_type_ != analysis_type) {
 } // namespace Core
