@@ -23,7 +23,7 @@ const ReferenceElementData& ReferenceElementCache::get(const std::string& type_n
             data.quadrature_points = Utils::Quadrature::getLineQuadrature(quad_order);
             for (const auto& qp : data.quadrature_points) {
                 data.N_values_at_qps.push_back(Utils::ShapeFunctions::getLineShapeFunctions(fe_order, qp.point(0)));
-                data.dN_d_natural_at_qps.push_back(Utils::ShapeFunctions::getLineShapeFunctionDerivatives(fe_order, qp.point(0)));
+                data.dN_d_natural_at_qps.emplace_back(Utils::ShapeFunctions::getLineShapeFunctionDerivatives(fe_order, qp.point(0)));
             }
         } else if (type_name == "TriElement") {
             data.quadrature_points = Utils::Quadrature::getTriangleQuadrature(quad_order);
