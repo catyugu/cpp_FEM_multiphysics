@@ -116,6 +116,7 @@ namespace Core {
                 B = buildVectorCurlBMatrix(dN_dx);
             break;
             case AnalysisType::VECTOR_GRADIENT:
+                // TODO: 实现固体力学的应变位移矩阵
                     throw std::runtime_error("VECTOR_GRADIENT B matrix not implemented yet");
             break;
             default:
