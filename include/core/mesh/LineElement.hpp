@@ -4,6 +4,9 @@
 
 #ifndef LINEELEMENT_HPP
 #define LINEELEMENT_HPP
+#include <core/FEValues.hpp>
+#include <core/ReferenceElement.hpp>
+
 #include "Element.hpp"
 
 namespace Core{
@@ -16,6 +19,7 @@ namespace Core{
         size_t getNumNodes() const override;
         const char* getTypeName() const override;
         double getLength() const;
+        std::unique_ptr<FEValues> createFEValues(int quad_order) override;
     };
 
 }

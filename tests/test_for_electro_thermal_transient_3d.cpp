@@ -18,24 +18,26 @@
 class CoupledTransient3DTest : public ::testing::Test {
 protected:
     std::unique_ptr<Core::Problem> problem;
-    Core::Material copper{"Copper"};
 
     void SetUp() override {
-        auto mesh = std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(0.02, 0.01, 0.01, 10, 10, 10));
+        auto mesh = std::unique_ptr<Core::Mesh>(Core::Mesh::create_uniform_3d_mesh(0.02, 0.01, 0.01, 5, 5, 5));
         ASSERT_NE(mesh, nullptr);
 
-        // Making conductivity dependent on temperature to properly test coupling
-        copper.setProperty("electrical_conductivity", [](const std::map<std::string, double>& field_values) {
+        auto copper = std::make_shared<Core::Material>(0, "Copper");
+        copper->setProperty("electrical_conductivity", [](const std::map<std::string, double>& field_values) {
             double T = field_values.count("Temperature") ? field_values.at("Temperature") : 293.15;
-            return 5.96e7 * (1.0 - 0.0039 * (T - 293.15)); // Simple linear model for copper resistivity
+            return 5.96e7 * (1.0 - 0.0039 * (T - 293.15));
         });
-        copper.setProperty("thermal_conductivity", 401.0);
-        copper.setProperty("density", 8960.0);
-        copper.setProperty("thermal_capacity", 385.0);
+        copper->setProperty("thermal_conductivity", 401.0);
+        copper->setProperty("density", 8960.0);
+        copper->setProperty("thermal_capacity", 385.0);
 
         problem = std::make_unique<Core::Problem>(std::move(mesh));
-        problem->addField(std::make_unique<Physics::Current3D>(copper));
-        problem->addField(std::make_unique<Physics::Heat3D>(copper));
+        problem->addMaterial(copper);
+
+        problem->addField(std::make_unique<Physics::Current3D>());
+        problem->addField(std::make_unique<Physics::Heat3D>());
+
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
 
         problem->setTimeSteppingParameters(0.1, 1.0);

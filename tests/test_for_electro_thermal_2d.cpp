@@ -25,28 +25,23 @@ protected:
     std::unique_ptr<Core::Problem> problem;
     const std::string mesh_filename = "../data/electroThermalMesh_2D.mphtxt";
     const std::string vtu_filename = "../data/electroThermalResults_2D.vtu";
-    Core::Material copper{"Copper"};
 
     void SetUp() override {
-        // Setup problem
         std::unique_ptr<Core::Mesh> mesh = IO::Importer::read_comsol_mphtxt(mesh_filename);
         ASSERT_NE(mesh, nullptr);
 
-        copper.setProperty("electrical_conductivity", 5.96e7);
-        copper.setProperty("thermal_conductivity", 401.0);
-        copper.setProperty("density", 8960.0);
-        copper.setProperty("thermal_capacity", 385.0);
+        auto copper = std::make_shared<Core::Material>(0, "Copper");
+        copper->setProperty("electrical_conductivity", 5.96e7);
+        copper->setProperty("thermal_conductivity", 401.0);
+        copper->setProperty("density", 8960.0);
+        copper->setProperty("thermal_capacity", 385.0);
 
         problem = std::make_unique<Core::Problem>(std::move(mesh));
-        auto current_field = std::make_unique<Physics::Current2D>(copper);
-        auto heat_field = std::make_unique<Physics::Heat2D>(copper);
+        problem->addMaterial(copper);
 
-        // Set element order to 2 for both fields
-        // current_field->setElementOrder(2);
-        // heat_field->setElementOrder(2);
+        problem->addField(std::make_unique<Physics::Current2D>());
+        problem->addField(std::make_unique<Physics::Heat2D>());
 
-        problem->addField(std::move(current_field));
-        problem->addField(std::move(heat_field));
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
         problem->setup();
     }

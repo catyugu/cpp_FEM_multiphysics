@@ -54,13 +54,13 @@ namespace IO {
                 std::stringstream ss(line);
                 ss >> num_vertices;
 
-                while (std::getline(file, line) && line.find("# Mesh vertex coordinates") == std::string::npos);
+                while (std::getline(file, line) && line.find("# Mesh vertex coordinates") == std::string::npos) {}
 
                 for (int i = 0; i < num_vertices && std::getline(file, line); ++i) {
                     std::stringstream data_ss(line);
                     double x = 0.0, y = 0.0, z = 0.0;
                     data_ss >> x >> y >> z;
-                    int node_id = mesh->getNodes().size();
+                    int node_id = static_cast<int>(mesh->getNodes().size());
                     mesh->addNode(new Core::Node(node_id, x, y, z));
                 }
                 logger.info("Finished reading ", mesh->getNodes().size(), " vertices.");
@@ -76,11 +76,11 @@ namespace IO {
         while (std::getline(file, line)) {
             // 如果是2D问题，只读取三角形单元
             if (sdim == 2 && line.find("tri # type name") != std::string::npos) {
-                while (std::getline(file, line) && line.find("# number of elements") == std::string::npos);
+                while (std::getline(file, line) && line.find("# number of elements") == std::string::npos) {}
                 int num_elements = 0;
                 std::stringstream ss(line);
                 ss >> num_elements;
-                while (std::getline(file, line) && line.find("# Elements") == std::string::npos);
+                while (std::getline(file, line) && line.find("# Elements") == std::string::npos) {}
                 for (int i = 0; i < num_elements && std::getline(file, line); ++i) {
                     std::stringstream data_ss(line);
                     int n1, n2, n3;
@@ -97,11 +97,11 @@ namespace IO {
             }
             // 如果是3D问题，只读取四面体单元
             else if (sdim == 3 && line.find("tet # type name") != std::string::npos) {
-                while (std::getline(file, line) && line.find("# number of elements") == std::string::npos);
+                while (std::getline(file, line) && line.find("# number of elements") == std::string::npos) {}
                 int num_elements = 0;
                 std::stringstream ss(line);
                 ss >> num_elements;
-                while (std::getline(file, line) && line.find("# Elements") == std::string::npos);
+                while (std::getline(file, line) && line.find("# Elements") == std::string::npos) {}
                 for (int i = 0; i < num_elements && std::getline(file, line); ++i) {
                     std::stringstream data_ss(line);
                     int n1, n2, n3, n4;

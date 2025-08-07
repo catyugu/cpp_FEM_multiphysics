@@ -22,11 +22,11 @@ This document describes the coupling mechanism used in the C++ FEM Multiphysics 
 * **Public Functions**:
   * `~Coupling()`: Virtual destructor.
   * `setup(std::vector<Physics::PhysicsField*>& fields)`: Pure virtual function to set up the coupling between the registered fields.
-  * `execute()`: Pure virtual method that defines the core logic for how the coupled fields interact and exchange information. This method is responsible for calculating source terms or updating material properties based on the state of other fields.
+  * `execute()`: Pure virtual method that defines the core logic for how the coupled fields interact and exchange information. This method is responsible for calculating source terms or updating material properties based on the state of other fields. With the new material handling system, couplings can now access element-specific material properties when computing coupling terms.
 
 ### **ElectroThermalCoupling**
 
 * **Description**: A concrete implementation of the `Coupling` class for electro-thermal coupling. It links the "Voltage" and "Temperature" fields.
 * **Public Functions**:
   * `setup(std::vector<Physics::PhysicsField*>& fields) override`: Identifies and stores pointers to the "Voltage" (electromagnetic) and "Temperature" (heat) fields from the problem's registered fields.
-  * `execute() override`: Implements the coupling logic. It iterates through every element in the mesh, calculates the Joule heating power based on the current temperature-dependent electrical conductivity and the voltage gradient, and then adds this power as a source term to the heat field's `F_coupling_` vector. This method correctly handles elements of any dimension (1D, 2D, or 3D).
+  * `execute() override`: Implements the coupling logic. It iterates through every element in the mesh, calculates the Joule heating power based on the current temperature-dependent electrical conductivity and the voltage gradient, and then adds this power as a source term to the heat field's `F_coupling_` vector. This method correctly handles elements of any dimension (1D, 2D, or 3D). With the new material system, it now retrieves material properties on a per-element basis to correctly handle simulations with spatially varying materials.

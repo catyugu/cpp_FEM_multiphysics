@@ -2,89 +2,79 @@
 #include <core/mesh/TetElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "core/FEValues.hpp"
-#include "core/ReferenceElement.hpp"
-#include "utils/Exceptions.hpp"
-#include <cmath>
 
 namespace Physics {
+    Heat3D::Heat3D() : k_(0.0) {
+    }
 
-Heat3D::Heat3D(const Core::Material& material) : material_(material), k_(0.0) {}
+    const char *Heat3D::getName() const { return "Heat Transfer 3D"; }
+    const char *Heat3D::getVariableName() const { return "Temperature"; }
 
-const char* Heat3D::getName() const { return "Heat Transfer 3D"; }
-const char* Heat3D::getVariableName() const { return "Temperature"; }
+    void Heat3D::setup(Core::Problem& problem, Core::Mesh &mesh, Core::DOFManager &dof_manager) {
+        // Call the base class setup
+        PhysicsField::setup(problem, mesh, dof_manager);
+        
+        // Note: We can no longer set a single 'k_' here, as it can vary per element.
+        // We will fetch it inside the assembly loop instead.
+        auto &logger = Utils::Logger::instance();
+        logger.info("Setting up ", getName(), " for mesh.");
+    }
 
-void Heat3D::setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) {
-    mesh_ = &mesh;
-    dof_manager_ = &dof_manager;
-    k_ = material_.getProperty("thermal_conductivity");
+    void Heat3D::assemble(const PhysicsField *coupled_field) {
+        auto &logger = Utils::Logger::instance();
+        logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
-    auto& logger = Utils::Logger::instance();
-    logger.info("Setting up ", getName(), " for mesh with material '", material_.getName(), "'.");
-    logger.info("-> Thermal Conductivity (k): ", k_);
+        K_.setZero();
+        M_.setZero();
+        applySources();
 
-    size_t num_eq = dof_manager_->getNumEquations();
-    K_.resize(num_eq, num_eq);
-    M_.resize(num_eq, num_eq);
-    F_.resize(num_eq, 1);
-    U_.resize(num_eq, 1);
-    U_prev_.resize(num_eq, 1);
-    F_.setZero();
-    U_.setZero();
-    U_prev_.setZero();
-}
+        std::vector<Eigen::Triplet<double> > k_triplets;
+        std::vector<Eigen::Triplet<double> > m_triplets;
 
-void Heat3D::assemble(const PhysicsField *coupled_field) {
-    auto& logger = Utils::Logger::instance();
-    logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
+        for (const auto &elem_ptr: mesh_->getElements()) {
+            elem_ptr->setOrder(element_order_);
+            
+            // --- NEW: Get material for the current element ---
+            const auto& material = getMaterial(elem_ptr);
+            const double k = material.getProperty("thermal_conductivity");
+            const double rho_cp = material.getProperty("density") * material.getProperty("thermal_capacity");
+            const Eigen::Matrix3d D_mat = Eigen::Matrix3d::Identity() * k;
+            // ------------------------------------------------
 
-    K_.setZero();
-    M_.setZero();
-    applySources();
+            auto fe_values = elem_ptr->createFEValues(element_order_);
 
-    const Eigen::Matrix3d D_mat = Eigen::Matrix3d::Identity() * k_;
-    const double rho_cp = material_.getProperty("density") * material_.getProperty("thermal_capacity");
+            // 新增：设置分析类型为标量扩散问题，自动构建B矩阵
+            fe_values->setAnalysisType(Core::AnalysisType::SCALAR_DIFFUSION);
 
-    std::vector<Eigen::Triplet<double>> k_triplets;
-    std::vector<Eigen::Triplet<double>> m_triplets;
-
-    for (const auto& elem_ptr : mesh_->getElements()) {
-        auto* tet_elem = dynamic_cast<Core::TetElement*>(elem_ptr);
-        if (tet_elem) {
-            tet_elem->setOrder(element_order_);
-
-            const auto& ref_data = Core::ReferenceElementCache::get(tet_elem->getTypeName(), tet_elem->getNodes().size(), element_order_, element_order_);
-            Core::FEValues fe_values(tet_elem->getGeometry(), element_order_, ref_data);
-
-            const auto dofs = getElementDofs(tet_elem);
-            const size_t num_elem_nodes = tet_elem->getNumNodes();
+            const auto dofs = getElementDofs(elem_ptr);
+            const auto num_elem_nodes = static_cast<Eigen::Index>(elem_ptr->getNumNodes());
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
             Eigen::MatrixXd me_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
-            for(size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
-                fe_values.reinit(q_p);
+            for (int q_p = 0; q_p < static_cast<int>(fe_values->num_quadrature_points()); ++q_p) {
+                fe_values->reinit(q_p);
 
-                const auto& N = fe_values.get_shape_values();
-                const auto& B = fe_values.get_shape_gradients();
-                const double detJ_x_w = fe_values.get_detJ_times_weight();
+                const auto &N = fe_values->get_shape_values();
+                // 直接获取预构建的B矩阵（梯度矩阵）
+                const auto &B = fe_values->getBMatrix();
+                const double detJ_x_w = fe_values->get_detJ_times_weight();
 
                 ke_local += B.transpose() * D_mat * B * detJ_x_w;
                 me_local += N * rho_cp * N.transpose() * detJ_x_w;
             }
 
-            for (size_t i = 0; i < num_elem_nodes; ++i) {
-                for (size_t j = 0; j < num_elem_nodes; ++j) {
+            for (Eigen::Index i = 0; i < num_elem_nodes; ++i) {
+                for (Eigen::Index j = 0; j < num_elem_nodes; ++j) {
                     if (dofs[i] != -1 && dofs[j] != -1) {
-                        k_triplets.emplace_back(dofs[i], dofs[j], ke_local(i, j));
-                        m_triplets.emplace_back(dofs[i], dofs[j], me_local(i, j));
+                        k_triplets.emplace_back(static_cast<int>(dofs[i]), static_cast<int>(dofs[j]), ke_local(i, j));
+                        m_triplets.emplace_back(static_cast<int>(dofs[i]), static_cast<int>(dofs[j]), me_local(i, j));
                     }
                 }
             }
         }
+        K_.setFromTriplets(k_triplets.begin(), k_triplets.end());
+        M_.setFromTriplets(m_triplets.begin(), m_triplets.end());
+        logger.info("Assembly for ", getName(), " complete.");
     }
-    K_.setFromTriplets(k_triplets.begin(), k_triplets.end());
-    M_.setFromTriplets(m_triplets.begin(), m_triplets.end());
-    logger.info("Assembly for ", getName(), " complete.");
-}
-
 } // namespace Physics

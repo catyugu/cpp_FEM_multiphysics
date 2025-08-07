@@ -2,25 +2,25 @@
 #define HEAT2D_HPP
 
 #include "physics/PhysicsField.hpp"
-#include "core/Material.hpp"
+#include "core/Problem.hpp"
 #include <vector>
 
 namespace Physics {
 
     class Heat2D : public PhysicsField {
     public:
-        explicit Heat2D(const Core::Material& material);
+        explicit Heat2D();
 
         const char* getName() const override;
         const char* getVariableName() const override;
-        const Core::Material& getMaterial() const override { return material_; }
         int getDimension() const override { return 2; }
 
-        void setup(Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
+        void setup(Core::Problem& problem, Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
         void assemble(const PhysicsField *coupled_field) override;
 
-    private:
-        const Core::Material& material_;
+        const Core::Material& getMaterial(const Core::Element* elem) const override {
+            return problem_->getMaterial(elem->getMaterialID());
+        }
     };
 
 } // namespace Physics

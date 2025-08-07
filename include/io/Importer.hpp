@@ -37,7 +37,7 @@ namespace IO {
          * @param filename The path to the input .msh file.
          * @return A unique_ptr to the newly created Mesh object, or nullptr on failure.
          */
-        std::unique_ptr<Core::Mesh> Importer::read_gmsh_msh(const std::string& filename);
+        static  std::unique_ptr<Core::Mesh> Importer::read_gmsh_msh(const std::string& filename);
         /**
          * @brief Reads nodal data from a VTK Unstructured Grid (.vtu) file.
          * @param filename The path to the input .vtu file.

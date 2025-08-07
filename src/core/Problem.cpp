@@ -40,7 +40,8 @@ namespace Core {
         dof_manager_->build(field_orders);
 
         for (const auto &field: fields_) {
-            field->setup(*mesh_, *dof_manager_);
+            // --- MODIFIED: Pass 'this' (the problem instance) to the field's setup ---
+            field->setup(*this, *mesh_, *dof_manager_);
         }
         coupling_manager_.setupCouplings();
         solver_ = Solver::SolverFactory::createSolver(*this);
@@ -123,5 +124,24 @@ namespace Core {
         Utils::Logger::instance().info("Problem: Set linear solver type to ",
                                              (type == Solver::SolverType::LU ? "LU" : "BiCGSTAB"));
     }
+
+    CouplingManager& Problem::getCouplingManager() {
+        return coupling_manager_;
+    }
+    void Problem::addMaterial(std::shared_ptr<Material> material) {
+        if (material) {
+            materials_[material->getID()] = material;
+        }
+    }
+
+    const Material& Problem::getMaterial(int id) const {
+        auto it = materials_.find(id);
+        if (it == materials_.end()) {
+            throw Exception::ConfigurationException("Material with ID " + std::to_string(id) + " not found in the problem.");
+        }
+        return *it->second;
+    }
+    // ----------------------------------------------------
+
 
 } // namespace Core

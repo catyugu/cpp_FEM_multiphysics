@@ -1,10 +1,10 @@
 #include "post/HeatFluxCalculator.hpp"
-#include "core/Problem.hpp"
 #include "physics/PhysicsField.hpp"
-#include "core/mesh/Element.hpp"
 #include "core/FEValues.hpp"
+#include "core/ReferenceElement.hpp"
 #include "utils/Exceptions.hpp"
 #include "utils/SimpleLogger.hpp"
+#include "core/Problem.hpp"
 
 namespace Post {
 
@@ -14,17 +14,25 @@ namespace Post {
 
     PostProcessingResult HeatFluxCalculator::compute_derived_quantities(const Core::Problem& problem) const {
         auto& logger = Utils::Logger::instance();
-        logger.info("Post-processing: Calculating Heat Flux...");
+        logger.info("Calculating Heat Flux...");
 
-        const auto* heat_field = problem.getField("Temperature");
+        // Find the heat transfer field
+        const Physics::PhysicsField* heat_field = nullptr;
+        for (const auto& field : problem.getFields()) {
+            if (std::string(field->getVariableName()) == "Temperature") {
+                heat_field = field.get();
+                break;
+            }
+        }
+
         if (!heat_field) {
             throw Exception::ConfigurationException("HeatFluxCalculator requires a 'Temperature' field.");
         }
 
         const auto& mesh = problem.getMesh();
         const auto& T_solution = heat_field->getSolution();
-        const auto& material = heat_field->getMaterial();
-        const double k_therm = material.getProperty("thermal_conductivity");
+        // REMOVED: const auto& material = heat_field->getMaterial();
+        // REMOVED: const double k_therm = material.getProperty("thermal_conductivity");
 
         PostProcessingResult result;
         result.name = getName();
@@ -34,6 +42,10 @@ namespace Post {
         for (size_t i = 0; i < mesh.getElements().size(); ++i) {
             Core::Element* elem = mesh.getElements()[i];
             elem->setOrder(heat_field->getElementOrder());
+            
+            // ADDED: Get material for the current element
+            const auto& material = heat_field->getMaterial(elem);
+            const double k_therm = material.getProperty("thermal_conductivity");
 
             const auto& ref_data = Core::ReferenceElementCache::get(elem->getTypeName(), elem->getNodes().size(), heat_field->getElementOrder(), heat_field->getElementOrder());
             Core::FEValues fe_values(elem->getGeometry(), heat_field->getElementOrder(), ref_data);

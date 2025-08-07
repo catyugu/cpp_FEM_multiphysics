@@ -12,6 +12,7 @@ This namespace contains the fundamental, high-level components that orchestrate 
   * `Problem(std::unique_ptr<Mesh> mesh)`
   * `~Problem()`
   * `addField(std::unique_ptr<Physics::PhysicsField> field)`: Adds a physics field to the problem. It correctly reads the number of components from the field (scalar or vector) and passes this information to the `DOFManager`.
+  * `addMaterial(std::shared_ptr<Material> material)`: Adds a material to the problem. Materials are now managed by the `Problem` class and can be retrieved by physics fields on a per-element basis.
   * `addPostProcessor(std::unique_ptr<Post::PostProcessor> post_processor)`: Adds a post-processing calculator to the problem (e.g., for calculating heat flux).
   * `setup()`: Collects the element order for each physics field and passes it to the `DOFManager::build()` method, ensuring correct DOF mapping for higher-order elements. It also sets up the appropriate solver via a factory.
   * `setIterativeSolverParameters(int max_iter, double tol)`: Sets parameters for iterative solvers.
@@ -19,11 +20,13 @@ This namespace contains the fundamental, high-level components that orchestrate 
   * `setLinearSolverType(Solver::SolverType type)`: Specifies the linear solver to be used (LU or BiCGSTAB).
   * `solveSteadyState()` and `solveTransient()`: Executes the appropriate solver strategy and subsequently runs any registered post-processors.
   * `exportResults(const std::string& filename) const`
+  * `getCouplingManager()`: Returns a reference to the coupling manager for setting up physics couplings.
   * Accessors like `getMesh()`, `getDofManager()`, `getField()`, `getPostProcessingResults()`, etc.
 * **Private Members**:
   * `mesh_`, `dof_manager_`, `solver_`, `fields_`: Pointers to the core components.
   * `post_processors_`, `post_processing_results_`: Manages post-processing tasks.
   * `coupling_manager_`: Manages interactions between different physics fields.
+  * `materials_`: Map of materials managed by the problem, indexed by material ID.
 
 ### **DOFManager**
 
@@ -38,6 +41,13 @@ This namespace contains the fundamental, high-level components that orchestrate 
 ### **Material**
 
 * **Description**: Encapsulates the physical properties of a material. This class is designed to handle both constant properties and properties that are dependent on other field values (e.g., temperature-dependent electrical conductivity) by using `std::function`.
+* **Public Functions**:
+  * `Material(int id, const std::string& name)`: Constructor that takes a unique ID and name for the material.
+  * `getID() const`: Returns the material's unique ID.
+  * `getName() const`: Returns the material's name.
+  * `setProperty(const std::string& name, double value)`: Sets a constant property value.
+  * `setProperty(const std::string& name, std::function<double(const std::map<std::string, double>&)> func)`: Sets a field-dependent property function.
+  * `getProperty(const std::string& name, const std::map<std::string, double>& field_values = {}) const`: Retrieves a property value, either constant or computed from field values.
 
 ### **BoundaryCondition**
 
