@@ -49,6 +49,12 @@ namespace Core {
         // Get the combined Jacobian determinant and quadrature weight, det(J) * w_q
         double get_detJ_times_weight() const { return detJ_x_w_; }
 
+        // 新增：批量访问缓存数据的方法，用于持久化缓存架构
+        const std::vector<Eigen::MatrixXd>& getAllBMatrices() const { return all_B_matrices_; }
+        const std::vector<Eigen::VectorXd>& getAllShapeValues() const { return ref_data_.N_values_at_qps; }
+        const std::vector<Eigen::MatrixXd>& getAllShapeGradients() const { return all_dN_dx_values_; }
+        const std::vector<double>& getAllDetJTimesWeights() const { return all_detJ_x_w_; }
+
     private:
         // Cached values for the current quadrature point
         Eigen::VectorXd N_values_;

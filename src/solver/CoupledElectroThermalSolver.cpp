@@ -5,7 +5,6 @@
 
 namespace Solver {
 
-    // ... (solveSteadyState logic remains the same as the last working version)
     void CoupledElectroThermalSolver::solveSteadyState(Core::Problem &problem) {
         auto &logger = Utils::Logger::instance();
         logger.info("\n--- Solving Coupled Electro-Thermal Problem with Damped Newton-like Iterations ---");
