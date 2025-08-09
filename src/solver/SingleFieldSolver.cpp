@@ -13,7 +13,7 @@ namespace Solver {
                 continue;
             }
             logger.info("Solving for field: ", field->getName());
-            field->assemble(nullptr);
+            field->assemble();
             field->applySources();
             field->applyBCs();
 
@@ -43,7 +43,7 @@ namespace Solver {
                 if (!field->isEnabled()) continue;
 
                 logger.info("  -> Assembling for field: ", field->getName());
-                field->assemble(nullptr);
+                field->assemble();
                 field->applySources(); // Important to apply time-dependent sources inside the loop
 
                 // Backward Euler scheme: (M/dt + K) * U_n+1 = F + (M/dt) * U_n

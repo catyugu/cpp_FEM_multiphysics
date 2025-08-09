@@ -2,6 +2,7 @@
 #include <core/mesh/TriElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "core/FEValues.hpp"
+#include "utils/InterpolationUtilities.hpp"
 
 namespace Physics {
     Heat2D::Heat2D() = default;
@@ -17,7 +18,7 @@ namespace Physics {
         logger.info("Setting up ", getName(), " for mesh.");
     }
 
-    void Heat2D::assemble(const PhysicsField *coupled_field) {
+    void Heat2D::assemble() {
         auto &logger = Utils::Logger::instance();
         logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
@@ -31,16 +32,10 @@ namespace Physics {
         for (const auto &elem_ptr: mesh_->getElements()) {
             elem_ptr->setOrder(element_order_);
             
-            // --- NEW: Get material for the current element ---
+            // 获取材料引用
             const auto& material = getMaterial(elem_ptr);
-            const double k = material.getProperty("thermal_conductivity");
-            const double rho_cp = material.getProperty("density") * material.getProperty("thermal_capacity");
-            const Eigen::Matrix2d D_mat = Eigen::Matrix2d::Identity() * k;
-            // ------------------------------------------------
 
             auto fe_values = elem_ptr->createFEValues(element_order_);
-
-            // 新增：设置分析类型为标量扩散问题，自动构建B矩阵
             fe_values->setAnalysisType(Core::AnalysisType::SCALAR_DIFFUSION);
 
             const auto dofs = getElementDofs(elem_ptr);
@@ -49,13 +44,33 @@ namespace Physics {
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
             Eigen::MatrixXd me_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
+            // 准备物理场映射以便插值
+            std::map<std::string, const Physics::PhysicsField*> physics_fields;
+            if (problem_) {
+                auto* heat_field = problem_->getField("Temperature");
+                auto* voltage_field = problem_->getField("Voltage");
+                if (heat_field) physics_fields["Temperature"] = heat_field;
+                if (voltage_field) physics_fields["Voltage"] = voltage_field;
+            }
+
             for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
                 fe_values->reinit(static_cast<int>(q_p));
 
                 const auto &N = fe_values->get_shape_values();
-                // 直接获取预构建的B矩阵（梯度矩阵）
                 const auto &B = fe_values->getBMatrix();
                 const double detJ_x_w = fe_values->get_detJ_times_weight();
+
+                // ========= 新增：逐积分点插值计算材料属性 =========
+                std::vector<std::string> variable_names = {"Temperature"};
+                auto interpolated_vars = Utils::InterpolationUtilities::interpolateAtQuadraturePoint(
+                    elem_ptr, N, variable_names, physics_fields);
+
+                const double k = material.getPropertyAtQuadraturePoint("thermal_conductivity", interpolated_vars);
+                const double rho = material.getPropertyAtQuadraturePoint("density", interpolated_vars);
+                const double cp = material.getPropertyAtQuadraturePoint("thermal_capacity", interpolated_vars);
+                const double rho_cp = rho * cp;
+                const Eigen::Matrix2d D_mat = Eigen::Matrix2d::Identity() * k;
+                // ================================================
 
                 ke_local += B.transpose() * D_mat * B * detJ_x_w;
                 me_local += N * rho_cp * N.transpose() * detJ_x_w;

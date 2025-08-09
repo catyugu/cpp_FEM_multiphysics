@@ -76,13 +76,8 @@ cpp\_FEM\_multiphysics/
     git clone <repository-url>
     cd cpp_FEM_multiphysics
     ```
-2.  **Configure Eigen:**
-    Open `CMakeLists.txt` and update the `EIGEN3_INCLUDE_DIR` variable to point to the root directory of your Eigen library installation.
-    ```cmake
-    # On line 9
-    set(EIGEN3_INCLUDE_DIR "path/to/your/eigen-3.4.0")
-    ```
-3.  **Build the project:**
+
+2.  **构建项目:**
     ```bash
     mkdir build && cd build
     cmake ..

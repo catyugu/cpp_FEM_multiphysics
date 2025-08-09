@@ -29,3 +29,8 @@ This namespace provides general-purpose utilities that support the core numerica
 
 ### **Exceptions**
 * **Description**: A namespace containing custom exception types (`FileIOException`, `SolverException`, `ConfigurationException`) to provide more specific error information than standard exceptions, improving debugging and error handling.
+
+### **InterpolationUtilities**
+* **Description**: A static utility class providing methods to interpolate field variables at quadrature points. This is crucial for accurately evaluating material properties that depend on other field variables (e.g., temperature-dependent conductivity) at the specific locations required for numerical integration.
+* **Key Static Functions**:
+  * `interpolateAtQuadraturePoint(...)`: Takes an element, shape function values at a point, a list of variable names, and a map of physics fields. It returns a map of the interpolated values for the requested variables at that specific quadrature point. This is the primary function used in the assembly process to enable per-quadrature-point material property evaluation.

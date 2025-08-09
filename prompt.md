@@ -114,29 +114,42 @@ To this:
 
 **Congratulations!** You have successfully completed the core implementation of the vector field solver, including the necessary upgrades to `DOFManager` and `PhysicsField`, and have delivered a functional 3D magnetostatics solver with foundational tests. Our focus now shifts to in-depth optimization, theoretical expansion, and feature completeness.
 
-### **1. Solver Performance Optimization & Robustness Enhancement**
-* **Goal**: To significantly improve the solver's speed for large-scale problems, making it competitive with commercial software, and to ensure the absolute reliability of its results.
-* **Key Tasks**:
-    * **Advanced Preconditioning**: Research and implement more sophisticated preconditioners (e.g., Incomplete LU factorization `Eigen::IncompleteLUT`) for the `BiCGSTAB` solver to accelerate the convergence of complex electromagnetic problems.
-    * **Parallelized Assembly**: Leverage the existing OpenMP integration to refactor the matrix assembly process (the element loop within the `assemble` function) for parallel execution and benchmark the performance gains.
-    * **Comprehensive Benchmarking**: Establish a rigorous benchmark suite for the magnetostatics solver. Identify classic models with analytical solutions (e.g., Helmholtz coils) and write tests to perform **quantitative** accuracy validation, ensuring the error is within an acceptable tolerance.
-    * **Enhanced Post-Processing**: Develop a new post-processor, similar to the `HeatFluxCalculator`, to compute the magnetic field **B** = ∇×**A**. This will be crucial for automated validation of the magnetic field results within the test suite.
+### Task 1: Decouple Physics Fields from Problem Definition (Dependency Injection)
 
-### **2. Advancing into High-Frequency Applications: The Frequency-Domain Solver**
-* **Goal**: To extend the solver's capabilities from static fields to time-harmonic fields (frequency domain), which is the core requirement for microwave, RF, and signal integrity simulations.
-* **Governing Equation (Vector Helmholtz Equation)**: $\nabla \times \left( \frac{1}{\mu_r} \nabla \times \mathbf{E} \right) - k_0^2 \epsilon_r \mathbf{E} = 0$
-    * Where **E** is the complex-valued electric field vector.
-    * $k_0$ is the free-space wavenumber.
-    * $\epsilon_r$ and $\mu_r$ are the relative permittivity and permeability.
-* **Implementation Steps**:
-    1.  **Support for Complex Arithmetic**: Extend the `LinearSolver` and `PhysicsField` classes to handle `std::complex<double>` matrices and vectors. The Eigen library provides native support for this.
-    2.  **Create a `FrequencyDomainSolver`**: Develop a new `Solver` class designed to handle complex-valued linear systems.
-    3.  **Implement `WavePropagation3D` Physics Field**: Create a new physics module to solve the Vector Helmholtz equation. This will require constructing complex-valued element stiffness matrices in the `assemble` method.
-    4.  **Implement Advanced Boundary Conditions**: High-frequency simulations require **Absorbing Boundary Conditions (ABC)** or **Perfectly Matched Layers (PML)** to simulate open, non-reflecting boundaries. Begin by implementing a first- or second-order ABC.
+-   **Goal**:
+  -   To eliminate the direct dependency of `PhysicsField` subclasses on the `Problem` class, making the physics field modules independent, testable, and reusable "plugins".
+-   **Motivation**:
+  -   Currently, the `PhysicsField::assemble` method retrieves material properties via `problem_->getMaterial()`, creating tight coupling. An independent physics field should not need to know which specific "Problem" is using it. This aligns with the principles of modularity and reusability emphasized in the book.
+-   **Implementation Strategy**:
+  1.  Create a `MaterialManager` class as the material provider.
+  2.  Modify the signature of the `assemble` method in the `PhysicsField` base class to accept a reference to the material manager, for instance:
+      ```cpp
+      // PhysicsField.hpp
+      virtual void assemble(const MaterialManager& materials) = 0;
+      ```
+  3.  In the `Problem::solve()` method, invoke `physics_field_->assemble(*this);`, passing itself as the material manager.
+  4.  Within the subclasses of `PhysicsField` (e.g., `Magnetic3D`), obtain the material for an element via the passed `materials` reference, not through the `problem_` member variable.
 
-### **3. Improving Project Generality and Usability**
-* **Goal**: To enhance the project's modularity and ease of use, moving it closer to a general-purpose FEM solver core.
-* **Key Tasks**:
-    * **Non-Linear Material Support**: Extend the `Material` class to handle non-linear material properties, such as the B-H curve for magnetic materials. This will require implementing a **Newton-Raphson** iterative scheme within the solver.
-    * **Advanced Meshing Capabilities**: Enhance the `Importer` to parse and utilize **Physical Groups** from Gmsh files. This will enable the application of different material properties and boundary conditions to distinct geometric regions within a single mesh.
-    * **Documentation and Examples**: Create detailed documentation and clear example cases for newly implemented features, especially the frequency-domain solver and non-linear materials. This is critical for making the project understandable and usable by others.
+### Task 2: Implement Geometric Information Caching for Coupled-Field Analysis
+
+-   **Goal**:
+  -   To resolve the performance bottleneck in nonlinear iterative or transient analyses caused by the repeated calculation of unchanging geometric information.
+-   **Motivation**:
+  -   In many analyses (like the nonlinear electro-thermal coupling), the mesh geometry is fixed. Consequently, quantities like the `[B]` matrix, `detJ`, and shape function values `N` at integration points are constant for each element. Recomputing these in every iteration is a major source of performance degradation.
+-   **Implementation Strategy**:
+  1.  **Transform `FEValues` into a persistent object**: Modify the `Element` class to **own** a `std::unique_ptr<FEValues> fe_values_` member.
+  2.  **Implement lazy loading/caching**: Implement a `getFEValues()` method in the `Element` class. This method checks if `fe_values_` has already been created. On the first call, it creates the `FEValues` object and runs its `reinit` method to perform the expensive one-time geometric calculations, storing the results (`B_matrices_`, `detJ_x_weights_`, etc.) as member variables of `FEValues`. Subsequent calls simply return the pointer to the already-cached `fe_values_` object.
+  3.  **Refactor the coupling update function**: Modify functions like `ElectroThermalCoupling::updateSourceTerm` to no longer create a new `FEValues` instance in each iteration. Instead, they will retrieve the persistent, pre-computed object via `elem_ptr->getFEValues()`, drastically improving performance.
+
+### Task 3: Implement the Element-by-Element (EBE) Iterative Solver
+
+-   **Goal**:
+  -   To implement a solver that does not rely on the explicit assembly of the global sparse matrix, breaking through the "memory wall" for large-scale problems.
+-   **Motivation**:
+  -   This is the core strategy for large problems presented in "Programming the Finite Element Method". Explicitly storing the global matrix becomes infeasible for systems with millions of DOFs. The EBE + Preconditioned Conjugate Gradient (PCG) method is the gold standard for solving this issue and is the foundation for high-performance parallel computing.
+-   **Implementation Strategy**:
+  1.  Create a new solver class, e.g., `EBE_PCG_Solver`.
+  2.  Implement its core method, `matVecProduct(const Mesh& mesh, const Vector& p)`. This function will not access any global matrix. Instead, it will compute the global matrix-vector product by iterating through all elements, performing local `ke * pe` calculations, and accumulating the results into a global vector via a "Gather-Scatter" procedure.
+  3.  Implement the main loop of the PCG algorithm, calling `matVecProduct` whenever the operation `A*p` is required.
+  4.  Add an `assembleDiagonal()` method to the `LinearSystem` class to provide the simplest diagonal preconditioner for the PCG solver.
+  5.  Integrate the new `EBESolver` into the `Problem` class as an optional solution strategy.

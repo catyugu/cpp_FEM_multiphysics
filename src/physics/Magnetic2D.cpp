@@ -2,6 +2,7 @@
 #include <core/mesh/TriElement.hpp>
 #include "utils/SimpleLogger.hpp"
 #include "core/FEValues.hpp"
+#include "utils/InterpolationUtilities.hpp"
 
 namespace Physics {
     Magnetic2D::Magnetic2D() = default;
@@ -17,7 +18,7 @@ namespace Physics {
         logger.info("Setting up ", getName(), " for mesh.");
     }
 
-    void Magnetic2D::assemble(const PhysicsField *coupled_field) {
+    void Magnetic2D::assemble() {
         auto &logger = Utils::Logger::instance();
         logger.info("Assembling system for ", getName(), " using mathematical order ", element_order_);
 
@@ -29,14 +30,10 @@ namespace Physics {
         for (const auto &elem_ptr: mesh_->getElements()) {
             elem_ptr->setOrder(element_order_);
             
-            // --- NEW: Get material for the current element ---
+            // 获取材料引用
             const auto& material = getMaterial(elem_ptr);
-            const double inv_mu = 1.0 / material.getProperty("magnetic_permeability");
-            // ------------------------------------------------
 
             auto fe_values = elem_ptr->createFEValues(element_order_);
-
-            // 新增：设置分析类型为标量扩散问题（2D磁势问题类似扩散）
             fe_values->setAnalysisType(Core::AnalysisType::SCALAR_DIFFUSION);
 
             const auto dofs = getElementDofs(elem_ptr);
@@ -44,15 +41,32 @@ namespace Physics {
 
             Eigen::MatrixXd ke_local = Eigen::MatrixXd::Zero(num_elem_nodes, num_elem_nodes);
 
+            // 准备物理场映射以便插值
+            std::map<std::string, const Physics::PhysicsField*> physics_fields;
+            if (problem_) {
+                auto* heat_field = problem_->getField("Temperature");
+                auto* magnetic_field = problem_->getField("MagneticPotential");
+                if (heat_field) physics_fields["Temperature"] = heat_field;
+                if (magnetic_field) physics_fields["MagneticPotential"] = magnetic_field;
+            }
+
             for (Eigen::Index q_p = 0; q_p < static_cast<Eigen::Index>(fe_values->num_quadrature_points()); ++q_p) {
                 fe_values->reinit(static_cast<int>(q_p));
 
-                // 直接获取预构建的B矩阵（梯度矩阵）
                 const auto &B = fe_values->getBMatrix();
+                const auto &N = fe_values->get_shape_values();
                 const double detJ_x_w = fe_values->get_detJ_times_weight();
 
-                // 使用2x2的单位矩阵，而不是标量
+                // ========= 新增：逐积分点插值计算材料属性 =========
+                std::vector<std::string> variable_names = {"Temperature", "MagneticPotential"};
+                auto interpolated_vars = Utils::InterpolationUtilities::interpolateAtQuadraturePoint(
+                    elem_ptr, N, variable_names, physics_fields);
+
+                const double mu = material.getPropertyAtQuadraturePoint("magnetic_permeability", interpolated_vars);
+                const double inv_mu = 1.0 / mu;
                 const Eigen::Matrix2d D_mat = Eigen::Matrix2d::Identity() * inv_mu;
+                // ================================================
+
                 ke_local += B.transpose() * D_mat * B * detJ_x_w;
             }
 
