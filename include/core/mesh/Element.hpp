@@ -100,7 +100,6 @@ namespace Core {
         // 新增：缓存的 FEValues 对象和相关状态
         std::unique_ptr<FEValues> fe_values_;
         int stored_quad_order_ = -1;  // 用于检查积分阶数是否变化
-        AnalysisType stored_analysis_type_ = AnalysisType::CUSTOM;  // 用于检查分析类型是否变化
 
         // 新增：变量值存储
         mutable std::map<std::string, double> variable_values_;

@@ -31,24 +31,19 @@ cpp\_FEM\_multiphysics/
 │   ├── core/           \# Core components (Problem, Mesh, Material)
 │   │   ├── bcs/        \# Boundary Condition classes
 │   │   ├── coupling/   \# Coupling mechanism classes
-│   │   ├── mesh/
 │   │   └── sources/    \# SourceTerm classes
 │   ├── io/             \# Importer/Exporter utilities
 │   ├── physics/        \# Physics-specific modules (Heat2D, Current3D)
-│   ├── solver/
-│   ├── post/
 │   └── utils/          \# General utilities (Logger, Quadrature)
 ├── src/                \# Source files (.cpp)
 │   ├── core/
 │   │   ├── bcs/
 │   │   ├── coupling/
-│   │   ├── mesh/
 │   │   └── sources/
-│   ├── io/             
-│   ├── physics/    
+│   ├── io/
+│   ├── physics/
 │   ├── solver/
-│   ├── post/
-│   └── utils/
+│   └── main.cpp        \# Main application entry point
 └── tests/              \# Google Test source files
 ```
 
@@ -65,76 +60,55 @@ cpp\_FEM\_multiphysics/
 
 ## **III. Current Architecture Overview**
 
-The framework has evolved into a sophisticated, modular system capable of handling complex multiphysics simulations with higher-order approximations. The current architecture centers around several key components that work together to provide a flexible and extensible platform for finite element analysis.
+The framework has evolved significantly. Understanding this new architecture, which enables higher-order approximations on simple linear meshes, is key.
 
-### **1. Core Component Architecture**
+### **1. P-Refinement Strategy**
 
-The framework is organized around these foundational components:
+The most significant recent upgrade is the implementation of a **p-refinement** (or p-enrichment) strategy.
 
-* **Problem**: Acts as the central coordinator, managing the physics fields, coupling mechanisms, and solution process.
-* **Mesh**: Represents the discretized domain with support for various element types and refinement strategies.
-* **Element**: Implements specific finite element formulations (triangular, tetrahedral, etc.) with support for different approximation orders.
-* **Material**: Encapsulates physical properties that can be constant, spatially-varying, or dependent on solution fields.
-* **PhysicsField**: Abstract base class for different physics modules (heat, current, magnetism) that defines the assembly of element matrices and vectors.
+* **Fixed Geometric Mesh**: The `Mesh` is always composed of simple, geometrically linear elements (e.g., a triangle always has 3 vertex nodes, a tetrahedron has 4). This decouples the geometric representation from the mathematical approximation.
+* **Mathematical Order**: The accuracy of the simulation is controlled by the `element_order` property within each `PhysicsField`. Setting this to `2` or higher instructs the physics assembly to use more complex shape functions over the simple geometric element, effectively creating a higher-order approximation.
+* **"Virtual" Nodes**: The `DOFManager` now intelligently creates and manages degrees of freedom for "virtual" nodes that don't exist in the mesh file but are mathematically required for higher-order elements. It currently supports nodes on the midpoints of element edges for 2nd-order approximations.
 
 ### **2. Advanced Degree of Freedom (DOF) Management**
 
-To support p-refinement and higher-order approximations, the `DOFManager` has been completely redesigned:
+To support p-refinement, the `DOFManager` has been completely redesigned.
 
 * **Multiple DOF Maps**: It now maintains separate maps for different types of DOFs: one for vertices (`vertex_dof_map_`) and one for edges (`edge_dof_map_`).
 * **Unique Edge Identification**: To uniquely identify a higher-order DOF on an edge, it uses a key composed of the **sorted** vertex IDs of that edge. This guarantees that `(Node1, Node2)` and `(Node2, Node1)` refer to the same edge DOF.
 * **Order-Aware Build Process**: The `build()` method now requires the element orders of all physics fields to determine exactly which higher-order DOFs need to be created.
 
-### **3. Sophisticated FEM Computation Engine**
+### **3. Robust Boundary Condition (BC) System**
 
-The framework implements advanced FEM calculation capabilities:
-
-* **FEValues**: A class that computes and caches shape functions, their derivatives, Jacobian determinants, and other geometric quantities at quadrature points.
-* **Quadrature**: Provides integration rules of various orders for accurate numerical integration.
-* **Shape Functions**: Supports hierarchical shape functions for arbitrary-order approximations, enabling p-refinement.
-
-### **4. Robust Boundary Condition (BC) System**
-
-Applying constraints to higher-order elements required a more sophisticated BC system:
+Applying constraints to higher-order elements required a more sophisticated BC system.
 
 * **Dual-Constructor `DirichletBC`**: The `DirichletBC` class now has two constructors: one that uses a `node_id` (for vertices) and a second that directly accepts an `equation_index`. This second constructor is essential for constraining the "virtual" higher-order DOFs, which do not have a node ID.
 * **Consolidated Application**: The `PhysicsField::applyBCs()` method is now intelligent. It first consolidates all BCs into a map where each DOF index appears only once. This prevents common errors from redundantly applying constraints to the same node (e.g., a corner node shared by multiple boundary edges), which previously caused solver failures.
-* **Tag-Based System**: BCs and sources can be applied using named tags, making the interface more intuitive and less error-prone.
 
-### **5. Physics Module System**
+### **4. Solver and Performance**
 
-The framework supports various physics modules, each implementing specific element formulations:
-
-* **Heat2D/Heat3D**: For thermal conduction analysis with support for steady-state and transient solutions.
-* **Current2D/Current3D**: For electric current flow analysis.
-* **Magnetic3D**: For 3D magnetostatic analysis with vector field approximation.
-
-### **6. Coupling Mechanisms**
-
-A flexible system for handling multiphysics interactions:
-
-* **Coupling**: Abstract base class defining the interface for field interactions.
-* **ElectroThermalCoupling**: Implementation for coupled electric-thermal analysis with Joule heating.
-* **SourceTerm**: Base class for representing various physical source terms in equations.
-
-### **7. Solver and Performance**
-
-The framework includes several solver strategies:
-
-* **DirectSolver**: Uses sparse direct solvers for robust solution of linear systems.
 * **Mixed-Order Coupled Solver**: The `CoupledElectroThermalSolver` has been upgraded to correctly stabilize and solve systems where different physics fields have different element orders.
-* **Transient Solver**: Implements time-stepping schemes for dynamic analyses.
-
-### **8. Input/Output System**
-
-The framework provides tools for data import and export:
-
-* **MeshImporter**: Reads mesh data from various formats (currently supporting MPHTXT).
-* **ResultExporter**: Writes solution data to visualization formats (VTK/VTU).
-
-This architecture provides a solid foundation for implementing complex multiphysics simulations while maintaining modularity, extensibility, and performance.
 
 ---
+
+## **III. Reconstruction Requirements**
+The project's current structure provides an **excellent foundation** for a mature FEM core, demonstrating a strong grasp of separation of concerns and recent advancements like p-refinement. To evolve into a truly **mature and scalable FEM core**, further architectural shifts are necessary, primarily by making the `Element` class the central, intelligent entity in the assembly process.
+
+The core philosophy for a mature FEM framework is to treat everything as a well-defined abstraction, simplifying the main assembly loop by delegating complex calculations to specialized objects.
+
+-----
+
+### The Core Philosophy of a Mature FEM Framework
+
+A mature FEM core treats everything as a well-defined abstraction. The main assembly loop should be as simple as possible, delegating all complex calculations to specialized objects. The current `assemble` methods, with their internal logic for gathering DOFs and calculating Jacobians, are a sign that the `PhysicsField` class is doing too much work.
+
+The goal is to move from this:
+`PhysicsField` -> asks `DOFManager` for indices -> asks `ShapeFunctions` for values -> **calculates everything itself**
+
+To this:
+`PhysicsField` -> asks an `Element` for its pre-calculated `FEValues` -> **simply uses those values to fill the matrix**
+
+-----
 
 ### **IV. Future Development Requirements**
 
