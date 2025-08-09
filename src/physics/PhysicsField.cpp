@@ -2,6 +2,7 @@
 #include <core/mesh/LineElement.hpp>
 #include <core/mesh/TetElement.hpp>
 #include <core/mesh/TriElement.hpp>
+#include <core/material/VariableManager.hpp>
 #include "utils/SimpleLogger.hpp"
 #include <set>
 
@@ -211,4 +212,51 @@ namespace Physics {
     const Eigen::SparseMatrix<double> &PhysicsField::getMassMatrix() const { return M_; }
     const Eigen::VectorXd &PhysicsField::getRHS() const { return F_; }
     const Eigen::VectorXd &PhysicsField::getSolution() const { return U_; }
+
+    // ========= 新增：变量管理和更新功能实现 =========
+
+    void PhysicsField::updateElementVariables() {
+        if (!mesh_ || !dof_manager_ || U_.size() == 0) {
+            Utils::Logger::instance().warn("Cannot update element variables: missing mesh, DOF manager, or solution");
+            return;
+        }
+
+        const std::string& var_name = getFieldVariableName();
+        auto& logger = Utils::Logger::instance();
+        logger.info("Updating element variables for field: ", getName(), " (variable: ", var_name, ")");
+
+        // 遍历所有元素，更新每个元素的变量值
+        for (auto& element : mesh_->getElements()) {
+            // 获取这个元素的DOF索引
+            std::vector<int> dof_indices = getElementDofs(element);
+
+            // 从解向量中提取对应的值
+            std::vector<double> solution_values;
+            solution_values.reserve(dof_indices.size());
+
+            for (int dof_idx : dof_indices) {
+                if (dof_idx >= 0 && dof_idx < U_.size()) {
+                    solution_values.push_back(U_(dof_idx));
+                }
+            }
+
+            // 更新元素的变量值
+            element->updateVariableFromSolution(var_name, solution_values, dof_indices);
+        }
+
+        logger.info("Element variables updated for ", mesh_->getElements().size(), " elements");
+    }
+
+    void PhysicsField::registerFieldVariable() {
+        const std::string& var_name = getFieldVariableName();
+        auto& var_manager = Core::VariableManager::getInstance();
+
+        if (!var_manager.hasVariable(var_name)) {
+            std::string description = std::string("Variable for ") + getName() + " physics field";
+            var_manager.registerVariable(var_name, 0.0, description);
+
+            auto& logger = Utils::Logger::instance();
+            logger.info("Registered variable '", var_name, "' for physics field: ", getName());
+        }
+    }
 }

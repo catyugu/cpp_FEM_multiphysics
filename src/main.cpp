@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 #include <core/bcs/BoundaryCondition.hpp>
-#include "core/Material.hpp"
+#include "core/material/Material.hpp"
 #include "core/Problem.hpp"
 #include "io/Importer.hpp"
 #include "physics/Heat2D.hpp"

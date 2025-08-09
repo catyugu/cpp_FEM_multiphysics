@@ -81,6 +81,9 @@ This document describes the fundamental components related to the mesh, includin
   * `setOrder(int order)` and `getOrder() const`: Set and get the mathematical order for the element's approximation.
   * `getGeometry()`: Returns a reference to the `ElementGeometry` object.
   * `createFEValues(int quad_order)`: Returns a `unique_ptr<FEValues>` ptr for the element.
+  * `setVariableValue(const std::string& name, double value)`: Stores a named variable (e.g., "Temperature") and its value directly on the element. This is used to hold the state of the element, often an average value from a previous iteration.
+  * `getVariableValue(const std::string& name) const`: Retrieves the value of a stored variable.
+  * `getAllVariableValues() const`: Returns a map of all variables stored on the element. This is used by `Material::getPropertyFromElement` for property evaluation based on the element's state.
 * **Protected Members**:
   * `id_`: `int`
   * `nodes_`: The geometric vertices (`std::vector<Node*>`).

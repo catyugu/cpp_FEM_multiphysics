@@ -20,7 +20,15 @@ A key feature of this namespace is its implementation of a **P-Refinement** stra
   * `getNumComponents() const`: Virtual function to specify if the field is scalar (1 component) or vector (N components). Defaults to 1.
   * `setElementOrder(int order)`: Sets the mathematical order of the approximation (e.g., 1 for linear, 2 for quadratic).
   * `setup(...)`: Initializes the field's matrices and vectors based on the DOF map.
-  * `assemble(const PhysicsField *coupled_field = nullptr)`: Assembles the global stiffness (`K`) and mass (`M`) matrices. This is the core numerical method. It iterates through elements and uses the `ReferenceElementCache` and `FEValues` calculator to efficiently compute local matrices. Material properties are now retrieved per element rather than using a single global material.
+  * `assemble()`: Assembles the global stiffness (`K`) and mass (`M`) matrices. This is the core numerical method. The process is:
+    1. Iterate through each element in the mesh.
+    2. For each element, iterate through its quadrature points.
+    3. At each quadrature point:
+        a. Interpolate the required field variables (e.g., Temperature) to that specific point using `Utils::InterpolationUtilities`.
+        b. Retrieve the material for the element and evaluate its properties (e.g., conductivity) at that point using the interpolated variables via `material.getPropertyAtQuadraturePoint()`.
+        c. Calculate the contribution to the element's local stiffness/mass matrix using the local material properties and shape function data from `FEValues`.
+    4. Add the completed local matrix to the global system matrix.
+    This per-quadrature-point approach ensures high accuracy for non-linear and coupled problems.
   * `addBC(...)`, `applyBCs()`: Manages boundary conditions. `applyBCs()` intelligently consolidates all Dirichlet BCs to prevent redundant constraints on shared nodes.
   * `addSource(...)`, `applySources()`: Manages domain source terms.
   * Accessors for matrices (`K_`, `M_`), vectors (`F_`, `U_`, `U_prev_`, `F_coupling_`), mesh, and DOF manager.
@@ -28,11 +36,11 @@ A key feature of this namespace is its implementation of a **P-Refinement** stra
 
 ---### **Derived Physics Classes**
 * **`Current1D/2D/3D`**, **`Heat1D/2D/3D`**, **`Magnetic1D/2D/3D`**
-  * These are concrete implementations for scalar fields (Voltage, Temperature, Magnetic Potential). They override `getNumComponents()` to return `1`. Their `assemble` methods implement the weak form of the corresponding scalar PDE (e.g., Laplace or Poisson equation). Material properties are now retrieved per element rather than using a constructor-provided single material instance.
-  * **Material Handling**: These classes no longer accept a material in their constructors. Instead, they retrieve material properties from the `Problem` class on a per-element basis using the `getMaterial(const Core::Element* elem)` method during assembly.
+  * These are concrete implementations for scalar fields (Voltage, Temperature, Magnetic Potential).
+  * **Material Handling**: Their `assemble` methods now follow the per-quadrature-point evaluation workflow described above to accurately capture non-linear material behavior. They no longer use a single property value for the entire element.
 
 * **`Magnetic3D`** (Magnetostatics)
   * **Description**: A concrete implementation for solving 3D magnetostatic problems based on the magnetic vector potential **A**.
   * **Variable**: `MagneticVectorPotential`
   * **Components**: Overrides `getNumComponents()` to return **3**.
-  * **`assemble()` Method**: This method is the core of the magnetostatics solver. It builds the local stiffness matrix for each element by implementing the weak form of the magnetostatic equation, $\nabla \times \left( \frac{1}{\mu} \nabla \times \mathbf{A} \right) = \mathbf{J}$. This involves using the **curl of the vector shape functions**, which is constructed from the shape function gradients (`∇N`) provided by `FEValues`. Material properties (magnetic permeability) are retrieved per element.
+  * **`assemble()` Method**: This method is the core of the magnetostatics solver. It builds the local stiffness matrix for each element by implementing the weak form of the magnetostatic equation, $\nabla \times \left( \frac{1}{\mu} \nabla \times \mathbf{A} \right) = \mathbf{J}$. It uses the curl of the vector shape functions and evaluates the magnetic permeability (`mu`) at each quadrature point to handle non-linear magnetic materials.

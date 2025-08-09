@@ -6,7 +6,7 @@
 #include <map>
 
 #include "core/Problem.hpp"
-#include "core/Material.hpp"
+#include "core/material/Material.hpp"
 #include <core/bcs/BoundaryCondition.hpp>
 #include "physics/Current3D.hpp"
 #include "physics/Heat3D.hpp"
