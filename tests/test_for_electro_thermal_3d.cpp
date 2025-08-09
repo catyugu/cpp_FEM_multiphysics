@@ -8,7 +8,9 @@
 #include <set> // Required for std::set
 
 #include "core/Problem.hpp"
-#include "core/Material.hpp"
+#include "core/material/Material.hpp"
+#include "core/material/VariableManager.hpp"
+#include "core/material/MaterialProperty.hpp"
 #include <core/bcs/BoundaryCondition.hpp>
 #include <solver/LinearSolver.hpp>
 #include <utils/Exceptions.hpp>
@@ -30,23 +32,50 @@ protected:
     const std::string mesh_filename = "../data/electroThermalMesh_3D.mphtxt";
 
     void SetUp() override {
+        // 清理变量管理器（测试隔离）
+        Core::VariableManager::getInstance().clear();
+
         std::unique_ptr<Core::Mesh> mesh = IO::Importer::read_comsol_mphtxt(mesh_filename);
         ASSERT_NE(mesh, nullptr);
 
+        // 注册系统变量
+        auto& var_manager = Core::VariableManager::getInstance();
+        var_manager.registerVariable("Temperature", 293.15, "Temperature in Kelvin");
+        var_manager.registerVariable("Voltage", 0.0, "Electric potential in Volts");
+
         auto copper = std::make_shared<Core::Material>(0, "Copper");
-        copper->setProperty("electrical_conductivity", [](const std::map<std::string, double>& field_values) {
-            double T = field_values.count("Temperature") ? field_values.at("Temperature") : 293.15;
-            return 5.96e7 * (1.0 - 0.0039 * (T - 293.15));
-        });
+
+        // 使用新的MaterialProperty系统创建温度相关的电导率
+        Core::MaterialProperty electrical_sigma(
+            "electrical_conductivity",
+            [](const std::map<std::string, double>& vars) -> double {
+                double T = vars.count("Temperature") ? vars.at("Temperature") : 293.15;
+                // 铜的电导率温度依赖性: σ(T) = σ₀ / (1 + α(T - T₀))
+                double sigma_0 = 5.96e7;  // 铜在室温下的电导率 S/m
+                double alpha = 0.0039;    // 温度系数 1/K
+                double T_0 = 293.15;      // 参考温度 K
+                return sigma_0 * (1.0 - alpha * (T - T_0));
+            },
+            {"Temperature"}  // 依赖的变量列表
+        );
+
+
+        copper->setMaterialProperty("electrical_conductivity", electrical_sigma);
         copper->setProperty("thermal_conductivity", 401.0);
+
+        // 设置常数属性
         copper->setProperty("density", 8960.0);
         copper->setProperty("thermal_capacity", 385.0);
 
         problem = std::make_unique<Core::Problem>(std::move(mesh));
         problem->addMaterial(copper);
 
-        problem->addField(std::make_unique<Physics::Current3D>());
-        problem->addField(std::make_unique<Physics::Heat3D>());
+        // 添加物理场
+        auto* current_field = new Physics::Current3D();
+        auto* heat_field = new Physics::Heat3D();
+
+        problem->addField(std::unique_ptr<Physics::Current3D>(current_field));
+        problem->addField(std::unique_ptr<Physics::Heat3D>(heat_field));
 
         problem->getCouplingManager().addCoupling(std::make_unique<Core::ElectroThermalCoupling>());
         problem->setup();

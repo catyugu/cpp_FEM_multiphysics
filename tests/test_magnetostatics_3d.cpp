@@ -5,7 +5,7 @@
 #include <vector>
 #include <set> // Required for std::set
 #include "core/Problem.hpp"
-#include "core/Material.hpp"
+#include "core/material/Material.hpp"
 #include "physics/Magnetic3D.hpp"
 #include "core/sources/PrescribedCurrentDensity.hpp"
 #include <core/bcs/BoundaryCondition.hpp>

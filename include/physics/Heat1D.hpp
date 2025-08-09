@@ -18,8 +18,13 @@ namespace Physics {
         }
         int getDimension() const override { return 1; }
 
+        const std::string& getFieldVariableName() const override {
+            static const std::string var_name = "Temperature";
+            return var_name;
+        }
+
         void setup(Core::Problem& problem, Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
-        void assemble(const PhysicsField *coupled_field) override;
+        void assemble() override;
     };
 
 } // namespace Physics

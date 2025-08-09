@@ -147,7 +147,7 @@ This architecture provides a solid foundation for implementing complex multiphys
 -   **Motivation**:
   -   Currently, the `PhysicsField::assemble` method retrieves material properties via `problem_->getMaterial()`, creating tight coupling. An independent physics field should not need to know which specific "Problem" is using it. This aligns with the principles of modularity and reusability emphasized in the book.
 -   **Implementation Strategy**:
-  1.  Create a `MaterialManager` class or use the `Problem` class itself as the material provider.
+  1.  Create a `MaterialManager` class as the material provider.
   2.  Modify the signature of the `assemble` method in the `PhysicsField` base class to accept a reference to the material manager, for instance:
       ```cpp
       // PhysicsField.hpp

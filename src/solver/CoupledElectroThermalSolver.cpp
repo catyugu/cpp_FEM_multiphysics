@@ -21,8 +21,15 @@ namespace Solver {
         for (int iter = 0; iter < problem.getMaxIterations(); ++iter) {
             constexpr double damping_factor = 0.8;
             logger.info("--> Iteration ", iter + 1, " / ", problem.getMaxIterations());
+
+            // ========= 新增：在每次迭代开始时更新元素变量值 =========
+            // 更新温度场的元素变量值，确保材料属性能获取到最新的温度值
+            heat_field->updateElementVariables();
+            // 更新电压场的元素变量值
+            emag_field->updateElementVariables();
+
             logger.info("    Solving EMag Field...");
-            emag_field->assemble(heat_field);
+            emag_field->assemble();
             emag_field->applySources();
             Eigen::SparseMatrix<double> K_emag_solve = emag_field->getStiffnessMatrix();
             Eigen::VectorXd F_emag_solve = emag_field->getRHS();
@@ -110,7 +117,7 @@ namespace Solver {
             for (int iter = 0; iter < problem.getMaxIterations(); ++iter) {
                 logger.info("  --> Inner Iteration ", iter + 1, " / ", problem.getMaxIterations());
 
-                emag_field->assemble(heat_field);
+                emag_field->assemble();
                 emag_field->applySources();
                 Eigen::SparseMatrix<double> K_emag_solve = emag_field->getStiffnessMatrix();
                 Eigen::VectorXd F_emag_solve = emag_field->getRHS();

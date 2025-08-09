@@ -79,13 +79,8 @@ cpp_FEM_multiphysics/
     git clone <repository-url>
     cd cpp_FEM_multiphysics
     ```
-2.  **配置Eigen:**
-    打开`CMakeLists.txt`并更新`EIGEN3_INCLUDE_DIR`变量，指向您的Eigen库安装的根目录。
-    ```cmake
-    # 在第9行
-    set(EIGEN3_INCLUDE_DIR "path/to/your/eigen-3.4.0")
-    ```
-3.  **构建项目:**
+
+2.  **构建项目:**
     ```bash
     mkdir build && cd build
     cmake ..

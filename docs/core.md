@@ -40,14 +40,15 @@ This namespace contains the fundamental, high-level components that orchestrate 
 
 ### **Material**
 
-* **Description**: Encapsulates the physical properties of a material. This class is designed to handle both constant properties and properties that are dependent on other field values (e.g., temperature-dependent electrical conductivity) by using `std::function`.
+* **Description**: Encapsulates the physical properties of a material. This class is designed to handle both constant properties and properties that are dependent on other field values (e.g., temperature-dependent electrical conductivity).
+* **Key Workflow**: The framework has been updated to evaluate material properties at each **quadrature point** during assembly for higher accuracy with non-linear materials.
 * **Public Functions**:
   * `Material(int id, const std::string& name)`: Constructor that takes a unique ID and name for the material.
-  * `getID() const`: Returns the material's unique ID.
-  * `getName() const`: Returns the material's name.
   * `setProperty(const std::string& name, double value)`: Sets a constant property value.
   * `setProperty(const std::string& name, std::function<double(const std::map<std::string, double>&)> func)`: Sets a field-dependent property function.
-  * `getProperty(const std::string& name, const std::map<std::string, double>& field_values = {}) const`: Retrieves a property value, either constant or computed from field values.
+  * `setMaterialProperty(const std::string& name, const MaterialProperty& prop)`: Sets a property using a structured `MaterialProperty` object (recommended).
+  * `getPropertyAtQuadraturePoint(const std::string& name, const std::map<std::string, double>& interpolated_vars) const`: **Primary method for use in assembly**. Retrieves a property value by evaluating it with field variables that have been interpolated to a specific quadrature point.
+  * `getPropertyFromElement(const std::string& name, const Element* element) const`: Retrieves a property value using the element's averaged/stored state. Less accurate and used for auxiliary purposes.
 
 ### **BoundaryCondition**
 

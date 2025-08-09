@@ -18,8 +18,13 @@ namespace Physics {
             return problem_->getMaterial(elem->getMaterialID());
         }
 
+        const std::string& getFieldVariableName() const override {
+            static const std::string var_name = "Voltage";
+            return var_name;
+        }
+
         void setup(Core::Problem& problem, Core::Mesh& mesh, Core::DOFManager& dof_manager) override;
-        void assemble(const PhysicsField *coupled_field) override;
+        void assemble() override;
     };
 
 } // namespace Physics

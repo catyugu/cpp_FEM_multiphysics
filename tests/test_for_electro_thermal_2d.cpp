@@ -8,7 +8,7 @@
 #include <set> // Required for std::set
 
 #include "core/Problem.hpp"
-#include "core/Material.hpp"
+#include "core/material/Material.hpp"
 #include <core/bcs/BoundaryCondition.hpp>
 #include "physics/Current2D.hpp"
 #include "physics/Heat2D.hpp"
