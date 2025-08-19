@@ -14,6 +14,11 @@
 #include <windows.h>
 #endif
 
+// 前向声明Profiler类，避免循环包含
+namespace Utils {
+    class Profiler;
+}
+
 namespace Utils {
     // Enum for log levels
     enum LogLevel {
@@ -171,6 +176,6 @@ namespace Utils {
         std::string log_file_name = "";
         int log_level = 0;
     };
-} // namespace SimpleLogger
+} // namespace Utils
 
 #endif // SIMPLELOGGER_HPP

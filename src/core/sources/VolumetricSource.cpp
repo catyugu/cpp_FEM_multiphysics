@@ -6,6 +6,8 @@
 #include "core/mesh/TriElement.hpp"
 #include "core/mesh/TetElement.hpp"
 #include <vector>
+#include <utils/Profiler.hpp>
+
 #include "core/FEValues.hpp" // Include FEValues
 
 namespace Core {

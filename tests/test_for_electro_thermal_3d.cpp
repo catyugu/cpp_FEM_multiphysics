@@ -14,6 +14,7 @@
 #include <core/bcs/BoundaryCondition.hpp>
 #include <solver/LinearSolver.hpp>
 #include <utils/Exceptions.hpp>
+#include <utils/Profiler.hpp>
 
 #include "physics/Current3D.hpp"
 #include "physics/Heat3D.hpp"
@@ -84,6 +85,7 @@ protected:
 };
 
 TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
+    Utils::Profiler::instance().setEnabled(true);
     constexpr double V_in = 0.1; // Changed from 1.0 to 0.1
     constexpr double T_sink = 293.15;
     constexpr double bar_length = 1.0;
@@ -183,4 +185,8 @@ TEST_F(Coupled3DValidationTest, CompareAgainstVtuResult) {
     // Assert that the maximum differences are within an acceptable tolerance
     ASSERT_LT(max_temp_diff, 1);
     ASSERT_LT(max_volt_diff, 1e-5);
+
+    if (Utils::Profiler::instance().isEnabled()) {
+        std::cout << Utils::Profiler::instance().getReport() << std::endl;
+    }
 }

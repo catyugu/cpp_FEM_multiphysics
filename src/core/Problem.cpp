@@ -9,6 +9,7 @@
 #include "utils/Exceptions.hpp"
 #include <iostream>
 #include <iomanip>
+#include <utils/Profiler.hpp>
 
 namespace Core {
 
@@ -49,6 +50,7 @@ namespace Core {
     }
 
     void Problem::solveSteadyState() {
+        PROFILE_FUNCTION();
         if (!solver_) {
             throw Exception::ConfigurationException("Solver not initialized. Did you forget to call setup()?");
         }

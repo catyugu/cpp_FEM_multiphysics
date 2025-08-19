@@ -5,6 +5,7 @@
 #include <core/material/VariableManager.hpp>
 #include "utils/SimpleLogger.hpp"
 #include <set>
+#include <utils/Profiler.hpp>
 
 namespace Physics {
     void PhysicsField::setup(Core::Problem& problem, Core::Mesh& mesh, Core::DOFManager& dof_manager) {
@@ -31,6 +32,7 @@ namespace Physics {
         bcs_.push_back(std::move(bc));
     }
     void PhysicsField::addBCs(std::vector<std::unique_ptr<Core::BoundaryCondition>> &&bcs) {
+        PROFILE_FUNCTION();
         for (auto& bc : bcs) {
             bcs_.push_back(std::move(bc));
         }
@@ -75,6 +77,7 @@ namespace Physics {
     }
 
     void PhysicsField::applySources() {
+        PROFILE_FUNCTION();
         F_.setZero();
         for (const auto &source: source_terms_) {
             source->apply(F_, *dof_manager_, *mesh_, getVariableName(), element_order_);
@@ -216,6 +219,7 @@ namespace Physics {
     // ========= 新增：变量管理和更新功能实现 =========
 
     void PhysicsField::updateElementVariables() {
+        PROFILE_FUNCTION();
         if (!mesh_ || !dof_manager_ || U_.size() == 0) {
             Utils::Logger::instance().warn("Cannot update element variables: missing mesh, DOF manager, or solution");
             return;
