@@ -1,4 +1,7 @@
 #include "solver/CoupledElectroThermalSolver.hpp"
+
+#include <set>
+
 #include "core/Problem.hpp"
 #include <solver/LinearSolver.hpp>
 #include "utils/SimpleLogger.hpp"
@@ -142,14 +145,28 @@ namespace Solver {
                 Eigen::SparseMatrix<double> A_eff = (heat_field->getMassMatrix() / dt) + heat_field->getStiffnessMatrix();
                 Eigen::VectorXd b_eff = heat_field->getRHS() + heat_field->getCouplingRHS() + (heat_field->getMassMatrix() / dt) * heat_field->getPreviousSolution();
 
+                // 修改后
+                std::vector<Eigen::Triplet<double>> emag_triplets;
+                std::vector<std::pair<int, double>> emag_rhs_modifications;
+                std::set<int> modified_dofs;
+
                 for (const auto& elem : mesh.getElements()) {
-                    for (int dof_idx : emag_field->getElementDofs(elem)) {
-                        if (dof_idx != -1) {
-                            A_eff.coeffRef(dof_idx, dof_idx) = 1.0;
-                            b_eff(dof_idx) = emag_field->getSolution()(dof_idx);
+                    const auto heat_element_dofs = heat_field->getElementDofs(elem);
+                    for (int dof_idx : heat_element_dofs) {
+                        if (dof_idx != -1 && modified_dofs.find(dof_idx) == modified_dofs.end()) {
+                            emag_triplets.emplace_back(dof_idx, dof_idx, 1.0);
+                            emag_rhs_modifications.emplace_back(dof_idx, heat_field->getSolution()(dof_idx));
+                            modified_dofs.insert(dof_idx);
                         }
                     }
                 }
+
+                // 批量应用修改
+                for (const auto& modification : emag_rhs_modifications) {
+                    F_emag_solve(modification.first) = modification.second;
+                }
+                K_emag_solve.setFromTriplets(emag_triplets.begin(), emag_triplets.end());
+
                 for (const auto& bc : heat_field->getBCs()) {
                     bc->apply(A_eff, b_eff);
                 }
