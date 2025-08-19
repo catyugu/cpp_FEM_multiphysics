@@ -21,14 +21,10 @@ namespace Core {
 
         elem->setOrder(element_order);
 
-        const auto& ref_data = ReferenceElementCache::get(elem->getTypeName(), elem->getNodes().size(), element_order, element_order);
-        FEValues fe_values(elem->getGeometry(), element_order, ref_data);
-        // Get the correct DOF indices for the receiving field (Temperature) for this element
-        // These DOFs will correspond to the 'element_order' of the receiving field.
+        // 使用Element的缓存机制获取FEValues对象
+        FEValues* fe_values = elem->getFEValues(element_order, AnalysisType::SCALAR_DIFFUSION);
+        
         std::vector<int> element_dofs;
-        // Use the PhysicsField::get_element_dofs helper function's logic (which is more generic)
-        // Since VolumetricSource is not a PhysicsField, we replicate necessary logic or pass through a helper.
-        // For simplicity here, we re-derive the element_dofs based on the order and element type.
         const auto& vertex_nodes_of_element = elem->getNodes();
         const size_t num_vertices = vertex_nodes_of_element.size();
 
@@ -64,10 +60,10 @@ namespace Core {
         std::vector<double> integral_Ni_dV(elem->getNumNodes(), 0.0);
         double total_element_volume_recomputed = 0.0;
 
-        for (size_t q_p = 0; q_p < fe_values.num_quadrature_points(); ++q_p) {
-            fe_values.reinit(q_p);
-            const auto& N = fe_values.get_shape_values();
-            const double detJ_x_w = fe_values.get_detJ_times_weight();
+        for (size_t q_p = 0; q_p < fe_values->num_quadrature_points(); ++q_p) {
+            fe_values->reinit(q_p);
+            const auto& N = fe_values->get_shape_values();
+            const double detJ_x_w = fe_values->get_detJ_times_weight();
 
             for (size_t i = 0; i < N.size(); ++i) {
                 integral_Ni_dV[i] += N(i) * detJ_x_w;
